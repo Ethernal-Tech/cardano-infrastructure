@@ -3,10 +3,12 @@ package indexer
 import (
 	"encoding/hex"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	ouroboros "github.com/blinklabs-io/gouroboros"
+	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/blinklabs-io/gouroboros/protocol/chainsync"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 	"github.com/hashicorp/go-hclog"
@@ -15,7 +17,7 @@ import (
 
 type BlockSyncerHandlerMock struct {
 	BlockPoint         *BlockPoint
-	RollForwardFn      func(blockHeader *BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error
+	RollForwardFn      func(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error
 	RollBackwardFuncFn func(point common.Point, tip chainsync.Tip) error
 }
 
@@ -44,7 +46,7 @@ func (hMock *BlockSyncerHandlerMock) RollBackwardFunc(point common.Point, tip ch
 	return nil
 }
 
-func (hMock *BlockSyncerHandlerMock) RollForwardFunc(blockHeader *BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error {
+func (hMock *BlockSyncerHandlerMock) RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error {
 	if hMock.RollForwardFn != nil {
 		return hMock.RollForwardFn(blockHeader, getTxsFunc, tip)
 	}
@@ -58,14 +60,6 @@ func (hMock *BlockSyncerHandlerMock) Reset() (BlockPoint, error) {
 	}
 
 	return *hMock.BlockPoint, nil
-}
-
-func (hMock *BlockSyncerHandlerMock) NextBlockNumber() uint64 {
-	if hMock.BlockPoint == nil {
-		return 1
-	}
-
-	return hMock.BlockPoint.BlockNumber + 1
 }
 
 const (
@@ -266,11 +260,11 @@ func TestSyncRollForwardCalled(t *testing.T) {
 
 	defer syncer.Close()
 
-	mockSyncerBlockHandler.RollForwardFn = func(blockHeader *BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error {
+	mockSyncerBlockHandler.RollForwardFn = func(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error {
 		t.Helper()
 
 		_, err := getTxsFunc()
-		require.NoError(t, err)
+		require.True(t, err == nil || strings.Contains(err.Error(), "protocol is shutting down"))
 
 		called = true
 

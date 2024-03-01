@@ -2,10 +2,8 @@ package indexer
 
 import (
 	"bytes"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/blinklabs-io/gouroboros/protocol/chainsync"
@@ -38,7 +36,7 @@ type BlockIndexerConfig struct {
 type NewConfirmedBlockHandler func(*FullBlock) error
 
 type blockWithLazyTxRetriever struct {
-	header *BlockHeader
+	header ledger.BlockHeader
 	getTxs GetTxsFunc
 }
 
@@ -84,14 +82,16 @@ func NewBlockIndexer(config *BlockIndexerConfig, newConfirmedBlockHandler NewCon
 }
 
 func (bi *BlockIndexer) RollBackwardFunc(point common.Point, tip chainsync.Tip) error {
+	pointHash := bytes2Hash(point.Hash)
+
 	// linear is ok, there will be smaller number of unconfirmed blocks in memory
 	for i := len(bi.unconfirmedBlocks) - 1; i >= 0; i-- {
 		unc := bi.unconfirmedBlocks[i]
-		if unc.header.BlockSlot == point.Slot && bytes.Equal(unc.header.BlockHash, point.Hash) {
+		if unc.header.SlotNumber() == point.Slot && unc.header.Hash() == pointHash {
 			bi.unconfirmedBlocks = bi.unconfirmedBlocks[:i+1]
 
-			bi.logger.Info("Roll backward to unconfirmed block", "no", i, "block", unc.header.BlockNumber,
-				"hash", hex.EncodeToString(unc.header.BlockHash), "slot", unc.header.BlockSlot)
+			bi.logger.Info("Roll backward to unconfirmed block",
+				"hash", unc.header.Hash(), "slot", unc.header.SlotNumber(), "no", i)
 
 			return nil
 		}
@@ -99,20 +99,20 @@ func (bi *BlockIndexer) RollBackwardFunc(point common.Point, tip chainsync.Tip) 
 
 	if bi.latestBlockPoint.BlockSlot == point.Slot && bytes.Equal(bi.latestBlockPoint.BlockHash, point.Hash) {
 		bi.unconfirmedBlocks = nil
-		bi.logger.Info("Roll backward to confirmed block", "block", bi.latestBlockPoint.BlockNumber,
-			"hash", hex.EncodeToString(bi.latestBlockPoint.BlockHash), "slot", bi.latestBlockPoint.BlockSlot)
+		bi.logger.Info("Roll backward to confirmed block", "hash", pointHash, "slot", point.Slot)
 
 		// everything is ok -> we are reverting to the latest confirmed block
 		return nil
 	}
 
 	// we have confirmed some block that should not be confirmed!!!! TODO: what to do in this case?
-	return errors.Join(errBlockSyncerFatal, fmt.Errorf("roll backward, block not found = (%d, %s)", point.Slot, hex.EncodeToString(point.Hash)))
+	return errors.Join(errBlockSyncerFatal, fmt.Errorf("roll backward block (%d, %s) not found", point.Slot, pointHash))
 }
 
-func (bi *BlockIndexer) RollForwardFunc(blockHeader *BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error {
+func (bi *BlockIndexer) RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error {
 	if uint(len(bi.unconfirmedBlocks)) < bi.config.ConfirmationBlockCount {
-		// If there are not enough children blocks to promote the first one to the confirmed state, a new block header is added, and the function returns
+		// If there are not enough children blocks to promote the first one to the confirmed state,
+		// a new block header is added, and the function returns
 		bi.unconfirmedBlocks = append(bi.unconfirmedBlocks, blockWithLazyTxRetriever{
 			header: blockHeader,
 			getTxs: getTxsFunc,
@@ -149,18 +149,6 @@ func (bi *BlockIndexer) RollForwardFunc(blockHeader *BlockHeader, getTxsFunc Get
 	return nil
 }
 
-func (bi *BlockIndexer) NextBlockNumber() uint64 {
-	if len(bi.unconfirmedBlocks) > 0 {
-		bi.logger.Debug("Retrieve NextBlockNumber", "num", bi.unconfirmedBlocks[len(bi.unconfirmedBlocks)-1].header.BlockNumber+1, "cnt", len(bi.unconfirmedBlocks))
-
-		return bi.unconfirmedBlocks[len(bi.unconfirmedBlocks)-1].header.BlockNumber + 1
-	}
-
-	bi.logger.Debug("Retrieve NextBlockNumber from the latest block point", "num", bi.latestBlockPoint.BlockNumber+1)
-
-	return bi.latestBlockPoint.BlockNumber + 1
-}
-
 func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 	// try to read latest point block from the database
 	latestPoint, err := bi.db.GetLatestBlockPoint()
@@ -175,9 +163,7 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 
 	// ...then if latest point block is still nil, create default one starting from the genesis block point
 	if latestPoint == nil {
-		latestPoint = &BlockPoint{
-			BlockNumber: math.MaxUint64,
-		}
+		latestPoint = &BlockPoint{}
 	}
 
 	bi.latestBlockPoint = latestPoint
@@ -186,7 +172,8 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 	return *latestPoint, nil
 }
 
-func (bi *BlockIndexer) processConfirmedBlock(confirmedBlockHeader *BlockHeader, allBlockTransactions []ledger.Transaction) (*FullBlock, *BlockPoint, error) {
+func (bi *BlockIndexer) processConfirmedBlock(
+	confirmedBlockHeader ledger.BlockHeader, allBlockTransactions []ledger.Transaction) (*FullBlock, *BlockPoint, error) {
 	var (
 		fullBlock         *FullBlock = nil
 		txOutputsToSave   []*TxInputOutput
@@ -196,29 +183,37 @@ func (bi *BlockIndexer) processConfirmedBlock(confirmedBlockHeader *BlockHeader,
 	)
 
 	// get all transactions of interest from block
-	txsOfInterest, err := bi.getTxsOfInterest(allBlockTransactions)
+	txsOfInterest, err := bi.filterTxsOfInterest(allBlockTransactions)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if bi.config.KeepAllTxOutputsInDb {
-		txOutputsToSave = bi.getAllTxOutputs(allBlockTransactions)
-		txOutputsToRemove = bi.getAllTxInputs(allBlockTransactions)
-	} else {
-		txOutputsToSave = bi.getTxOutputsOfInterest(txsOfInterest)
+		txOutputsToSave = bi.getTxOutputs(allBlockTransactions, nil)
+		txOutputsToRemove = bi.getTxInputs(allBlockTransactions)
+	} else if bi.config.AddressCheck&AddressCheckInputs != 0 { // save outputs only if we are checking inputs
+		txOutputsToSave = bi.getTxOutputs(txsOfInterest, bi.addressesOfInterest)
 		txOutputsToRemove = bi.getTxInputs(txsOfInterest)
 	}
 
 	// add confirmed block to db and create full block only if there are some transactions of interest
 	if len(txsOfInterest) > 0 {
-		fullBlock = NewFullBlock(confirmedBlockHeader, txsOfInterest)
+		txs := make([]*Tx, len(txsOfInterest))
+		for i, ltx := range txsOfInterest {
+			txs[i], err = bi.createTx(ltx)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+
+		fullBlock = NewFullBlock(confirmedBlockHeader, txs)
 		dbTx.AddConfirmedBlock(fullBlock) // add confirmed block in db tx (dbTx implementation should handle nil case)
 	}
 
 	latestBlockPoint := &BlockPoint{
-		BlockSlot:   confirmedBlockHeader.BlockSlot,
-		BlockHash:   confirmedBlockHeader.BlockHash,
-		BlockNumber: confirmedBlockHeader.BlockNumber,
+		BlockSlot:   confirmedBlockHeader.SlotNumber(),
+		BlockHash:   hash2Bytes(confirmedBlockHeader.Hash()),
+		BlockNumber: confirmedBlockHeader.BlockNumber(),
 	}
 	dbTx.SetLatestBlockPoint(latestBlockPoint)                                                      // update latest block point in db tx
 	dbTx.AddTxOutputs(txOutputsToSave).RemoveTxOutputs(txOutputsToRemove, bi.config.SoftDeleteUtxo) // add all needed outputs, remove used ones in db tx
@@ -231,20 +226,20 @@ func (bi *BlockIndexer) processConfirmedBlock(confirmedBlockHeader *BlockHeader,
 	return fullBlock, latestBlockPoint, nil
 }
 
-func (bi *BlockIndexer) getTxsOfInterest(txs []ledger.Transaction) (result []*Tx, err error) {
+func (bi *BlockIndexer) filterTxsOfInterest(txs []ledger.Transaction) (result []ledger.Transaction, err error) {
 	if len(bi.addressesOfInterest) == 0 {
-		return NewTransactions(txs), nil
+		return txs, nil
 	}
 
 	for _, tx := range txs {
-		if bi.isTxOutputOfInterest(tx) {
-			result = append(result, NewTransaction(tx))
-		} else {
+		if bi.config.AddressCheck&AddressCheckOutputs != 0 && bi.isTxOutputOfInterest(tx) {
+			result = append(result, tx)
+		} else if bi.config.AddressCheck&AddressCheckInputs != 0 {
 			txIsGood, err := bi.isTxInputOfInterest(tx)
 			if err != nil {
 				return nil, err
 			} else if txIsGood {
-				result = append(result, NewTransaction(tx))
+				result = append(result, tx)
 			}
 		}
 	}
@@ -253,13 +248,8 @@ func (bi *BlockIndexer) getTxsOfInterest(txs []ledger.Transaction) (result []*Tx
 }
 
 func (bi *BlockIndexer) isTxOutputOfInterest(tx ledger.Transaction) bool {
-	if bi.config.AddressCheck&AddressCheckOutputs == 0 {
-		return false
-	}
-
 	for _, out := range tx.Outputs() {
-		address := out.Address().String()
-		if bi.addressesOfInterest[address] {
+		if bi.addressesOfInterest[out.Address().String()] {
 			return true
 		}
 	}
@@ -268,10 +258,6 @@ func (bi *BlockIndexer) isTxOutputOfInterest(tx ledger.Transaction) bool {
 }
 
 func (bi *BlockIndexer) isTxInputOfInterest(tx ledger.Transaction) (bool, error) {
-	if bi.config.AddressCheck&AddressCheckInputs == 0 {
-		return false, nil
-	}
-
 	for _, inp := range tx.Inputs() {
 		txOutput, err := bi.db.GetTxOutput(TxInput{
 			Hash:  inp.Id().String(),
@@ -279,7 +265,7 @@ func (bi *BlockIndexer) isTxInputOfInterest(tx ledger.Transaction) (bool, error)
 		})
 		if err != nil {
 			return false, err
-		} else if txOutput != nil && !txOutput.IsUsed && bi.addressesOfInterest[txOutput.Address] {
+		} else if !txOutput.IsUsed && bi.addressesOfInterest[txOutput.Address] {
 			return true, nil
 		}
 	}
@@ -287,38 +273,19 @@ func (bi *BlockIndexer) isTxInputOfInterest(tx ledger.Transaction) (bool, error)
 	return false, nil
 }
 
-func (bi *BlockIndexer) getTxOutputsOfInterest(txs []*Tx) (res []*TxInputOutput) {
-	// return empty slice if we do not check inputs
-	if bi.config.AddressCheck&AddressCheckInputs == 0 {
-		return nil
-	}
-
-	for _, tx := range txs {
-		for ind, txOut := range tx.Outputs {
-			if bi.addressesOfInterest[txOut.Address] {
-				res = append(res, &TxInputOutput{
-					Input: &TxInput{
-						Hash:  tx.Hash,
-						Index: uint32(ind),
-					},
-					Output: txOut,
-				})
-			}
-		}
-	}
-
-	return res
-}
-
-func (bi *BlockIndexer) getAllTxOutputs(txs []ledger.Transaction) (res []*TxInputOutput) {
+func (bi *BlockIndexer) getTxOutputs(txs []ledger.Transaction, addressesOfInterest map[string]bool) (res []*TxInputOutput) {
 	for _, tx := range txs {
 		for ind, txOut := range tx.Outputs() {
+			if len(addressesOfInterest) > 0 && !bi.addressesOfInterest[txOut.Address().String()] {
+				continue
+			}
+
 			res = append(res, &TxInputOutput{
-				Input: &TxInput{
+				Input: TxInput{
 					Hash:  tx.Hash(),
 					Index: uint32(ind),
 				},
-				Output: &TxOutput{
+				Output: TxOutput{
 					Address: txOut.Address().String(),
 					Amount:  txOut.Amount(),
 				},
@@ -329,20 +296,7 @@ func (bi *BlockIndexer) getAllTxOutputs(txs []ledger.Transaction) (res []*TxInpu
 	return res
 }
 
-func (bi *BlockIndexer) getTxInputs(txs []*Tx) (res []*TxInput) {
-	// return empty slice if we do not check inputs
-	if bi.config.AddressCheck&AddressCheckInputs == 0 {
-		return nil
-	}
-
-	for _, tx := range txs {
-		res = append(res, tx.Inputs...)
-	}
-
-	return res
-}
-
-func (bi *BlockIndexer) getAllTxInputs(txs []ledger.Transaction) (res []*TxInput) {
+func (bi *BlockIndexer) getTxInputs(txs []ledger.Transaction) (res []*TxInput) {
 	for _, tx := range txs {
 		for _, inp := range tx.Inputs() {
 			res = append(res, &TxInput{
@@ -353,4 +307,68 @@ func (bi *BlockIndexer) getAllTxInputs(txs []ledger.Transaction) (res []*TxInput
 	}
 
 	return res
+}
+
+func (bi BlockIndexer) createTx(ledgerTx ledger.Transaction) (*Tx, error) {
+	tx := &Tx{
+		Hash: ledgerTx.Hash(),
+		Fee:  ledgerTx.Fee(),
+	}
+
+	if inputs := ledgerTx.Inputs(); len(inputs) > 0 {
+		inputOutputPairs := make([]*TxInputOutput, len(inputs))
+
+		for j, inp := range inputs {
+			txInput := TxInput{
+				Hash:  inp.Id().String(),
+				Index: inp.Index(),
+			}
+
+			output, err := bi.db.GetTxOutput(txInput)
+			if err != nil {
+				return nil, err
+			}
+
+			inputOutputPairs[j] = &TxInputOutput{
+				Input:  txInput,
+				Output: output,
+			}
+		}
+
+		tx.Inputs = inputOutputPairs
+	}
+
+	if outputs := ledgerTx.Outputs(); len(outputs) > 0 {
+		tx.Outputs = make([]*TxOutput, len(outputs))
+
+		for j, out := range outputs {
+			tx.Outputs[j] = &TxOutput{
+				Address: out.Address().String(),
+				Amount:  out.Amount(),
+			}
+		}
+	}
+
+	if ledgerTx.Metadata() != nil && ledgerTx.Metadata().Cbor() != nil {
+		tx.Metadata = ledgerTx.Metadata().Cbor()
+	}
+
+	switch realTx := ledgerTx.(type) {
+	case *ledger.AllegraTransaction:
+		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
+	case *ledger.AlonzoTransaction:
+		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
+	case *ledger.BabbageTransaction:
+		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
+	case *ledger.ByronTransaction:
+		// not supported
+	case *ledger.ConwayTransaction:
+		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
+	case *ledger.MaryTransaction:
+		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
+	case *ledger.ShelleyTransaction:
+		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
+	}
+
+	return tx, nil
 }

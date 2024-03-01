@@ -8,10 +8,14 @@ type DbTransactionWriter interface {
 	Execute() error
 }
 
+type TxOutputRetriever interface {
+	GetTxOutput(txInput TxInput) (TxOutput, error)
+}
+
 type BlockIndexerDb interface {
-	OpenTx() DbTransactionWriter
-	GetTxOutput(txInput TxInput) (*TxOutput, error)
+	TxOutputRetriever
 	GetLatestBlockPoint() (*BlockPoint, error)
+	OpenTx() DbTransactionWriter
 }
 
 type Database interface {

@@ -48,7 +48,7 @@ type DatabaseMock struct {
 	mock.Mock
 	Writter               *DbTransactionWriterMock
 	GetLatestBlockPointFn func() (*BlockPoint, error)
-	GetTxOutputFn         func(txInput TxInput) (*TxOutput, error)
+	GetTxOutputFn         func(txInput TxInput) (TxOutput, error)
 	InitFn                func(filepath string) error
 }
 
@@ -64,14 +64,14 @@ func (m *DatabaseMock) GetLatestBlockPoint() (*BlockPoint, error) {
 }
 
 // GetTxOutput implements Database.
-func (m *DatabaseMock) GetTxOutput(txInput TxInput) (*TxOutput, error) {
+func (m *DatabaseMock) GetTxOutput(txInput TxInput) (TxOutput, error) {
 	args := m.Called(txInput)
 
 	if m.GetTxOutputFn != nil {
 		return m.GetTxOutputFn(txInput)
 	}
 
-	return args.Get(0).(*TxOutput), args.Error(1)
+	return args.Get(0).(TxOutput), args.Error(1)
 }
 
 // GetUnprocessedConfirmedBlocks implements Database.

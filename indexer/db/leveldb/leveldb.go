@@ -55,19 +55,15 @@ func (lvldb *LevelDbDatabase) GetLatestBlockPoint() (*core.BlockPoint, error) {
 	return result, nil
 }
 
-func (lvldb *LevelDbDatabase) GetTxOutput(txInput core.TxInput) (*core.TxOutput, error) {
-	var result *core.TxOutput
-
+func (lvldb *LevelDbDatabase) GetTxOutput(txInput core.TxInput) (result core.TxOutput, err error) {
 	bytes, err := lvldb.db.Get(bucketKey(txOutputsBucket, txInput.Key()), nil)
 	if err != nil {
-		return nil, processNotFoundErr(err)
+		return result, processNotFoundErr(err)
 	}
 
-	if err := json.Unmarshal(bytes, &result); err != nil {
-		return nil, err
-	}
+	err = json.Unmarshal(bytes, &result)
 
-	return result, nil
+	return result, err
 }
 
 func (lvldb *LevelDbDatabase) MarkConfirmedBlocksProcessed(blocks []*core.FullBlock) error {

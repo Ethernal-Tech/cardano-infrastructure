@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -22,30 +21,22 @@ type BlockPoint struct {
 	BlockNumber uint64 `json:"num"`
 }
 
-type BlockHeader struct {
-	BlockSlot   uint64 `json:"slot"`
-	BlockHash   []byte `json:"hash"`
-	BlockNumber uint64 `json:"num"`
-	EraID       uint8  `json:"era"`
-	EraName     string `json:"-"`
-}
-
 type FullBlock struct {
-	BlockSlot   uint64 `json:"slot"`
-	BlockHash   []byte `json:"hash"`
-	BlockNumber uint64 `json:"num"`
-	EraID       uint8  `json:"era"`
-	EraName     string `json:"-"`
-	Txs         []*Tx  `json:"txs"`
+	Slot    uint64 `json:"slot"`
+	Hash    string `json:"hash"`
+	Number  uint64 `json:"num"`
+	EraID   uint8  `json:"era"`
+	EraName string `json:"-"`
+	Txs     []*Tx  `json:"txs"`
 }
 
 type Tx struct {
-	Hash      string      `json:"hash"`
-	Metadata  []byte      `json:"metadata"`
-	Inputs    []*TxInput  `json:"inputs"`
-	Outputs   []*TxOutput `json:"outputs"`
-	Fee       uint64      `json:"fee"`
-	Witnesses []Witness   `json:"witness"`
+	Hash      string           `json:"hash"`
+	Metadata  []byte           `json:"metadata"`
+	Inputs    []*TxInputOutput `json:"inputs"`
+	Outputs   []*TxOutput      `json:"outputs"`
+	Fee       uint64           `json:"fee"`
+	Witnesses []Witness        `json:"witness"`
 }
 
 type TxInput struct {
@@ -60,119 +51,19 @@ type TxOutput struct {
 }
 
 type TxInputOutput struct {
-	Input  *TxInput
-	Output *TxOutput
+	Input  TxInput  `json:"inp"`
+	Output TxOutput `json:"out"`
 }
 
-func GetBlockHeaderFromBlockInfo(blockType uint, blockInfo interface{}, nextBlockNumber uint64) (*BlockHeader, error) {
-	var blockHeaderFull ledger.BlockHeader
-
-	// /home/bbs/go/pkg/mod/github.com/blinklabs-io/gouroboros@v0.69.3/ledger/block.go
-	// func NewBlockHeaderFromCbor(blockType uint, data []byte) (BlockHeader, error) {
-	switch blockType {
-	case ledger.BlockTypeByronEbb:
-		blockHeaderFull = blockInfo.(*ledger.ByronEpochBoundaryBlockHeader)
-	case ledger.BlockTypeByronMain:
-		blockHeaderFull = blockInfo.(*ledger.ByronMainBlockHeader)
-	case ledger.BlockTypeShelley, ledger.BlockTypeAllegra, ledger.BlockTypeMary, ledger.BlockTypeAlonzo:
-		blockHeaderFull = blockInfo.(*ledger.ShelleyBlockHeader)
-	case ledger.BlockTypeBabbage, ledger.BlockTypeConway:
-		blockHeaderFull = blockInfo.(*ledger.BabbageBlockHeader)
-	}
-
-	// nolint
-	blockHash, _ := hex.DecodeString(blockHeaderFull.Hash())
-
-	blockNumber := blockHeaderFull.BlockNumber()
-	if blockNumber == 0 {
-		blockNumber = nextBlockNumber
-	} else if blockNumber != nextBlockNumber {
-		return nil, fmt.Errorf("invalid number of block: expected %d vs %d", nextBlockNumber, blockNumber)
-	}
-
-	return &BlockHeader{
-		BlockSlot:   blockHeaderFull.SlotNumber(),
-		BlockHash:   blockHash,
-		BlockNumber: blockNumber,
-		EraID:       blockHeaderFull.Era().Id,
-		EraName:     blockHeaderFull.Era().Name,
-	}, nil
-}
-
-func NewFullBlock(bh *BlockHeader, txs []*Tx) *FullBlock {
+func NewFullBlock(bh ledger.BlockHeader, txs []*Tx) *FullBlock {
 	return &FullBlock{
-		BlockSlot:   bh.BlockSlot,
-		BlockHash:   bh.BlockHash,
-		BlockNumber: bh.BlockNumber,
-		EraID:       bh.EraID,
-		EraName:     bh.EraName,
-		Txs:         txs,
+		Slot:    bh.SlotNumber(),
+		Hash:    bh.Hash(),
+		Number:  bh.BlockNumber(),
+		EraID:   bh.Era().Id,
+		EraName: bh.Era().Name,
+		Txs:     txs,
 	}
-}
-
-func NewTransaction(ledgerTx ledger.Transaction) *Tx {
-	tx := &Tx{
-		Hash: ledgerTx.Hash(),
-		Fee:  ledgerTx.Fee(),
-	}
-
-	if ledgerTx.Metadata() != nil && ledgerTx.Metadata().Cbor() != nil {
-		tx.Metadata = ledgerTx.Metadata().Cbor()
-	}
-
-	inputs, outputs := ledgerTx.Inputs(), ledgerTx.Outputs()
-
-	if ln := len(inputs); ln > 0 {
-		tx.Inputs = make([]*TxInput, ln)
-		for j, inp := range inputs {
-			tx.Inputs[j] = &TxInput{
-				Hash:  inp.Id().String(),
-				Index: inp.Index(),
-			}
-		}
-	}
-
-	if ln := len(outputs); ln > 0 {
-		tx.Outputs = make([]*TxOutput, ln)
-		for j, out := range outputs {
-			tx.Outputs[j] = &TxOutput{
-				Address: out.Address().String(),
-				Amount:  out.Amount(),
-			}
-		}
-	}
-
-	switch realTx := ledgerTx.(type) {
-	case *ledger.AllegraTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.AlonzoTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.BabbageTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.ByronTransaction:
-		// not supported
-	case *ledger.ConwayTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.MaryTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.ShelleyTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	}
-
-	return tx
-}
-
-func NewTransactions(ledgerTxs []ledger.Transaction) []*Tx {
-	if len(ledgerTxs) == 0 {
-		return nil
-	}
-
-	result := make([]*Tx, len(ledgerTxs))
-	for i, x := range ledgerTxs {
-		result[i] = NewTransaction(x)
-	}
-
-	return result
 }
 
 func NewWitnesses(vkeyWitnesses []interface{}) []Witness {
@@ -201,7 +92,7 @@ func NewWitnesses(vkeyWitnesses []interface{}) []Witness {
 
 func (fb FullBlock) String() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("number = %d, hash = %s, tx count = %d\n", fb.BlockNumber, hex.EncodeToString(fb.BlockHash), len(fb.Txs)))
+	sb.WriteString(fmt.Sprintf("number = %d, hash = %s, tx count = %d\n", fb.Number, fb.Hash, len(fb.Txs)))
 	for _, tx := range fb.Txs {
 		var (
 			sbInp strings.Builder
@@ -214,9 +105,13 @@ func (fb FullBlock) String() string {
 			}
 
 			sbInp.WriteString("[")
-			sbInp.WriteString(x.Hash)
+			sbInp.WriteString(x.Input.Hash)
 			sbInp.WriteString(", ")
-			sbInp.WriteString(strconv.FormatUint(uint64(x.Index), 10))
+			sbInp.WriteString(strconv.FormatUint(uint64(x.Input.Index), 10))
+			sbInp.WriteString(", ")
+			sbInp.WriteString(x.Output.Address)
+			sbInp.WriteString(", ")
+			sbInp.WriteString(strconv.FormatUint(x.Output.Amount, 10))
 			sbInp.WriteString("]")
 		}
 
@@ -246,12 +141,16 @@ func (fb FullBlock) String() string {
 	return sb.String()
 }
 
+func (to TxOutput) IsNotUsed() bool {
+	return to.Address != "" && !to.IsUsed
+}
+
 func (ti TxInput) Key() []byte {
 	return []byte(fmt.Sprintf("%s_%d", ti.Hash, ti.Index))
 }
 
 func (fb FullBlock) Key() []byte {
-	return EncodeUint64ToBytes(fb.BlockNumber)
+	return []byte(fmt.Sprintf("%s_%d", fb.Hash, fb.Slot))
 }
 
 func (bp BlockPoint) ToCommonPoint() common.Point {
@@ -266,9 +165,12 @@ func (bp BlockPoint) String() string {
 	return fmt.Sprintf("slot = %d, hash = %s, num = %d", bp.BlockSlot, hex.EncodeToString(bp.BlockHash), bp.BlockNumber)
 }
 
-func EncodeUint64ToBytes(value uint64) []byte {
-	result := make([]byte, 8)
-	binary.BigEndian.PutUint64(result, value)
+func hash2Bytes(hash string) []byte {
+	v, _ := hex.DecodeString(hash) // nolint
 
-	return result
+	return v
+}
+
+func bytes2Hash(hash []byte) string {
+	return hex.EncodeToString(hash)
 }

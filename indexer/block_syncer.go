@@ -34,9 +34,8 @@ type BlockSyncer interface {
 
 type BlockSyncerHandler interface {
 	RollBackwardFunc(point common.Point, tip chainsync.Tip) error
-	RollForwardFunc(blockHeader *BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error
+	RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error
 	Reset() (BlockPoint, error)
-	NextBlockNumber() uint64
 }
 
 type BlockSyncerConfig struct {
@@ -166,8 +165,8 @@ func (bs *BlockSyncerImpl) getBlock(slot uint64, hash []byte) (ledger.Block, err
 	return bs.connection.BlockFetch().Client.GetBlock(common.NewPoint(slot, hash))
 }
 
-func (bs *BlockSyncerImpl) getBlockTransactions(blockHeader *BlockHeader) ([]ledger.Transaction, error) {
-	block, err := bs.getBlock(blockHeader.BlockSlot, blockHeader.BlockHash)
+func (bs *BlockSyncerImpl) getBlockTransactions(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error) {
+	block, err := bs.getBlock(blockHeader.SlotNumber(), hash2Bytes(blockHeader.Hash()))
 	if err != nil {
 		return nil, err
 	}
@@ -176,13 +175,13 @@ func (bs *BlockSyncerImpl) getBlockTransactions(blockHeader *BlockHeader) ([]led
 }
 
 func (bs *BlockSyncerImpl) rollForwardCallback(blockType uint, blockInfo interface{}, tip chainsync.Tip) error {
-	blockHeader, err := GetBlockHeaderFromBlockInfo(blockType, blockInfo, bs.blockHandler.NextBlockNumber())
-	if err != nil {
-		return errors.Join(errBlockSyncerFatal, err)
+	blockHeader, ok := blockInfo.(ledger.BlockHeader)
+	if !ok {
+		return errors.Join(errBlockSyncerFatal, errors.New("invalid header"))
 	}
 
 	bs.logger.Debug("Roll forward",
-		"number", blockHeader.BlockNumber, "hash", hex.EncodeToString(blockHeader.BlockHash), "slot", blockHeader.BlockSlot,
+		"number", blockHeader.BlockNumber(), "hash", blockHeader.Hash(), "slot", blockHeader.SlotNumber(),
 		"tip_slot", tip.Point.Slot, "tip_hash", hex.EncodeToString(tip.Point.Hash))
 
 	getTxsFunc := func() ([]ledger.Transaction, error) {

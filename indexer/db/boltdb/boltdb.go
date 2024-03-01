@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/boltdb/bolt"
-
 	core "github.com/Ethernal-Tech/cardano-infrastructure/indexer"
+	"github.com/boltdb/bolt"
 )
 
 type BoltDatabase struct {
@@ -64,20 +63,16 @@ func (bd *BoltDatabase) GetLatestBlockPoint() (*core.BlockPoint, error) {
 	return result, nil
 }
 
-func (bd *BoltDatabase) GetTxOutput(txInput core.TxInput) (*core.TxOutput, error) {
-	var result *core.TxOutput
-
-	if err := bd.db.View(func(tx *bolt.Tx) error {
+func (bd *BoltDatabase) GetTxOutput(txInput core.TxInput) (result core.TxOutput, err error) {
+	err = bd.db.View(func(tx *bolt.Tx) error {
 		if data := tx.Bucket(txOutputsBucket).Get(txInput.Key()); len(data) > 0 {
 			return json.Unmarshal(data, &result)
 		}
 
 		return nil
-	}); err != nil {
-		return nil, err
-	}
+	})
 
-	return result, nil
+	return result, err
 }
 
 func (bd *BoltDatabase) MarkConfirmedBlocksProcessed(blocks []*core.FullBlock) error {
