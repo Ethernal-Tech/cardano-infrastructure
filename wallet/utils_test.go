@@ -2,8 +2,6 @@ package wallet
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestIsValidCardanoAddress(t *testing.T) {
@@ -49,6 +47,8 @@ func TestIsValidCardanoAddress(t *testing.T) {
 
 	for i, addr := range addresses {
 		ai := GetAddressInfo(addr, testNetwork[i])
-		require.Equal(t, results[i], ai.IsValid)
+		if results[i] != ai.IsValid {
+			t.Error("Validation of address failed", "addr", addr)
+		}
 	}
 }

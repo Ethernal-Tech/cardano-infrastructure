@@ -17,10 +17,6 @@ github.com/hashicorp/go-hclog v1.6.2 h1:NOtoftovWkDheyUM/8JW3QMiXyxJK3uHRK7wV04n
 github.com/hashicorp/go-hclog v1.6.2/go.mod h1:W4Qnvbt70Wk/zYJryRzDRU/4r0kIg0PVHBcfoyhpF5M=
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
-github.com/igorcrevar/cardano-go-indexer v0.0.0-20240221100855-112400d5cd71 h1:ciQWk2TdoLU251jkX+w7wwA6FFBCRge5GbW+C2CVxJ4=
-github.com/igorcrevar/cardano-go-indexer v0.0.0-20240221100855-112400d5cd71/go.mod h1:UxtvH90zmlaagYoD/fNjwuobMolBzCTtGb9mTYKhP+Q=
-github.com/igorcrevar/cardano-wallet-tx v0.0.0-20240227085644-1a1f810d4753 h1:kFzpKWZnv4tYf5TPDHwdrJjdNBRjr2G0RNHgaTXV7No=
-github.com/igorcrevar/cardano-wallet-tx v0.0.0-20240227085644-1a1f810d4753/go.mod h1:SMuLjhRAbmwrmGS1LngenBIqdneG97w1Aszg43rB4No=
 github.com/jinzhu/copier v0.4.0 h1:w3ciUoD19shMCRargcpm0cm91ytaBhDvuRpz1ODO/U8=
 github.com/jinzhu/copier v0.4.0/go.mod h1:DfbEm0FYsaqBcKcFuvmOZb218JkPGtvSHsKg8S8hyyg=
 github.com/mattn/go-colorable v0.1.9/go.mod h1:u6P/XSegPjTcexA+o6vUJrdnUu04hMope9wVRipJSqc=
