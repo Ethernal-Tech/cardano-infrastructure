@@ -11,11 +11,11 @@ import (
 )
 
 type LoggerConfig struct {
-	LogLevel      hclog.Level
-	JSONLogFormat bool
-	AppendFile    bool
-	LogFilePath   string
-	Name          string
+	LogLevel      hclog.Level `json:"logLevel"`
+	JSONLogFormat bool        `json:"jsonLogFormat"`
+	AppendFile    bool        `json:"appendFile"`
+	LogFilePath   string      `json:"logFilePath"`
+	Name          string      `json:"name"`
 }
 
 func NewLogger(config LoggerConfig) (l hclog.Logger, err error) {
