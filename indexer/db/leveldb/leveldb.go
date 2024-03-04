@@ -17,10 +17,10 @@ type LevelDbDatabase struct {
 }
 
 var (
-	txOutputsBucket         = []byte("TXOuts")
-	latestBlockPointBucket  = []byte("LatestBlockPoint")
-	processedBlocksBucket   = []byte("ProcessedBlocks")
-	unprocessedBlocksBucket = []byte("UnprocessedBlocks")
+	txOutputsBucket        = []byte("P1_")
+	latestBlockPointBucket = []byte("P2_")
+	processedTxsBucket     = []byte("P3_")
+	unprocessedTxsBucket   = []byte("P4_")
 )
 
 var _ core.Database = (*LevelDbDatabase)(nil)
@@ -66,17 +66,17 @@ func (lvldb *LevelDbDatabase) GetTxOutput(txInput core.TxInput) (result core.TxO
 	return result, err
 }
 
-func (lvldb *LevelDbDatabase) MarkConfirmedBlocksProcessed(blocks []*core.FullBlock) error {
+func (lvldb *LevelDbDatabase) MarkConfirmedTxsProcessed(txs []*core.Tx) error {
 	batch := new(leveldb.Batch)
 
-	for _, block := range blocks {
-		bytes, err := json.Marshal(block)
+	for _, tx := range txs {
+		bytes, err := json.Marshal(tx)
 		if err != nil {
-			return fmt.Errorf("could not marshal block: %v", err)
+			return fmt.Errorf("could not marshal tx: %v", err)
 		}
 
-		batch.Put(bucketKey(processedBlocksBucket, block.Key()), bytes)
-		batch.Delete(bucketKey(unprocessedBlocksBucket, block.Key()))
+		batch.Put(bucketKey(processedTxsBucket, tx.Key()), bytes)
+		batch.Delete(bucketKey(unprocessedTxsBucket, tx.Key()))
 	}
 
 	return lvldb.db.Write(batch, &opt.WriteOptions{
@@ -85,20 +85,20 @@ func (lvldb *LevelDbDatabase) MarkConfirmedBlocksProcessed(blocks []*core.FullBl
 	})
 }
 
-func (lvldb *LevelDbDatabase) GetUnprocessedConfirmedBlocks(maxCnt int) ([]*core.FullBlock, error) {
-	var result []*core.FullBlock
+func (lvldb *LevelDbDatabase) GetUnprocessedConfirmedTxs(maxCnt int) ([]*core.Tx, error) {
+	var result []*core.Tx
 
-	iter := lvldb.db.NewIterator(util.BytesPrefix(unprocessedBlocksBucket), nil)
+	iter := lvldb.db.NewIterator(util.BytesPrefix(unprocessedTxsBucket), nil)
 	defer iter.Release()
 
 	for iter.Next() {
-		var block *core.FullBlock
+		var tx *core.Tx
 
-		if err := json.Unmarshal(iter.Value(), &block); err != nil {
+		if err := json.Unmarshal(iter.Value(), &tx); err != nil {
 			return nil, err
 		}
 
-		result = append(result, block)
+		result = append(result, tx)
 		if maxCnt > 0 && len(result) == maxCnt {
 			break
 		}

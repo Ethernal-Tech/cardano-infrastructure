@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 )
 
@@ -21,22 +20,17 @@ type BlockPoint struct {
 	BlockNumber uint64 `json:"num"`
 }
 
-type FullBlock struct {
-	Slot    uint64 `json:"slot"`
-	Hash    string `json:"hash"`
-	Number  uint64 `json:"num"`
-	EraID   uint8  `json:"era"`
-	EraName string `json:"-"`
-	Txs     []*Tx  `json:"txs"`
-}
-
 type Tx struct {
-	Hash      string           `json:"hash"`
-	Metadata  []byte           `json:"metadata"`
-	Inputs    []*TxInputOutput `json:"inputs"`
-	Outputs   []*TxOutput      `json:"outputs"`
-	Fee       uint64           `json:"fee"`
-	Witnesses []Witness        `json:"witness"`
+	BlockSlot  uint64           `json:"slot"`
+	BlockHash  string           `json:"bhash"`
+	BlockNum   uint64           `json:"bnum"`
+	BlockEraID uint8            `json:"era"`
+	Hash       string           `json:"hash"`
+	Metadata   []byte           `json:"metadata"`
+	Inputs     []*TxInputOutput `json:"inputs"`
+	Outputs    []*TxOutput      `json:"outputs"`
+	Fee        uint64           `json:"fee"`
+	Witnesses  []Witness        `json:"witness"`
 }
 
 type TxInput struct {
@@ -53,17 +47,6 @@ type TxOutput struct {
 type TxInputOutput struct {
 	Input  TxInput  `json:"inp"`
 	Output TxOutput `json:"out"`
-}
-
-func NewFullBlock(bh ledger.BlockHeader, txs []*Tx) *FullBlock {
-	return &FullBlock{
-		Slot:    bh.SlotNumber(),
-		Hash:    bh.Hash(),
-		Number:  bh.BlockNumber(),
-		EraID:   bh.Era().Id,
-		EraName: bh.Era().Name,
-		Txs:     txs,
-	}
 }
 
 func NewWitnesses(vkeyWitnesses []interface{}) []Witness {
@@ -90,54 +73,66 @@ func NewWitnesses(vkeyWitnesses []interface{}) []Witness {
 	return res
 }
 
-func (fb FullBlock) String() string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("number = %d, hash = %s, tx count = %d\n", fb.Number, fb.Hash, len(fb.Txs)))
-	for _, tx := range fb.Txs {
-		var (
-			sbInp strings.Builder
-			sbOut strings.Builder
-		)
+func (tx Tx) Key() []byte {
+	return hash2Bytes(tx.Hash)
+}
 
-		for _, x := range tx.Inputs {
-			if sbInp.Len() > 0 {
-				sbInp.WriteString(", ")
-			}
+func (tx Tx) String() string {
+	var (
+		sb    strings.Builder
+		sbInp strings.Builder
+		sbOut strings.Builder
+	)
 
-			sbInp.WriteString("[")
-			sbInp.WriteString(x.Input.Hash)
+	for _, x := range tx.Inputs {
+		if sbInp.Len() > 0 {
 			sbInp.WriteString(", ")
-			sbInp.WriteString(strconv.FormatUint(uint64(x.Input.Index), 10))
-			sbInp.WriteString(", ")
-			sbInp.WriteString(x.Output.Address)
-			sbInp.WriteString(", ")
-			sbInp.WriteString(strconv.FormatUint(x.Output.Amount, 10))
-			sbInp.WriteString("]")
 		}
 
-		for i, x := range tx.Outputs {
-			if sbOut.Len() > 0 {
-				sbOut.WriteString(", ")
-			}
-
-			sbOut.WriteString("[")
-			sbOut.WriteString(strconv.Itoa(i))
-			sbOut.WriteString(", ")
-			sbOut.WriteString(x.Address)
-			sbOut.WriteString(", ")
-			sbOut.WriteString(strconv.FormatUint(x.Amount, 10))
-			sbOut.WriteString("]")
-		}
-
-		sb.WriteString(fmt.Sprintf("  tx hash = %s, fee = %d\n", tx.Hash, tx.Fee))
-		if tx.Metadata != nil {
-			sb.WriteString(fmt.Sprintf("  meta = %s\n", string(tx.Metadata)))
-		}
-
-		sb.WriteString(fmt.Sprintf("   inputs = %s\n", sbInp.String()))
-		sb.WriteString(fmt.Sprintf("  outputs = %s\n", sbOut.String()))
+		sbInp.WriteString("[")
+		sbInp.WriteString(x.Input.Hash)
+		sbInp.WriteString(", ")
+		sbInp.WriteString(strconv.FormatUint(uint64(x.Input.Index), 10))
+		sbInp.WriteString(", ")
+		sbInp.WriteString(x.Output.Address)
+		sbInp.WriteString(", ")
+		sbInp.WriteString(strconv.FormatUint(x.Output.Amount, 10))
+		sbInp.WriteString("]")
 	}
 
+	for i, x := range tx.Outputs {
+		if sbOut.Len() > 0 {
+			sbOut.WriteString(", ")
+		}
+
+		sbOut.WriteString("[")
+		sbOut.WriteString(strconv.Itoa(i))
+		sbOut.WriteString(", ")
+		sbOut.WriteString(x.Address)
+		sbOut.WriteString(", ")
+		sbOut.WriteString(strconv.FormatUint(x.Amount, 10))
+		sbOut.WriteString("]")
+	}
+
+	sb.WriteString("hash = ")
+	sb.WriteString(tx.Hash)
+	sb.WriteString("\nblock hash = ")
+	sb.WriteString(tx.BlockHash)
+	sb.WriteString("\nblock slot = ")
+	sb.WriteString(strconv.FormatUint(tx.BlockSlot, 10))
+	sb.WriteString("\nblock num = ")
+	sb.WriteString(strconv.FormatUint(tx.BlockNum, 10))
+	sb.WriteString("\nfee = ")
+	sb.WriteString(strconv.FormatUint(tx.Fee, 10))
+	if tx.Metadata != nil {
+		sb.WriteString("\nmeta = ")
+		sb.WriteString(string(tx.Metadata))
+	}
+
+	sb.WriteString("\ninputs = ")
+	sb.WriteString(sbInp.String())
+	sb.WriteString("\noutputs = ")
+	sb.WriteString(sbOut.String())
 	return sb.String()
 }
 
@@ -147,10 +142,6 @@ func (to TxOutput) IsNotUsed() bool {
 
 func (ti TxInput) Key() []byte {
 	return []byte(fmt.Sprintf("%s_%d", ti.Hash, ti.Index))
-}
-
-func (fb FullBlock) Key() []byte {
-	return []byte(fmt.Sprintf("%s_%d", fb.Hash, fb.Slot))
 }
 
 func (bp BlockPoint) ToCommonPoint() common.Point {

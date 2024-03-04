@@ -33,7 +33,7 @@ type BlockIndexerConfig struct {
 	SoftDeleteUtxo bool `json:"softDeleteUtxo"`
 }
 
-type NewConfirmedBlockHandler func(*FullBlock) error
+type NewConfirmedTxsHandler func([]*Tx) error
 
 type blockWithLazyTxRetriever struct {
 	header ledger.BlockHeader
@@ -44,20 +44,19 @@ type BlockIndexer struct {
 	config *BlockIndexerConfig
 
 	// latest confirmed and saved block point
-	latestBlockPoint *BlockPoint
+	latestBlockPoint       *BlockPoint
+	unconfirmedBlocks      []blockWithLazyTxRetriever
+	newConfirmedTxsHandler NewConfirmedTxsHandler
+	addressesOfInterest    map[string]bool
 
-	newConfirmedBlockHandler NewConfirmedBlockHandler
-	unconfirmedBlocks        []blockWithLazyTxRetriever
-
-	db                  BlockIndexerDb
-	addressesOfInterest map[string]bool
+	db BlockIndexerDb
 
 	logger hclog.Logger
 }
 
 var _ BlockSyncerHandler = (*BlockIndexer)(nil)
 
-func NewBlockIndexer(config *BlockIndexerConfig, newConfirmedBlockHandler NewConfirmedBlockHandler, db BlockIndexerDb, logger hclog.Logger) *BlockIndexer {
+func NewBlockIndexer(config *BlockIndexerConfig, newConfirmedTxsHandler NewConfirmedTxsHandler, db BlockIndexerDb, logger hclog.Logger) *BlockIndexer {
 	if config.AddressCheck&AddressCheckAll == 0 {
 		panic("block indexer must at least check outputs or inputs") //nolint:gocritic
 	}
@@ -68,16 +67,13 @@ func NewBlockIndexer(config *BlockIndexerConfig, newConfirmedBlockHandler NewCon
 	}
 
 	return &BlockIndexer{
-		config: config,
-
-		latestBlockPoint: nil,
-
-		newConfirmedBlockHandler: newConfirmedBlockHandler,
-		unconfirmedBlocks:        nil,
-
-		db:                  db,
-		addressesOfInterest: addressesOfInterest,
-		logger:              logger,
+		config:                 config,
+		latestBlockPoint:       nil,
+		newConfirmedTxsHandler: newConfirmedTxsHandler,
+		unconfirmedBlocks:      nil,
+		db:                     db,
+		addressesOfInterest:    addressesOfInterest,
+		logger:                 logger,
 	}
 }
 
@@ -128,7 +124,7 @@ func (bi *BlockIndexer) RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFu
 		return err
 	}
 
-	fullBlock, latestBlockPoint, err := bi.processConfirmedBlock(confirmedBlock.header, txs)
+	confirmedTxs, latestBlockPoint, err := bi.processConfirmedBlock(confirmedBlock.header, txs)
 	if err != nil {
 		return err
 	}
@@ -142,8 +138,8 @@ func (bi *BlockIndexer) RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFu
 	})
 
 	// notify listener if needed
-	if fullBlock != nil {
-		bi.newConfirmedBlockHandler(fullBlock)
+	if len(confirmedTxs) > 0 {
+		bi.newConfirmedTxsHandler(confirmedTxs)
 	}
 
 	return nil
@@ -173,9 +169,9 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 }
 
 func (bi *BlockIndexer) processConfirmedBlock(
-	confirmedBlockHeader ledger.BlockHeader, allBlockTransactions []ledger.Transaction) (*FullBlock, *BlockPoint, error) {
+	confirmedBlockHeader ledger.BlockHeader, allBlockTransactions []ledger.Transaction) ([]*Tx, *BlockPoint, error) {
 	var (
-		fullBlock         *FullBlock = nil
+		confirmedTxs      []*Tx
 		txOutputsToSave   []*TxInputOutput
 		txOutputsToRemove []*TxInput
 
@@ -198,16 +194,15 @@ func (bi *BlockIndexer) processConfirmedBlock(
 
 	// add confirmed block to db and create full block only if there are some transactions of interest
 	if len(txsOfInterest) > 0 {
-		txs := make([]*Tx, len(txsOfInterest))
+		confirmedTxs = make([]*Tx, len(txsOfInterest))
 		for i, ltx := range txsOfInterest {
-			txs[i], err = bi.createTx(ltx)
+			confirmedTxs[i], err = bi.createTx(confirmedBlockHeader, ltx)
 			if err != nil {
 				return nil, nil, err
 			}
 		}
 
-		fullBlock = NewFullBlock(confirmedBlockHeader, txs)
-		dbTx.AddConfirmedBlock(fullBlock) // add confirmed block in db tx (dbTx implementation should handle nil case)
+		dbTx.AddConfirmedTxs(confirmedTxs) // add confirmed txs in db
 	}
 
 	latestBlockPoint := &BlockPoint{
@@ -223,7 +218,7 @@ func (bi *BlockIndexer) processConfirmedBlock(
 		return nil, nil, err
 	}
 
-	return fullBlock, latestBlockPoint, nil
+	return confirmedTxs, latestBlockPoint, nil
 }
 
 func (bi *BlockIndexer) filterTxsOfInterest(txs []ledger.Transaction) (result []ledger.Transaction, err error) {
@@ -309,14 +304,18 @@ func (bi *BlockIndexer) getTxInputs(txs []ledger.Transaction) (res []*TxInput) {
 	return res
 }
 
-func (bi BlockIndexer) createTx(ledgerTx ledger.Transaction) (*Tx, error) {
+func (bi BlockIndexer) createTx(ledgerBlockHeader ledger.BlockHeader, ledgerTx ledger.Transaction) (*Tx, error) {
 	tx := &Tx{
-		Hash: ledgerTx.Hash(),
-		Fee:  ledgerTx.Fee(),
+		Hash:       ledgerTx.Hash(),
+		Fee:        ledgerTx.Fee(),
+		BlockSlot:  ledgerBlockHeader.SlotNumber(),
+		BlockHash:  ledgerBlockHeader.Hash(),
+		BlockNum:   ledgerBlockHeader.BlockNumber(),
+		BlockEraID: ledgerBlockHeader.Era().Id,
 	}
 
 	if inputs := ledgerTx.Inputs(); len(inputs) > 0 {
-		inputOutputPairs := make([]*TxInputOutput, len(inputs))
+		tx.Inputs = make([]*TxInputOutput, len(inputs))
 
 		for j, inp := range inputs {
 			txInput := TxInput{
@@ -329,13 +328,11 @@ func (bi BlockIndexer) createTx(ledgerTx ledger.Transaction) (*Tx, error) {
 				return nil, err
 			}
 
-			inputOutputPairs[j] = &TxInputOutput{
+			tx.Inputs[j] = &TxInputOutput{
 				Input:  txInput,
 				Output: output,
 			}
 		}
-
-		tx.Inputs = inputOutputPairs
 	}
 
 	if outputs := ledgerTx.Outputs(); len(outputs) > 0 {

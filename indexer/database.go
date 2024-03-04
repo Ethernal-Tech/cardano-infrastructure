@@ -3,7 +3,7 @@ package indexer
 type DbTransactionWriter interface {
 	SetLatestBlockPoint(point *BlockPoint) DbTransactionWriter
 	AddTxOutputs(txOutputs []*TxInputOutput) DbTransactionWriter
-	AddConfirmedBlock(block *FullBlock) DbTransactionWriter
+	AddConfirmedTxs(txs []*Tx) DbTransactionWriter
 	RemoveTxOutputs(txInputs []*TxInput, softDelete bool) DbTransactionWriter
 	Execute() error
 }
@@ -23,6 +23,6 @@ type Database interface {
 	Init(filepath string) error
 	Close() error
 
-	MarkConfirmedBlocksProcessed(blocks []*FullBlock) error
-	GetUnprocessedConfirmedBlocks(maxCnt int) ([]*FullBlock, error)
+	MarkConfirmedTxsProcessed(txs []*Tx) error
+	GetUnprocessedConfirmedTxs(maxCnt int) ([]*Tx, error)
 }

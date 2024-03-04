@@ -13,10 +13,10 @@ type BoltDatabase struct {
 }
 
 var (
-	txOutputsBucket         = []byte("TXOuts")
-	latestBlockPointBucket  = []byte("LatestBlockPoint")
-	processedBlocksBucket   = []byte("ProcessedBlocks")
-	unprocessedBlocksBucket = []byte("UnprocessedBlocks")
+	txOutputsBucket        = []byte("TXOuts")
+	latestBlockPointBucket = []byte("LatestBlockPoint")
+	processedTxsBucket     = []byte("ProcessedTxs")
+	unprocessedTxsBucket   = []byte("UnprocessedTxs")
 
 	defaultKey = []byte("default")
 )
@@ -32,7 +32,7 @@ func (bd *BoltDatabase) Init(filePath string) error {
 	bd.db = db
 
 	return db.Update(func(tx *bolt.Tx) error {
-		for _, bn := range [][]byte{txOutputsBucket, latestBlockPointBucket, processedBlocksBucket, unprocessedBlocksBucket} {
+		for _, bn := range [][]byte{txOutputsBucket, latestBlockPointBucket, processedTxsBucket, unprocessedTxsBucket} {
 			_, err := tx.CreateBucketIfNotExists(bn)
 			if err != nil {
 				return fmt.Errorf("could not bucket: %s, err: %v", string(bn), err)
@@ -75,19 +75,19 @@ func (bd *BoltDatabase) GetTxOutput(txInput core.TxInput) (result core.TxOutput,
 	return result, err
 }
 
-func (bd *BoltDatabase) MarkConfirmedBlocksProcessed(blocks []*core.FullBlock) error {
+func (bd *BoltDatabase) MarkConfirmedTxsProcessed(txs []*core.Tx) error {
 	return bd.db.Update(func(tx *bolt.Tx) error {
-		for _, block := range blocks {
-			if err := tx.Bucket(unprocessedBlocksBucket).Delete(block.Key()); err != nil {
+		for _, cardTx := range txs {
+			if err := tx.Bucket(unprocessedTxsBucket).Delete(cardTx.Key()); err != nil {
 				return fmt.Errorf("could not remove from unprocessed blocks: %v", err)
 			}
 
-			bytes, err := json.Marshal(block)
+			bytes, err := json.Marshal(cardTx)
 			if err != nil {
 				return fmt.Errorf("could not marshal block: %v", err)
 			}
 
-			if err := tx.Bucket(processedBlocksBucket).Put(block.Key(), bytes); err != nil {
+			if err := tx.Bucket(processedTxsBucket).Put(cardTx.Key(), bytes); err != nil {
 				return fmt.Errorf("could not move to processed blocks: %v", err)
 			}
 		}
@@ -96,20 +96,20 @@ func (bd *BoltDatabase) MarkConfirmedBlocksProcessed(blocks []*core.FullBlock) e
 	})
 }
 
-func (bd *BoltDatabase) GetUnprocessedConfirmedBlocks(maxCnt int) ([]*core.FullBlock, error) {
-	var result []*core.FullBlock
+func (bd *BoltDatabase) GetUnprocessedConfirmedTxs(maxCnt int) ([]*core.Tx, error) {
+	var result []*core.Tx
 
 	err := bd.db.View(func(tx *bolt.Tx) error {
-		cursor := tx.Bucket(unprocessedBlocksBucket).Cursor()
+		cursor := tx.Bucket(unprocessedTxsBucket).Cursor()
 
 		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-			var block *core.FullBlock
+			var cardTx *core.Tx
 
-			if err := json.Unmarshal(v, &block); err != nil {
+			if err := json.Unmarshal(v, &cardTx); err != nil {
 				return err
 			}
 
-			result = append(result, block)
+			result = append(result, cardTx)
 			if maxCnt > 0 && len(result) == maxCnt {
 				break
 			}

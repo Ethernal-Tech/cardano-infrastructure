@@ -41,7 +41,7 @@ func TestBlockIndexer_processConfirmedBlockNoTxOfInterest(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb *FullBlock) error {
+	newConfirmedBlockHandler := func(fb []*Tx) error {
 		return nil
 	}
 
@@ -123,7 +123,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInOutputs(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb *FullBlock) error {
+	newConfirmedBlockHandler := func(fb []*Tx) error {
 		return nil
 	}
 
@@ -206,27 +206,25 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInOutputs(t *testing.T) {
 			},
 		},
 	}).Once()
-	dbMock.Writter.On("AddConfirmedBlock", mock.Anything).Run(func(args mock.Arguments) {
-		block := args.Get(0).(*FullBlock)
-		require.NotNil(t, block)
-		require.Equal(t, block.Hash, bytes2Hash(blockHash))
-		require.Len(t, block.Txs, 2)
+	dbMock.Writter.On("AddConfirmedTxs", mock.Anything).Run(func(args mock.Arguments) {
+		txs := args.Get(0).([]*Tx)
+		require.Len(t, txs, 2)
+		require.Equal(t, txs[0].BlockHash, bytes2Hash(blockHash))
 	}).Once()
 
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
 	assert.NotNil(t, blockIndexer)
 
-	fb, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
+	txs, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
 		SlotNumberVal:  blockSlot,
 		HashVal:        bytes2Hash(blockHash),
 		BlockNumberVal: blockNumber,
 	}, allTransactions)
 
 	require.Nil(t, err)
-	require.NotNil(t, fb)
-	require.Len(t, fb.Txs, 2)
-	assert.Equal(t, fb.Txs[0].Hash, hashTx[0])
-	assert.Equal(t, fb.Txs[1].Hash, hashTx[1])
+	require.Len(t, txs, 2)
+	assert.Equal(t, txs[0].Hash, hashTx[0])
+	assert.Equal(t, txs[1].Hash, hashTx[1])
 	assert.Equal(t, expectedLastBlockPoint, latestBlockPoint)
 	dbMock.AssertExpectations(t)
 	dbMock.Writter.AssertExpectations(t)
@@ -283,7 +281,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInInputs(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb *FullBlock) error {
+	newConfirmedBlockHandler := func(fb []*Tx) error {
 		return nil
 	}
 
@@ -354,27 +352,26 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInInputs(t *testing.T) {
 			Index: txInputs[3].Index(),
 		},
 	}, false).Once()
-	dbMock.Writter.On("AddConfirmedBlock", mock.Anything).Run(func(args mock.Arguments) {
-		block := args.Get(0).(*FullBlock)
-		require.NotNil(t, block)
-		require.Equal(t, block.Hash, bytes2Hash(blockHash))
-		require.Len(t, block.Txs, 2)
+	dbMock.Writter.On("AddConfirmedTxs", mock.Anything).Run(func(args mock.Arguments) {
+		txs := args.Get(0).([]*Tx)
+		require.Len(t, txs, 2)
+		require.Equal(t, bytes2Hash(blockHash), txs[0].BlockHash)
+		require.Equal(t, bytes2Hash(blockHash), txs[1].BlockHash)
 	}).Once()
 
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
 	assert.NotNil(t, blockIndexer)
 
-	fb, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
+	txs, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
 		SlotNumberVal:  blockSlot,
 		HashVal:        bytes2Hash(blockHash),
 		BlockNumberVal: blockNumber,
 	}, allTransactions)
 
 	require.Nil(t, err)
-	require.NotNil(t, fb)
-	require.Len(t, fb.Txs, 2)
-	assert.Equal(t, fb.Txs[0].Hash, hashTx[0])
-	assert.Equal(t, fb.Txs[1].Hash, hashTx[1])
+	require.Len(t, txs, 2)
+	assert.Equal(t, txs[0].Hash, hashTx[0])
+	assert.Equal(t, txs[1].Hash, hashTx[1])
 	assert.Equal(t, expectedLastBlockPoint, latestBlockPoint)
 	dbMock.AssertExpectations(t)
 	dbMock.Writter.AssertExpectations(t)
@@ -428,7 +425,7 @@ func TestBlockIndexer_processConfirmedBlockKeepAllTxOutputsInDb(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb *FullBlock) error {
+	newConfirmedBlockHandler := func(fb []*Tx) error {
 		return nil
 	}
 
@@ -488,27 +485,26 @@ func TestBlockIndexer_processConfirmedBlockKeepAllTxOutputsInDb(t *testing.T) {
 			Index: txInputs[1].Index(),
 		},
 	}, false).Once()
-	dbMock.Writter.On("AddConfirmedBlock", mock.Anything).Run(func(args mock.Arguments) {
-		block := args.Get(0).(*FullBlock)
-		require.NotNil(t, block)
-		require.Equal(t, block.Hash, bytes2Hash(blockHash))
-		require.Len(t, block.Txs, 2)
+	dbMock.Writter.On("AddConfirmedTxs", mock.Anything).Run(func(args mock.Arguments) {
+		txs := args.Get(0).([]*Tx)
+		require.Len(t, txs, 2)
+		require.Equal(t, bytes2Hash(blockHash), txs[0].BlockHash)
+		require.Equal(t, bytes2Hash(blockHash), txs[1].BlockHash)
 	}).Once()
 
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
 	assert.NotNil(t, blockIndexer)
 
-	fb, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
+	txs, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
 		SlotNumberVal:  blockSlot,
 		HashVal:        bytes2Hash(blockHash),
 		BlockNumberVal: blockNumber,
 	}, allTransactions)
 
 	require.Nil(t, err)
-	require.NotNil(t, fb)
-	require.Len(t, fb.Txs, 2)
-	assert.Equal(t, fb.Txs[0].Hash, hashTx[0])
-	assert.Equal(t, fb.Txs[1].Hash, hashTx[1])
+	require.Len(t, txs, 2)
+	assert.Equal(t, txs[0].Hash, hashTx[0])
+	assert.Equal(t, txs[1].Hash, hashTx[1])
 	assert.Equal(t, expectedLastBlockPoint, latestBlockPoint)
 	dbMock.AssertExpectations(t)
 	dbMock.Writter.AssertExpectations(t)
@@ -543,7 +539,7 @@ func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb *FullBlock) error {
+	newConfirmedBlockHandler := func(fb []*Tx) error {
 		return nil
 	}
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
@@ -589,7 +585,7 @@ func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb *FullBlock) error {
+	newConfirmedBlockHandler := func(fb []*Tx) error {
 		return nil
 	}
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
@@ -629,7 +625,7 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb *FullBlock) error {
+	newConfirmedBlockHandler := func(fb []*Tx) error {
 		return nil
 	}
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
@@ -653,7 +649,7 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 	t.Parallel()
 
-	confirmedBlock := (*FullBlock)(nil)
+	confirmedTxs := ([]*Tx)(nil)
 	addressesOfInterest := []string{addresses[1]}
 	getTxs := []GetTxsFunc{
 		func() ([]ledger.Transaction, error) {
@@ -701,8 +697,8 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb *FullBlock) error {
-		confirmedBlock = fb
+	newConfirmedBlockHandler := func(fb []*Tx) error {
+		confirmedTxs = fb
 
 		return nil
 	}
@@ -714,7 +710,7 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 			dbMock.Writter.On("Execute").Return(error(nil)).Once()
 			dbMock.Writter.On("AddTxOutputs", ([]*TxInputOutput)(nil)).Once()
 			dbMock.Writter.On("RemoveTxOutputs", []*TxInput(nil), false).Once()
-			dbMock.Writter.On("AddConfirmedBlock", mock.Anything).Once()
+			dbMock.Writter.On("AddConfirmedTxs", mock.Anything).Once()
 			dbMock.Writter.On("SetLatestBlockPoint", &BlockPoint{
 				BlockSlot: blockHeaders[i-2].SlotNumberVal,
 				BlockHash: hash2Bytes(blockHeaders[i-2].HashVal),
@@ -729,9 +725,8 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 			require.Len(t, blockIndexer.unconfirmedBlocks, i+1)
 		} else {
 			require.Len(t, blockIndexer.unconfirmedBlocks, 2)
-			require.NotNil(t, confirmedBlock)
-			require.Equal(t, blockHeaders[i-2].Hash(), confirmedBlock.Hash)
-			require.Len(t, confirmedBlock.Txs, i-1)
+			require.Len(t, confirmedTxs, i-1)
+			require.Equal(t, blockHeaders[i-2].Hash(), confirmedTxs[0].BlockHash)
 		}
 
 		dbMock.AssertExpectations(t)

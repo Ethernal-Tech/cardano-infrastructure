@@ -60,15 +60,17 @@ func (tw *BoltDbTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput)
 	return tw
 }
 
-func (tw *BoltDbTransactionWriter) AddConfirmedBlock(block *core.FullBlock) core.DbTransactionWriter {
+func (tw *BoltDbTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DbTransactionWriter {
 	tw.operations = append(tw.operations, func(tx *bolt.Tx) error {
-		bytes, err := json.Marshal(block)
-		if err != nil {
-			return fmt.Errorf("could not marshal confirmed block: %v", err)
-		}
+		for _, cardTx := range txs {
+			bytes, err := json.Marshal(cardTx)
+			if err != nil {
+				return fmt.Errorf("could not marshal confirmed tx: %v", err)
+			}
 
-		if err = tx.Bucket(unprocessedBlocksBucket).Put(block.Key(), bytes); err != nil {
-			return fmt.Errorf("confirmed block write error: %v", err)
+			if err = tx.Bucket(unprocessedTxsBucket).Put(cardTx.Key(), bytes); err != nil {
+				return fmt.Errorf("confirmed tx write error: %v", err)
+			}
 		}
 
 		return nil

@@ -74,11 +74,11 @@ func (m *DatabaseMock) GetTxOutput(txInput TxInput) (TxOutput, error) {
 	return args.Get(0).(TxOutput), args.Error(1)
 }
 
-// GetUnprocessedConfirmedBlocks implements Database.
-func (m *DatabaseMock) GetUnprocessedConfirmedBlocks(maxCnt int) ([]*FullBlock, error) {
+// GetUnprocessedConfirmedTxs implements Database.
+func (m *DatabaseMock) GetUnprocessedConfirmedTxs(maxCnt int) ([]*Tx, error) {
 	args := m.Called(maxCnt)
 
-	return args.Get(0).([]*FullBlock), args.Error(1)
+	return args.Get(0).([]*Tx), args.Error(1)
 }
 
 // Init implements Database.
@@ -92,9 +92,9 @@ func (m *DatabaseMock) Init(filepath string) error {
 	return args.Error(0)
 }
 
-// MarkConfirmedBlockProcessed implements Database.
-func (m *DatabaseMock) MarkConfirmedBlocksProcessed(blocks []*FullBlock) error {
-	return m.Called(blocks).Error(0)
+// MarkConfirmedTxsProcessed implements Database.
+func (m *DatabaseMock) MarkConfirmedTxsProcessed(txs []*Tx) error {
+	return m.Called(txs).Error(0)
 }
 
 // OpenTx implements Database.
@@ -116,19 +116,19 @@ var _ Database = (*DatabaseMock)(nil)
 
 type DbTransactionWriterMock struct {
 	mock.Mock
-	AddConfirmedBlockFn   func(block *FullBlock) DbTransactionWriter
+	AddConfirmedTxsFn     func(txs []*Tx) DbTransactionWriter
 	AddTxOutputsFn        func(txOutputs []*TxInputOutput) DbTransactionWriter
 	RemoveTxOutputsFn     func(txInputs []*TxInput) DbTransactionWriter
 	SetLatestBlockPointFn func(point *BlockPoint) DbTransactionWriter
 	ExecuteFn             func() error
 }
 
-// AddConfirmedBlock implements DbTransactionWriter.
-func (m *DbTransactionWriterMock) AddConfirmedBlock(block *FullBlock) DbTransactionWriter {
-	m.Called(block)
+// AddConfirmedTxs implements DbTransactionWriter.
+func (m *DbTransactionWriterMock) AddConfirmedTxs(txs []*Tx) DbTransactionWriter {
+	m.Called(txs)
 
-	if m.AddConfirmedBlockFn != nil {
-		return m.AddConfirmedBlockFn(block)
+	if m.AddConfirmedTxsFn != nil {
+		return m.AddConfirmedTxsFn(txs)
 	}
 
 	return m
