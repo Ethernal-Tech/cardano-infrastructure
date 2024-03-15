@@ -1,15 +1,15 @@
-package indexerboltdb
+package indexerbbolt
 
 import (
 	"encoding/json"
 	"fmt"
 
 	core "github.com/Ethernal-Tech/cardano-infrastructure/indexer"
-	"github.com/boltdb/bolt"
+	"go.etcd.io/bbolt"
 )
 
-type BoltDatabase struct {
-	db *bolt.DB
+type BBoltDatabase struct {
+	db *bbolt.DB
 }
 
 var (
@@ -21,17 +21,17 @@ var (
 	defaultKey = []byte("default")
 )
 
-var _ core.Database = (*BoltDatabase)(nil)
+var _ core.Database = (*BBoltDatabase)(nil)
 
-func (bd *BoltDatabase) Init(filePath string) error {
-	db, err := bolt.Open(filePath, 0600, nil)
+func (bd *BBoltDatabase) Init(filePath string) error {
+	db, err := bbolt.Open(filePath, 0600, nil)
 	if err != nil {
 		return fmt.Errorf("could not open db: %v", err)
 	}
 
 	bd.db = db
 
-	return db.Update(func(tx *bolt.Tx) error {
+	return db.Update(func(tx *bbolt.Tx) error {
 		for _, bn := range [][]byte{txOutputsBucket, latestBlockPointBucket, processedTxsBucket, unprocessedTxsBucket} {
 			_, err := tx.CreateBucketIfNotExists(bn)
 			if err != nil {
@@ -43,14 +43,14 @@ func (bd *BoltDatabase) Init(filePath string) error {
 	})
 }
 
-func (bd *BoltDatabase) Close() error {
+func (bd *BBoltDatabase) Close() error {
 	return bd.db.Close()
 }
 
-func (bd *BoltDatabase) GetLatestBlockPoint() (*core.BlockPoint, error) {
+func (bd *BBoltDatabase) GetLatestBlockPoint() (*core.BlockPoint, error) {
 	var result *core.BlockPoint
 
-	if err := bd.db.View(func(tx *bolt.Tx) error {
+	if err := bd.db.View(func(tx *bbolt.Tx) error {
 		if data := tx.Bucket(latestBlockPointBucket).Get(defaultKey); len(data) > 0 {
 			return json.Unmarshal(data, &result)
 		}
@@ -63,8 +63,8 @@ func (bd *BoltDatabase) GetLatestBlockPoint() (*core.BlockPoint, error) {
 	return result, nil
 }
 
-func (bd *BoltDatabase) GetTxOutput(txInput core.TxInput) (result core.TxOutput, err error) {
-	err = bd.db.View(func(tx *bolt.Tx) error {
+func (bd *BBoltDatabase) GetTxOutput(txInput core.TxInput) (result core.TxOutput, err error) {
+	err = bd.db.View(func(tx *bbolt.Tx) error {
 		if data := tx.Bucket(txOutputsBucket).Get(txInput.Key()); len(data) > 0 {
 			return json.Unmarshal(data, &result)
 		}
@@ -75,8 +75,8 @@ func (bd *BoltDatabase) GetTxOutput(txInput core.TxInput) (result core.TxOutput,
 	return result, err
 }
 
-func (bd *BoltDatabase) MarkConfirmedTxsProcessed(txs []*core.Tx) error {
-	return bd.db.Update(func(tx *bolt.Tx) error {
+func (bd *BBoltDatabase) MarkConfirmedTxsProcessed(txs []*core.Tx) error {
+	return bd.db.Update(func(tx *bbolt.Tx) error {
 		for _, cardTx := range txs {
 			if err := tx.Bucket(unprocessedTxsBucket).Delete(cardTx.Key()); err != nil {
 				return fmt.Errorf("could not remove from unprocessed blocks: %v", err)
@@ -96,10 +96,10 @@ func (bd *BoltDatabase) MarkConfirmedTxsProcessed(txs []*core.Tx) error {
 	})
 }
 
-func (bd *BoltDatabase) GetUnprocessedConfirmedTxs(maxCnt int) ([]*core.Tx, error) {
+func (bd *BBoltDatabase) GetUnprocessedConfirmedTxs(maxCnt int) ([]*core.Tx, error) {
 	var result []*core.Tx
 
-	err := bd.db.View(func(tx *bolt.Tx) error {
+	err := bd.db.View(func(tx *bbolt.Tx) error {
 		cursor := tx.Bucket(unprocessedTxsBucket).Cursor()
 
 		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
@@ -124,8 +124,8 @@ func (bd *BoltDatabase) GetUnprocessedConfirmedTxs(maxCnt int) ([]*core.Tx, erro
 	return result, nil
 }
 
-func (bd *BoltDatabase) OpenTx() core.DbTransactionWriter {
-	return &BoltDbTransactionWriter{
+func (bd *BBoltDatabase) OpenTx() core.DbTransactionWriter {
+	return &BBoltTransactionWriter{
 		db: bd.db,
 	}
 }

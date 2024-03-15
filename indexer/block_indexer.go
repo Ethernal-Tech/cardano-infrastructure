@@ -312,6 +312,7 @@ func (bi BlockIndexer) createTx(ledgerBlockHeader ledger.BlockHeader, ledgerTx l
 		BlockHash:  ledgerBlockHeader.Hash(),
 		BlockNum:   ledgerBlockHeader.BlockNumber(),
 		BlockEraID: ledgerBlockHeader.Era().Id,
+		Valid:      ledgerTx.IsValid(),
 	}
 
 	if inputs := ledgerTx.Inputs(); len(inputs) > 0 {

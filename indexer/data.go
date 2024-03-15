@@ -31,6 +31,7 @@ type Tx struct {
 	Outputs    []*TxOutput      `json:"outputs"`
 	Fee        uint64           `json:"fee"`
 	Witnesses  []Witness        `json:"witness"`
+	Valid      bool             `json:"valid"`
 }
 
 type TxInput struct {

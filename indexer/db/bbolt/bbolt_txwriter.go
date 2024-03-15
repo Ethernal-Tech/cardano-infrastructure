@@ -1,4 +1,4 @@
-package indexerboltdb
+package indexerbbolt
 
 import (
 	"encoding/json"
@@ -6,20 +6,20 @@ import (
 
 	core "github.com/Ethernal-Tech/cardano-infrastructure/indexer"
 
-	"github.com/boltdb/bolt"
+	"go.etcd.io/bbolt"
 )
 
-type txOperation func(tx *bolt.Tx) error
+type txOperation func(tx *bbolt.Tx) error
 
-type BoltDbTransactionWriter struct {
-	db         *bolt.DB
+type BBoltTransactionWriter struct {
+	db         *bbolt.DB
 	operations []txOperation
 }
 
-var _ core.DbTransactionWriter = (*BoltDbTransactionWriter)(nil)
+var _ core.DbTransactionWriter = (*BBoltTransactionWriter)(nil)
 
-func (tw *BoltDbTransactionWriter) SetLatestBlockPoint(point *core.BlockPoint) core.DbTransactionWriter {
-	tw.operations = append(tw.operations, func(tx *bolt.Tx) error {
+func (tw *BBoltTransactionWriter) SetLatestBlockPoint(point *core.BlockPoint) core.DbTransactionWriter {
+	tw.operations = append(tw.operations, func(tx *bbolt.Tx) error {
 		bytes, err := json.Marshal(point)
 		if err != nil {
 			return fmt.Errorf("could not marshal latest block point: %v", err)
@@ -35,12 +35,12 @@ func (tw *BoltDbTransactionWriter) SetLatestBlockPoint(point *core.BlockPoint) c
 	return tw
 }
 
-func (tw *BoltDbTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput) core.DbTransactionWriter {
+func (tw *BBoltTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput) core.DbTransactionWriter {
 	if len(txOutputs) == 0 {
 		return tw
 	}
 
-	tw.operations = append(tw.operations, func(tx *bolt.Tx) error {
+	tw.operations = append(tw.operations, func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(txOutputsBucket)
 
 		for _, inpOut := range txOutputs {
@@ -60,8 +60,8 @@ func (tw *BoltDbTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput)
 	return tw
 }
 
-func (tw *BoltDbTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DbTransactionWriter {
-	tw.operations = append(tw.operations, func(tx *bolt.Tx) error {
+func (tw *BBoltTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DbTransactionWriter {
+	tw.operations = append(tw.operations, func(tx *bbolt.Tx) error {
 		for _, cardTx := range txs {
 			bytes, err := json.Marshal(cardTx)
 			if err != nil {
@@ -79,12 +79,12 @@ func (tw *BoltDbTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DbTransa
 	return tw
 }
 
-func (tw *BoltDbTransactionWriter) RemoveTxOutputs(txInputs []*core.TxInput, softDelete bool) core.DbTransactionWriter {
+func (tw *BBoltTransactionWriter) RemoveTxOutputs(txInputs []*core.TxInput, softDelete bool) core.DbTransactionWriter {
 	if len(txInputs) == 0 {
 		return tw
 	}
 
-	tw.operations = append(tw.operations, func(tx *bolt.Tx) error {
+	tw.operations = append(tw.operations, func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(txOutputsBucket)
 
 		for _, inp := range txInputs {
@@ -120,12 +120,12 @@ func (tw *BoltDbTransactionWriter) RemoveTxOutputs(txInputs []*core.TxInput, sof
 	return tw
 }
 
-func (tw *BoltDbTransactionWriter) Execute() error {
+func (tw *BBoltTransactionWriter) Execute() error {
 	defer func() {
 		tw.operations = nil
 	}()
 
-	return tw.db.Update(func(tx *bolt.Tx) error {
+	return tw.db.Update(func(tx *bbolt.Tx) error {
 		for _, op := range tw.operations {
 			if err := op(tx); err != nil {
 				return err

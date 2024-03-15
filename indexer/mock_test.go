@@ -7,6 +7,7 @@ import (
 	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	utxorpc "github.com/utxorpc/go-codegen/utxorpc/v1alpha/cardano"
 )
 
 type BlockSyncerMock struct {
@@ -266,6 +267,10 @@ func (m *LedgerBlockMock) Transactions() []ledger.Transaction {
 	return m.TransactionsVal
 }
 
+func (m *LedgerBlockMock) Utxorpc() *utxorpc.Block {
+	return nil
+}
+
 var _ ledger.Block = (*LedgerBlockMock)(nil)
 
 type LedgerTransactionMock struct {
@@ -275,6 +280,7 @@ type LedgerTransactionMock struct {
 	OutputsVal  []ledger.TransactionOutput
 	MetadataVal *cbor.Value
 	TTLVal      uint64
+	IsInvalid   bool
 }
 
 // Cbor implements ledger.Transaction.
@@ -312,6 +318,14 @@ func (m *LedgerTransactionMock) TTL() uint64 {
 	return m.TTLVal
 }
 
+func (m *LedgerTransactionMock) Utxorpc() *utxorpc.Tx {
+	return nil
+}
+
+func (m *LedgerTransactionMock) IsValid() bool {
+	return !m.IsInvalid
+}
+
 var _ ledger.Transaction = (*LedgerTransactionMock)(nil)
 
 type LedgerTransactionInputMock struct {
@@ -336,6 +350,10 @@ func (m *LedgerTransactionInputMock) Id() ledger.Blake2b256 {
 // Index implements ledger.TransactionInput.
 func (m *LedgerTransactionInputMock) Index() uint32 {
 	return m.IndexVal
+}
+
+func (m *LedgerTransactionInputMock) Utxorpc() *utxorpc.TxInput {
+	return nil
 }
 
 var _ ledger.TransactionInput = (*LedgerTransactionInputMock)(nil)
@@ -385,6 +403,10 @@ func (m *LedgerTransactionOutputMock) Datum() *cbor.LazyValue {
 // DatumHash implements ledger.TransactionOutput.
 func (m *LedgerTransactionOutputMock) DatumHash() *ledger.Blake2b256 {
 	panic("unimplemented")
+}
+
+func (m *LedgerTransactionOutputMock) Utxorpc() *utxorpc.TxOutput {
+	return nil
 }
 
 var _ ledger.TransactionOutput = (*LedgerTransactionOutputMock)(nil)

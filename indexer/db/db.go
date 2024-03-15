@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	core "github.com/Ethernal-Tech/cardano-infrastructure/indexer"
-	boltdb "github.com/Ethernal-Tech/cardano-infrastructure/indexer/db/boltdb"
+	bbolt "github.com/Ethernal-Tech/cardano-infrastructure/indexer/db/bbolt"
 	leveldb "github.com/Ethernal-Tech/cardano-infrastructure/indexer/db/leveldb"
 )
 
@@ -13,7 +13,7 @@ func NewDatabase(name string) core.Database {
 	case "leveldb":
 		return &leveldb.LevelDbDatabase{}
 	default:
-		return &boltdb.BoltDatabase{}
+		return &bbolt.BBoltDatabase{}
 	}
 }
 
