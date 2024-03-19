@@ -35,13 +35,14 @@ func TestBlockIndexer_processConfirmedBlockNoTxOfInterest(t *testing.T) {
 		BlockNumber: blockNumber,
 	}
 	config := &BlockIndexerConfig{
-		AddressCheck:        AddressCheckAll,
-		AddressesOfInterest: addressesOfInterest,
+		AddressCheck:            AddressCheckAll,
+		AddressesOfInterest:     addressesOfInterest,
+		KeepAllTxsHashesInBlock: true,
 	}
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb []*Tx) error {
+	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
 	}
 
@@ -71,11 +72,17 @@ func TestBlockIndexer_processConfirmedBlockNoTxOfInterest(t *testing.T) {
 	dbMock.Writter.On("SetLatestBlockPoint", expectedLastBlockPoint).Once()
 	dbMock.Writter.On("RemoveTxOutputs", ([]*TxInput)(nil), false).Once()
 	dbMock.Writter.On("AddTxOutputs", ([]*TxInputOutput)(nil)).Once()
+	dbMock.Writter.On("AddConfirmedBlock", &CardanoBlock{
+		Slot:   blockSlot,
+		Number: blockNumber,
+		Hash:   bytes2Hash(blockHash),
+		Txs:    getTxHashes(allTransactions),
+	}).Once()
 
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
 	assert.NotNil(t, blockIndexer)
 
-	fb, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
+	cb, fb, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
 		SlotNumberVal:  blockSlot,
 		HashVal:        bytes2Hash(blockHash),
 		BlockNumberVal: blockNumber,
@@ -83,6 +90,7 @@ func TestBlockIndexer_processConfirmedBlockNoTxOfInterest(t *testing.T) {
 
 	require.Nil(t, err)
 	assert.Nil(t, fb)
+	assert.Len(t, cb.Txs, 2)
 	assert.Equal(t, expectedLastBlockPoint, latestBlockPoint)
 	dbMock.AssertExpectations(t)
 	dbMock.Writter.AssertExpectations(t)
@@ -116,14 +124,15 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInOutputs(t *testing.T) {
 		BlockNumber: blockNumber,
 	}
 	config := &BlockIndexerConfig{
-		AddressCheck:        AddressCheckAll,
-		AddressesOfInterest: addressesOfInterest,
-		SoftDeleteUtxo:      true,
+		AddressCheck:            AddressCheckAll,
+		AddressesOfInterest:     addressesOfInterest,
+		SoftDeleteUtxo:          true,
+		KeepAllTxsHashesInBlock: true,
 	}
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb []*Tx) error {
+	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
 	}
 
@@ -172,6 +181,12 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInOutputs(t *testing.T) {
 		Index: txInputs[2].Index(),
 	}).Return(TxOutput{Address: "2", Amount: 4}, error(nil)).Once()
 
+	dbMock.Writter.On("AddConfirmedBlock", &CardanoBlock{
+		Slot:   blockSlot,
+		Number: blockNumber,
+		Hash:   bytes2Hash(blockHash),
+		Txs:    getTxHashes(allTransactions),
+	}).Once()
 	dbMock.Writter.On("Execute").Return(error(nil)).Once()
 	dbMock.Writter.On("SetLatestBlockPoint", expectedLastBlockPoint).Once()
 	dbMock.Writter.On("RemoveTxOutputs", []*TxInput{
@@ -215,7 +230,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInOutputs(t *testing.T) {
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
 	assert.NotNil(t, blockIndexer)
 
-	txs, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
+	cb, txs, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
 		SlotNumberVal:  blockSlot,
 		HashVal:        bytes2Hash(blockHash),
 		BlockNumberVal: blockNumber,
@@ -223,6 +238,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInOutputs(t *testing.T) {
 
 	require.Nil(t, err)
 	require.Len(t, txs, 2)
+	assert.Len(t, cb.Txs, 3)
 	assert.Equal(t, txs[0].Hash, hashTx[0])
 	assert.Equal(t, txs[1].Hash, hashTx[1])
 	assert.Equal(t, expectedLastBlockPoint, latestBlockPoint)
@@ -275,13 +291,14 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInInputs(t *testing.T) {
 		BlockNumber: blockNumber,
 	}
 	config := &BlockIndexerConfig{
-		AddressCheck:        AddressCheckAll,
-		AddressesOfInterest: addressesOfInterest,
+		AddressCheck:            AddressCheckAll,
+		AddressesOfInterest:     addressesOfInterest,
+		KeepAllTxsHashesInBlock: false,
 	}
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb []*Tx) error {
+	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
 	}
 
@@ -336,6 +353,14 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInInputs(t *testing.T) {
 	}).Return(TxOutput{
 		Address: addressesOfInterest[1],
 	}, error(nil)).Twice()
+	dbMock.Writter.On("AddConfirmedBlock", &CardanoBlock{
+		Slot:   blockSlot,
+		Number: blockNumber,
+		Hash:   bytes2Hash(blockHash),
+		Txs: getTxHashes([]ledger.Transaction{
+			allTransactions[0], allTransactions[2],
+		}),
+	}).Once()
 	dbMock.Writter.On("SetLatestBlockPoint", expectedLastBlockPoint).Once()
 	dbMock.Writter.On("AddTxOutputs", ([]*TxInputOutput)(nil)).Once()
 	dbMock.Writter.On("RemoveTxOutputs", []*TxInput{
@@ -362,7 +387,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInInputs(t *testing.T) {
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
 	assert.NotNil(t, blockIndexer)
 
-	txs, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
+	cb, txs, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
 		SlotNumberVal:  blockSlot,
 		HashVal:        bytes2Hash(blockHash),
 		BlockNumberVal: blockNumber,
@@ -370,6 +395,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInInputs(t *testing.T) {
 
 	require.Nil(t, err)
 	require.Len(t, txs, 2)
+	assert.Len(t, cb.Txs, 2)
 	assert.Equal(t, txs[0].Hash, hashTx[0])
 	assert.Equal(t, txs[1].Hash, hashTx[1])
 	assert.Equal(t, expectedLastBlockPoint, latestBlockPoint)
@@ -425,7 +451,7 @@ func TestBlockIndexer_processConfirmedBlockKeepAllTxOutputsInDb(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb []*Tx) error {
+	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
 	}
 
@@ -485,6 +511,12 @@ func TestBlockIndexer_processConfirmedBlockKeepAllTxOutputsInDb(t *testing.T) {
 			Index: txInputs[1].Index(),
 		},
 	}, false).Once()
+	dbMock.Writter.On("AddConfirmedBlock", &CardanoBlock{
+		Slot:   blockSlot,
+		Number: blockNumber,
+		Hash:   bytes2Hash(blockHash),
+		Txs:    getTxHashes(allTransactions),
+	}).Once()
 	dbMock.Writter.On("AddConfirmedTxs", mock.Anything).Run(func(args mock.Arguments) {
 		txs := args.Get(0).([]*Tx)
 		require.Len(t, txs, 2)
@@ -495,13 +527,14 @@ func TestBlockIndexer_processConfirmedBlockKeepAllTxOutputsInDb(t *testing.T) {
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
 	assert.NotNil(t, blockIndexer)
 
-	txs, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
+	cb, txs, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
 		SlotNumberVal:  blockSlot,
 		HashVal:        bytes2Hash(blockHash),
 		BlockNumberVal: blockNumber,
 	}, allTransactions)
 
 	require.Nil(t, err)
+	assert.Len(t, cb.Txs, 2)
 	require.Len(t, txs, 2)
 	assert.Equal(t, txs[0].Hash, hashTx[0])
 	assert.Equal(t, txs[1].Hash, hashTx[1])
@@ -539,7 +572,7 @@ func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb []*Tx) error {
+	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
 	}
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
@@ -585,7 +618,7 @@ func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb []*Tx) error {
+	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
 	}
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
@@ -625,7 +658,7 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb []*Tx) error {
+	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
 	}
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
@@ -697,7 +730,7 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DbTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(fb []*Tx) error {
+	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		confirmedTxs = fb
 
 		return nil
@@ -706,11 +739,15 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 
 	for i, h := range blockHeaders {
 		if i >= 2 {
+			txsRetrievedWithGetTxs, err := getTxs[i-2]()
+			require.NoError(t, err)
+
 			dbMock.On("OpenTx").Once()
 			dbMock.Writter.On("Execute").Return(error(nil)).Once()
 			dbMock.Writter.On("AddTxOutputs", ([]*TxInputOutput)(nil)).Once()
 			dbMock.Writter.On("RemoveTxOutputs", []*TxInput(nil), false).Once()
 			dbMock.Writter.On("AddConfirmedTxs", mock.Anything).Once()
+			dbMock.Writter.On("AddConfirmedBlock", NewCardanoBlock(blockHeaders[i-2], getTxHashes(txsRetrievedWithGetTxs))).Once()
 			dbMock.Writter.On("SetLatestBlockPoint", &BlockPoint{
 				BlockSlot: blockHeaders[i-2].SlotNumberVal,
 				BlockHash: hash2Bytes(blockHeaders[i-2].HashVal),

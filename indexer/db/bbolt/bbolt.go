@@ -17,6 +17,7 @@ var (
 	latestBlockPointBucket = []byte("LatestBlockPoint")
 	processedTxsBucket     = []byte("ProcessedTxs")
 	unprocessedTxsBucket   = []byte("UnprocessedTxs")
+	confirmedBlocks        = []byte("confirmedBlocks")
 
 	defaultKey = []byte("default")
 )
@@ -32,7 +33,7 @@ func (bd *BBoltDatabase) Init(filePath string) error {
 	bd.db = db
 
 	return db.Update(func(tx *bbolt.Tx) error {
-		for _, bn := range [][]byte{txOutputsBucket, latestBlockPointBucket, processedTxsBucket, unprocessedTxsBucket} {
+		for _, bn := range [][]byte{txOutputsBucket, latestBlockPointBucket, processedTxsBucket, unprocessedTxsBucket, confirmedBlocks} {
 			_, err := tx.CreateBucketIfNotExists(bn)
 			if err != nil {
 				return fmt.Errorf("could not bucket: %s, err: %v", string(bn), err)
@@ -110,6 +111,34 @@ func (bd *BBoltDatabase) GetUnprocessedConfirmedTxs(maxCnt int) ([]*core.Tx, err
 			}
 
 			result = append(result, cardTx)
+			if maxCnt > 0 && len(result) == maxCnt {
+				break
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (bd *BBoltDatabase) GetLatestConfirmedBlocks(maxCnt int) ([]*core.CardanoBlock, error) {
+	var result []*core.CardanoBlock
+
+	err := bd.db.View(func(tx *bbolt.Tx) error {
+		cursor := tx.Bucket(confirmedBlocks).Cursor()
+
+		for k, v := cursor.Last(); k != nil; k, v = cursor.Prev() {
+			var block *core.CardanoBlock
+
+			if err := json.Unmarshal(v, &block); err != nil {
+				return err
+			}
+
+			result = append(result, block)
 			if maxCnt > 0 && len(result) == maxCnt {
 				break
 			}

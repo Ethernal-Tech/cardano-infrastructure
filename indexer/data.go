@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 )
 
@@ -21,17 +22,16 @@ type BlockPoint struct {
 }
 
 type Tx struct {
-	BlockSlot  uint64           `json:"slot"`
-	BlockHash  string           `json:"bhash"`
-	BlockNum   uint64           `json:"bnum"`
-	BlockEraID uint8            `json:"era"`
-	Hash       string           `json:"hash"`
-	Metadata   []byte           `json:"metadata"`
-	Inputs     []*TxInputOutput `json:"inputs"`
-	Outputs    []*TxOutput      `json:"outputs"`
-	Fee        uint64           `json:"fee"`
-	Witnesses  []Witness        `json:"witness"`
-	Valid      bool             `json:"valid"`
+	BlockSlot uint64           `json:"slot"`
+	BlockHash string           `json:"bhash"`
+	Indx      uint32           `json:"indx"`
+	Hash      string           `json:"hash"`
+	Metadata  []byte           `json:"metadata"`
+	Inputs    []*TxInputOutput `json:"inputs"`
+	Outputs   []*TxOutput      `json:"outputs"`
+	Fee       uint64           `json:"fee"`
+	Witnesses []Witness        `json:"witness"`
+	Valid     bool             `json:"valid"`
 }
 
 type TxInput struct {
@@ -48,6 +48,30 @@ type TxOutput struct {
 type TxInputOutput struct {
 	Input  TxInput  `json:"inp"`
 	Output TxOutput `json:"out"`
+}
+
+type CardanoBlock struct {
+	Slot    uint64   `json:"slot"`
+	Hash    string   `json:"hash"`
+	Number  uint64   `json:"num"`
+	EraID   uint8    `json:"era"`
+	EraName string   `json:"-"`
+	Txs     []string `json:"txs"`
+}
+
+func NewCardanoBlock(header ledger.BlockHeader, txs []string) *CardanoBlock {
+	return &CardanoBlock{
+		Slot:    header.SlotNumber(),
+		Hash:    header.Hash(),
+		Number:  header.BlockNumber(),
+		EraID:   header.Era().Id,
+		EraName: header.Era().Name,
+		Txs:     txs,
+	}
+}
+
+func (cb CardanoBlock) Key() []byte {
+	return []byte(fmt.Sprintf("%20d", cb.Slot))
 }
 
 func NewWitnesses(vkeyWitnesses []interface{}) []Witness {
@@ -75,7 +99,7 @@ func NewWitnesses(vkeyWitnesses []interface{}) []Witness {
 }
 
 func (tx Tx) Key() []byte {
-	return hash2Bytes(tx.Hash)
+	return []byte(fmt.Sprintf("%20d_%6d", tx.BlockSlot, tx.Indx))
 }
 
 func (tx Tx) String() string {
@@ -121,8 +145,6 @@ func (tx Tx) String() string {
 	sb.WriteString(tx.BlockHash)
 	sb.WriteString("\nblock slot = ")
 	sb.WriteString(strconv.FormatUint(tx.BlockSlot, 10))
-	sb.WriteString("\nblock num = ")
-	sb.WriteString(strconv.FormatUint(tx.BlockNum, 10))
 	sb.WriteString("\nfee = ")
 	sb.WriteString(strconv.FormatUint(tx.Fee, 10))
 	if tx.Metadata != nil {

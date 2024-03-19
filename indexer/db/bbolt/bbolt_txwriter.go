@@ -60,6 +60,23 @@ func (tw *BBoltTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput) 
 	return tw
 }
 
+func (tw *BBoltTransactionWriter) AddConfirmedBlock(block *core.CardanoBlock) core.DbTransactionWriter {
+	tw.operations = append(tw.operations, func(tx *bbolt.Tx) error {
+		bytes, err := json.Marshal(block)
+		if err != nil {
+			return fmt.Errorf("could not marshal confirmed block: %v", err)
+		}
+
+		if err = tx.Bucket(confirmedBlocks).Put(block.Key(), bytes); err != nil {
+			return fmt.Errorf("confirmed block write error: %v", err)
+		}
+
+		return nil
+	})
+
+	return tw
+}
+
 func (tw *BBoltTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DbTransactionWriter {
 	tw.operations = append(tw.operations, func(tx *bbolt.Tx) error {
 		for _, cardTx := range txs {

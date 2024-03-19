@@ -3,6 +3,7 @@ package indexer
 type DbTransactionWriter interface {
 	SetLatestBlockPoint(point *BlockPoint) DbTransactionWriter
 	AddTxOutputs(txOutputs []*TxInputOutput) DbTransactionWriter
+	AddConfirmedBlock(block *CardanoBlock) DbTransactionWriter
 	AddConfirmedTxs(txs []*Tx) DbTransactionWriter
 	RemoveTxOutputs(txInputs []*TxInput, softDelete bool) DbTransactionWriter
 	Execute() error
@@ -25,4 +26,5 @@ type Database interface {
 
 	MarkConfirmedTxsProcessed(txs []*Tx) error
 	GetUnprocessedConfirmedTxs(maxCnt int) ([]*Tx, error)
+	GetLatestConfirmedBlocks(maxCnt int) ([]*CardanoBlock, error)
 }

@@ -58,6 +58,21 @@ func (tw *LevelDbTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput
 	return tw
 }
 
+func (tw *LevelDbTransactionWriter) AddConfirmedBlock(block *core.CardanoBlock) core.DbTransactionWriter {
+	tw.operations = append(tw.operations, func(db *leveldb.DB, batch *leveldb.Batch) error {
+		bytes, err := json.Marshal(block)
+		if err != nil {
+			return fmt.Errorf("could not marshal confirmed block: %v", err)
+		}
+
+		batch.Put(bucketKey(confirmedBlocks, block.Key()), bytes)
+
+		return nil
+	})
+
+	return tw
+}
+
 func (tw *LevelDbTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DbTransactionWriter {
 	tw.operations = append(tw.operations, func(db *leveldb.DB, batch *leveldb.Batch) error {
 		for _, tx := range txs {

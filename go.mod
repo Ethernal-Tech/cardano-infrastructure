@@ -3,12 +3,12 @@ module github.com/Ethernal-Tech/cardano-infrastructure
 go 1.20
 
 require (
-	github.com/blinklabs-io/gouroboros v0.74.0
+	github.com/blinklabs-io/gouroboros v0.75.0
 	github.com/fxamacker/cbor/v2 v2.6.0
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/stretchr/testify v1.8.4
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/utxorpc/go-codegen v0.4.0
+	github.com/utxorpc/go-codegen v0.4.4
 	go.etcd.io/bbolt v1.3.9
 )
 

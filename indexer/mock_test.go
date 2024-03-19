@@ -113,6 +113,12 @@ func (m *DatabaseMock) Close() error {
 	return m.Called().Error(0)
 }
 
+func (m *DatabaseMock) GetLatestConfirmedBlocks(maxCnt int) ([]*CardanoBlock, error) {
+	args := m.Called()
+
+	return args.Get(0).([]*CardanoBlock), args.Error(1)
+}
+
 var _ Database = (*DatabaseMock)(nil)
 
 type DbTransactionWriterMock struct {
@@ -131,6 +137,12 @@ func (m *DbTransactionWriterMock) AddConfirmedTxs(txs []*Tx) DbTransactionWriter
 	if m.AddConfirmedTxsFn != nil {
 		return m.AddConfirmedTxsFn(txs)
 	}
+
+	return m
+}
+
+func (m *DbTransactionWriterMock) AddConfirmedBlock(block *CardanoBlock) DbTransactionWriter {
+	m.Called(block)
 
 	return m
 }

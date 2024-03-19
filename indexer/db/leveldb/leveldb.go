@@ -21,6 +21,7 @@ var (
 	latestBlockPointBucket = []byte("P2_")
 	processedTxsBucket     = []byte("P3_")
 	unprocessedTxsBucket   = []byte("P4_")
+	confirmedBlocks        = []byte("P5_")
 )
 
 var _ core.Database = (*LevelDbDatabase)(nil)
@@ -99,6 +100,28 @@ func (lvldb *LevelDbDatabase) GetUnprocessedConfirmedTxs(maxCnt int) ([]*core.Tx
 		}
 
 		result = append(result, tx)
+		if maxCnt > 0 && len(result) == maxCnt {
+			break
+		}
+	}
+
+	return result, iter.Error()
+}
+
+func (lvldb *LevelDbDatabase) GetLatestConfirmedBlocks(maxCnt int) ([]*core.CardanoBlock, error) {
+	var result []*core.CardanoBlock
+
+	iter := lvldb.db.NewIterator(util.BytesPrefix(confirmedBlocks), nil)
+	defer iter.Release()
+
+	for ok := iter.Last(); ok; ok = iter.Prev() {
+		var block *core.CardanoBlock
+
+		if err := json.Unmarshal(iter.Value(), &block); err != nil {
+			return nil, err
+		}
+
+		result = append(result, block)
 		if maxCnt > 0 && len(result) == maxCnt {
 			break
 		}
