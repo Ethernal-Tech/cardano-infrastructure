@@ -153,6 +153,34 @@ func (bd *BBoltDatabase) GetLatestConfirmedBlocks(maxCnt int) ([]*core.CardanoBl
 	return result, nil
 }
 
+func (bd *BBoltDatabase) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) ([]*core.CardanoBlock, error) {
+	var result []*core.CardanoBlock
+
+	err := bd.db.View(func(tx *bbolt.Tx) error {
+		cursor := tx.Bucket(confirmedBlocks).Cursor()
+
+		for k, v := cursor.Seek(core.SlotNumberToKey(slotNumber)); k != nil; k, v = cursor.Next() {
+			var block *core.CardanoBlock
+
+			if err := json.Unmarshal(v, &block); err != nil {
+				return err
+			}
+
+			result = append(result, block)
+			if maxCnt > 0 && len(result) == maxCnt {
+				break
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 func (bd *BBoltDatabase) OpenTx() core.DbTransactionWriter {
 	return &BBoltTransactionWriter{
 		db: bd.db,

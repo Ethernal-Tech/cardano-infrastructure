@@ -114,7 +114,13 @@ func (m *DatabaseMock) Close() error {
 }
 
 func (m *DatabaseMock) GetLatestConfirmedBlocks(maxCnt int) ([]*CardanoBlock, error) {
-	args := m.Called()
+	args := m.Called(maxCnt)
+
+	return args.Get(0).([]*CardanoBlock), args.Error(1)
+}
+
+func (m *DatabaseMock) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) ([]*CardanoBlock, error) {
+	args := m.Called(slotNumber, maxCnt)
 
 	return args.Get(0).([]*CardanoBlock), args.Error(1)
 }

@@ -11,8 +11,8 @@ import (
 )
 
 type Witness struct {
-	VKey      []byte `json:"vkey"`
-	Signature []byte `json:"sign"`
+	VKey      []byte `json:"key"`
+	Signature []byte `json:"sgn"`
 }
 
 type BlockPoint struct {
@@ -24,25 +24,25 @@ type BlockPoint struct {
 type Tx struct {
 	BlockSlot uint64           `json:"slot"`
 	BlockHash string           `json:"bhash"`
-	Indx      uint32           `json:"indx"`
+	Indx      uint32           `json:"ind"`
 	Hash      string           `json:"hash"`
 	Metadata  []byte           `json:"metadata"`
-	Inputs    []*TxInputOutput `json:"inputs"`
-	Outputs   []*TxOutput      `json:"outputs"`
+	Inputs    []*TxInputOutput `json:"inp"`
+	Outputs   []*TxOutput      `json:"out"`
 	Fee       uint64           `json:"fee"`
-	Witnesses []Witness        `json:"witness"`
+	Witnesses []Witness        `json:"ws"`
 	Valid     bool             `json:"valid"`
 }
 
 type TxInput struct {
 	Hash  string `json:"id"`
-	Index uint32 `json:"index"`
+	Index uint32 `json:"ind"`
 }
 
 type TxOutput struct {
-	Address string `json:"address"`
-	Amount  uint64 `json:"amount"`
-	IsUsed  bool   `json:"isUsed"`
+	Address string `json:"addr"`
+	Amount  uint64 `json:"amnt"`
+	IsUsed  bool   `json:"used"`
 }
 
 type TxInputOutput struct {
@@ -71,7 +71,11 @@ func NewCardanoBlock(header ledger.BlockHeader, txs []string) *CardanoBlock {
 }
 
 func (cb CardanoBlock) Key() []byte {
-	return []byte(fmt.Sprintf("%20d", cb.Slot))
+	return SlotNumberToKey(cb.Slot)
+}
+
+func SlotNumberToKey(slotNumber uint64) []byte {
+	return []byte(fmt.Sprintf("%20d", slotNumber))
 }
 
 func NewWitnesses(vkeyWitnesses []interface{}) []Witness {

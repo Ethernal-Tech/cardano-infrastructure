@@ -130,6 +130,28 @@ func (lvldb *LevelDbDatabase) GetLatestConfirmedBlocks(maxCnt int) ([]*core.Card
 	return result, iter.Error()
 }
 
+func (lvldb *LevelDbDatabase) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) ([]*core.CardanoBlock, error) {
+	var result []*core.CardanoBlock
+
+	iter := lvldb.db.NewIterator(util.BytesPrefix(confirmedBlocks), nil)
+	defer iter.Release()
+
+	for ok := iter.Seek(bucketKey(confirmedBlocks, core.SlotNumberToKey(slotNumber))); ok; ok = iter.Next() {
+		var block *core.CardanoBlock
+
+		if err := json.Unmarshal(iter.Value(), &block); err != nil {
+			return nil, err
+		}
+
+		result = append(result, block)
+		if maxCnt > 0 && len(result) == maxCnt {
+			break
+		}
+	}
+
+	return result, iter.Error()
+}
+
 func (lvldb *LevelDbDatabase) OpenTx() core.DbTransactionWriter {
 	return NewLevelDbTransactionWriter(lvldb.db)
 }

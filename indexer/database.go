@@ -27,4 +27,5 @@ type Database interface {
 	MarkConfirmedTxsProcessed(txs []*Tx) error
 	GetUnprocessedConfirmedTxs(maxCnt int) ([]*Tx, error)
 	GetLatestConfirmedBlocks(maxCnt int) ([]*CardanoBlock, error)
+	GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) ([]*CardanoBlock, error)
 }
