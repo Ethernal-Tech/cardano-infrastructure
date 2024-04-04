@@ -37,7 +37,7 @@ func NewLogger(config LoggerConfig) (l hclog.Logger, err error) {
 
 		logFileWriter, err = os.OpenFile(fullFilePath+".log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
-			return nil, fmt.Errorf("could not create or open log file, %w", err)
+			return nil, fmt.Errorf("could not create or open log file: %w", err)
 		}
 	}
 

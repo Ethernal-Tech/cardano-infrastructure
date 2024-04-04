@@ -27,7 +27,7 @@ var _ core.Database = (*BBoltDatabase)(nil)
 func (bd *BBoltDatabase) Init(filePath string) error {
 	db, err := bbolt.Open(filePath, 0600, nil)
 	if err != nil {
-		return fmt.Errorf("could not open db: %v", err)
+		return fmt.Errorf("could not open db: %w", err)
 	}
 
 	bd.db = db
@@ -36,7 +36,7 @@ func (bd *BBoltDatabase) Init(filePath string) error {
 		for _, bn := range [][]byte{txOutputsBucket, latestBlockPointBucket, processedTxsBucket, unprocessedTxsBucket, confirmedBlocks} {
 			_, err := tx.CreateBucketIfNotExists(bn)
 			if err != nil {
-				return fmt.Errorf("could not bucket: %s, err: %v", string(bn), err)
+				return fmt.Errorf("could not create bucket %s: %w", string(bn), err)
 			}
 		}
 
@@ -80,16 +80,16 @@ func (bd *BBoltDatabase) MarkConfirmedTxsProcessed(txs []*core.Tx) error {
 	return bd.db.Update(func(tx *bbolt.Tx) error {
 		for _, cardTx := range txs {
 			if err := tx.Bucket(unprocessedTxsBucket).Delete(cardTx.Key()); err != nil {
-				return fmt.Errorf("could not remove from unprocessed blocks: %v", err)
+				return fmt.Errorf("could not remove from unprocessed blocks: %w", err)
 			}
 
 			bytes, err := json.Marshal(cardTx)
 			if err != nil {
-				return fmt.Errorf("could not marshal block: %v", err)
+				return fmt.Errorf("could not marshal block: %w", err)
 			}
 
 			if err := tx.Bucket(processedTxsBucket).Put(cardTx.Key(), bytes); err != nil {
-				return fmt.Errorf("could not move to processed blocks: %v", err)
+				return fmt.Errorf("could not move to processed blocks: %w", err)
 			}
 		}
 

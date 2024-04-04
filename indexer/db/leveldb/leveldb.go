@@ -29,7 +29,7 @@ var _ core.Database = (*LevelDbDatabase)(nil)
 func (lvldb *LevelDbDatabase) Init(filePath string) error {
 	db, err := leveldb.OpenFile(filePath, nil)
 	if err != nil {
-		return fmt.Errorf("could not open db: %v", err)
+		return fmt.Errorf("could not open db: %w", err)
 	}
 
 	lvldb.db = db
@@ -73,7 +73,7 @@ func (lvldb *LevelDbDatabase) MarkConfirmedTxsProcessed(txs []*core.Tx) error {
 	for _, tx := range txs {
 		bytes, err := json.Marshal(tx)
 		if err != nil {
-			return fmt.Errorf("could not marshal tx: %v", err)
+			return fmt.Errorf("could not marshal tx: %w", err)
 		}
 
 		batch.Put(bucketKey(processedTxsBucket, tx.Key()), bytes)

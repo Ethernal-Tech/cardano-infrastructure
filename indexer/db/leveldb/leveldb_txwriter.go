@@ -30,7 +30,7 @@ func (tw *LevelDbTransactionWriter) SetLatestBlockPoint(point *core.BlockPoint) 
 	tw.operations = append(tw.operations, func(db *leveldb.DB, batch *leveldb.Batch) error {
 		bytes, err := json.Marshal(point)
 		if err != nil {
-			return fmt.Errorf("could not marshal latest block point: %v", err)
+			return fmt.Errorf("could not marshal latest block point: %w", err)
 		}
 
 		batch.Put(latestBlockPointBucket, bytes)
@@ -46,7 +46,7 @@ func (tw *LevelDbTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput
 		for _, inpOut := range txOutputs {
 			bytes, err := json.Marshal(inpOut.Output)
 			if err != nil {
-				return fmt.Errorf("could not marshal tx output: %v", err)
+				return fmt.Errorf("could not marshal tx output: %w", err)
 			}
 
 			batch.Put(bucketKey(txOutputsBucket, inpOut.Input.Key()), bytes)
@@ -62,7 +62,7 @@ func (tw *LevelDbTransactionWriter) AddConfirmedBlock(block *core.CardanoBlock) 
 	tw.operations = append(tw.operations, func(db *leveldb.DB, batch *leveldb.Batch) error {
 		bytes, err := json.Marshal(block)
 		if err != nil {
-			return fmt.Errorf("could not marshal confirmed block: %v", err)
+			return fmt.Errorf("could not marshal confirmed block: %w", err)
 		}
 
 		batch.Put(bucketKey(confirmedBlocks, block.Key()), bytes)
@@ -78,7 +78,7 @@ func (tw *LevelDbTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DbTrans
 		for _, tx := range txs {
 			bytes, err := json.Marshal(tx)
 			if err != nil {
-				return fmt.Errorf("could not marshal confirmed tx: %v", err)
+				return fmt.Errorf("could not marshal confirmed tx: %w", err)
 			}
 
 			batch.Put(bucketKey(unprocessedTxsBucket, tx.Key()), bytes)
@@ -115,14 +115,14 @@ func (tw *LevelDbTransactionWriter) RemoveTxOutputs(txInputs []*core.TxInput, so
 			var result core.TxOutput
 
 			if err := json.Unmarshal(data, &result); err != nil {
-				return fmt.Errorf("soft delete unmarshal utxo error: %v", err)
+				return fmt.Errorf("soft delete unmarshal utxo error: %w", err)
 			}
 
 			result.IsUsed = true
 
 			bytes, err := json.Marshal(result)
 			if err != nil {
-				return fmt.Errorf("soft delete marshal utxo error: %v", err)
+				return fmt.Errorf("soft delete marshal utxo error: %w", err)
 			}
 
 			batch.Put(key, bytes)
