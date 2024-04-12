@@ -8,15 +8,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/hashicorp/go-hclog"
 )
 
 // AwsSsmManager is a SecretsManager that
 // stores secrets on AWS SSM Parameter Store
 type AwsSsmManager struct {
-	// Local logger object
-	logger hclog.Logger
-
 	// The AWS region
 	region string
 
@@ -33,7 +29,7 @@ type AwsSsmManager struct {
 // SecretsManagerFactory implements the factory method
 func SecretsManagerFactory(
 	config *secrets.SecretsManagerConfig,
-	params *secrets.SecretsManagerParams) (secrets.SecretsManager, error) { //nolint
+) (secrets.SecretsManager, error) { //nolint
 
 	// Check if the node name is present
 	if config.Name == "" {
@@ -47,7 +43,6 @@ func SecretsManagerFactory(
 
 	// / Set up the base object
 	awsSsmManager := &AwsSsmManager{
-		logger:   params.Logger.Named(string(secrets.AWSSSM)),
 		region:   fmt.Sprintf("%v", config.Extra["region"]),
 		endpoint: config.ServerURL,
 	}

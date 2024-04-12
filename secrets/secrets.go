@@ -2,15 +2,10 @@ package secrets
 
 import (
 	"errors"
-
-	"github.com/hashicorp/go-hclog"
 )
 
 // Define constant key names for SecretsManagerParams.Extra
 const (
-	// Path is the path to the base working directory
-	Path = "path"
-
 	// Token is the token used for authenticating with a KMS
 	Token = "token"
 
@@ -86,25 +81,11 @@ type SecretsManager interface {
 	RemoveSecret(name string) error
 }
 
-// SecretsManagerParams defines the configuration params for the
-// secrets manager
-type SecretsManagerParams struct {
-	// Local logger object
-	Logger hclog.Logger
-
-	// Extra contains additional data needed for the SecretsManager to function
-	Extra map[string]interface{}
-}
-
 // SecretsManagerFactory is the factory method for secrets managers
 type SecretsManagerFactory func(
 	// config contains the necessary configuration saved to / read from json.
 	// It is used to configure the SecretsManager with information saved in advance
 	config *SecretsManagerConfig,
-
-	// params contains the runtime configuration parameters, such as the logger used,
-	// as well as any additional data the secrets manager might need (SecretsManagerParams.Extra field)
-	params *SecretsManagerParams,
 ) (SecretsManager, error)
 
 // SupportedServiceManager checks if the passed in service manager type is supported

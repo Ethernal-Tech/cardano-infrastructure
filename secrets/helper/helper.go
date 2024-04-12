@@ -8,87 +8,29 @@ import (
 	"github.com/Ethernal-Tech/cardano-infrastructure/secrets/gcpssm"
 	"github.com/Ethernal-Tech/cardano-infrastructure/secrets/hashicorpvault"
 	"github.com/Ethernal-Tech/cardano-infrastructure/secrets/local"
-	"github.com/hashicorp/go-hclog"
 )
 
-// SetupLocalSecretsManager is a helper method for boilerplate local secrets manager setup
-func SetupLocalSecretsManager(dataDir string) (secrets.SecretsManager, error) {
-	return local.SecretsManagerFactory(
-		nil, // Local secrets manager doesn't require a config
-		&secrets.SecretsManagerParams{
-			Logger: hclog.NewNullLogger(),
-			Extra: map[string]interface{}{
-				secrets.Path: dataDir,
-			},
-		},
-	)
-}
-
-// setupHashicorpVault is a helper method for boilerplate hashicorp vault secrets manager setup
-func setupHashicorpVault(
-	secretsConfig *secrets.SecretsManagerConfig,
-) (secrets.SecretsManager, error) {
-	return hashicorpvault.SecretsManagerFactory(
-		secretsConfig,
-		&secrets.SecretsManagerParams{
-			Logger: hclog.NewNullLogger(),
-		},
-	)
-}
-
-// setupAWSSSM is a helper method for boilerplate aws ssm secrets manager setup
-func setupAWSSSM(
-	secretsConfig *secrets.SecretsManagerConfig,
-) (secrets.SecretsManager, error) {
-	return awsssm.SecretsManagerFactory(
-		secretsConfig,
-		&secrets.SecretsManagerParams{
-			Logger: hclog.NewNullLogger(),
-		},
-	)
-}
-
-// setupGCPSSM is a helper method for boilerplate Google Cloud Computing secrets manager setup
-func setupGCPSSM(
-	secretsConfig *secrets.SecretsManagerConfig,
-) (secrets.SecretsManager, error) {
-	return gcpssm.SecretsManagerFactory(
-		secretsConfig,
-		&secrets.SecretsManagerParams{
-			Logger: hclog.NewNullLogger(),
-		},
-	)
-}
-
-// InitCloudSecretsManager returns the cloud secrets manager from the provided config
-func InitCloudSecretsManager(secretsConfig *secrets.SecretsManagerConfig) (secrets.SecretsManager, error) {
-	var secretsManager secrets.SecretsManager
-
-	switch secretsConfig.Type {
+// CreateSecretsManager returns the secrets manager from the provided config
+func CreateSecretsManager(config *secrets.SecretsManagerConfig) (secrets.SecretsManager, error) {
+	switch config.Type {
 	case secrets.HashicorpVault:
-		vault, err := setupHashicorpVault(secretsConfig)
-		if err != nil {
-			return secretsManager, err
-		}
-
-		secretsManager = vault
+		return hashicorpvault.SecretsManagerFactory(config)
 	case secrets.AWSSSM:
-		AWSSSM, err := setupAWSSSM(secretsConfig)
-		if err != nil {
-			return secretsManager, err
-		}
-
-		secretsManager = AWSSSM
+		return awsssm.SecretsManagerFactory(config)
 	case secrets.GCPSSM:
-		GCPSSM, err := setupGCPSSM(secretsConfig)
-		if err != nil {
-			return secretsManager, err
-		}
-
-		secretsManager = GCPSSM
+		return gcpssm.SecretsManagerFactory(config)
+	case secrets.Local:
+		return local.SecretsManagerFactory(config)
 	default:
-		return secretsManager, errors.New("unsupported secrets manager")
+		return nil, errors.New("unsupported secrets manager")
+	}
+}
+
+func GetValidatorKey(config *secrets.SecretsManagerConfig) ([]byte, error) {
+	mngr, err := CreateSecretsManager(config)
+	if err != nil {
+		return nil, err
 	}
 
-	return secretsManager, nil
+	return mngr.GetSecret(secrets.ValidatorKey)
 }

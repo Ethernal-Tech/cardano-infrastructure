@@ -9,15 +9,11 @@ import (
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/common"
 	"github.com/Ethernal-Tech/cardano-infrastructure/secrets"
-	"github.com/hashicorp/go-hclog"
 )
 
 // LocalSecretsManager is a SecretsManager that
 // stores secrets locally on disk
 type LocalSecretsManager struct {
-	// Logger object
-	logger hclog.Logger
-
 	// Path to the base working directory
 	path string
 
@@ -30,28 +26,22 @@ type LocalSecretsManager struct {
 
 // SecretsManagerFactory implements the factory method
 func SecretsManagerFactory(
-	_ *secrets.SecretsManagerConfig,
-	params *secrets.SecretsManagerParams,
+	config *secrets.SecretsManagerConfig,
 ) (secrets.SecretsManager, error) {
-	// Set up the base object
-	localManager := &LocalSecretsManager{
-		logger:        params.Logger.Named(string(secrets.Local)),
-		secretPathMap: make(map[string]string),
-	}
-
-	// Grab the path to the working directory
-	path, ok := params.Extra[secrets.Path]
-	if !ok {
+	if config.Path == "" {
 		return nil, errors.New("no path specified for local secrets manager")
 	}
 
-	localManager.path, ok = path.(string)
-	if !ok {
-		return nil, errors.New("invalid type assertion")
+	// Set up the base object
+	localManager := &LocalSecretsManager{
+		secretPathMap: make(map[string]string),
+		path:          config.Path,
 	}
 
 	// Run the initial setup
-	_ = localManager.Setup()
+	if err := localManager.Setup(); err != nil {
+		return nil, err
+	}
 
 	return localManager, nil
 }

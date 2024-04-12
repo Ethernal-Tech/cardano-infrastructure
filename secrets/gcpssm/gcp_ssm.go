@@ -7,7 +7,6 @@ import (
 
 	sm "cloud.google.com/go/secretmanager/apiv1"
 	"github.com/Ethernal-Tech/cardano-infrastructure/secrets"
-	"github.com/hashicorp/go-hclog"
 	smpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 )
 
@@ -18,8 +17,6 @@ type GCPSecretsManager struct {
 	client *sm.Client
 	// credential file path
 	credFilePath string
-	// logger instance
-	logger hclog.Logger
 	// context used in API calls
 	context context.Context
 	// node name is used to create unique secret id
@@ -49,7 +46,6 @@ var (
 
 func SecretsManagerFactory(
 	config *secrets.SecretsManagerConfig,
-	params *secrets.SecretsManagerParams,
 ) (secrets.SecretsManager, error) {
 	// Check if project id is defined
 	if _, ok := config.Extra[string(projectID)]; !ok {
@@ -68,7 +64,6 @@ func SecretsManagerFactory(
 		projectID:    fmt.Sprintf("%s", config.Extra[string(projectID)]),
 		credFilePath: fmt.Sprintf("%s", config.Extra[string(gcpSSMCredFile)]),
 		nodeName:     config.Name,
-		logger:       params.Logger.Named(string(secrets.GCPSSM)),
 	}
 
 	if err := gcpSsmManager.Setup(); err != nil {

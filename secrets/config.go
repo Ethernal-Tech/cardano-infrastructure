@@ -15,7 +15,8 @@ type SecretsManagerConfig struct {
 	Type      SecretsManagerType     `json:"type"`       // The type of SecretsManager
 	Name      string                 `json:"name"`       // The name of the current node
 	Namespace string                 `json:"namespace"`  // The namespace of the service
-	Extra     map[string]interface{} `json:"extra"`      // Any kind of arbitrary data
+	Path      string                 `json:"path"`
+	Extra     map[string]interface{} `json:"extra"` // Any kind of arbitrary data
 }
 
 // WriteConfig writes the current configuration to the specified path

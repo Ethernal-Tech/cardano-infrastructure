@@ -5,16 +5,12 @@ import (
 	"fmt"
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/secrets"
-	"github.com/hashicorp/go-hclog"
 	vault "github.com/hashicorp/vault/api"
 )
 
 // VaultSecretsManager is a SecretsManager that
 // stores secrets on a Hashicorp Vault instance
 type VaultSecretsManager struct {
-	// Logger object
-	logger hclog.Logger
-
 	// Token used for Vault instance authentication
 	token string
 
@@ -37,12 +33,9 @@ type VaultSecretsManager struct {
 // SecretsManagerFactory implements the factory method
 func SecretsManagerFactory(
 	config *secrets.SecretsManagerConfig,
-	params *secrets.SecretsManagerParams,
 ) (secrets.SecretsManager, error) {
 	// Set up the base object
-	vaultManager := &VaultSecretsManager{
-		logger: params.Logger.Named(string(secrets.HashicorpVault)),
-	}
+	vaultManager := &VaultSecretsManager{}
 
 	// Check if the token is present
 	if config.Token == "" {
@@ -162,21 +155,11 @@ func (v *VaultSecretsManager) GetSecret(name string) ([]byte, error) {
 // SetSecret saves a secret to the Hashicorp Vault server
 // Secrets saved in Vault need to have a string value (Base64)
 func (v *VaultSecretsManager) SetSecret(name string, value []byte) error {
-	// Check if overwrite is possible
-	_, err := v.GetSecret(name)
-	if err == nil {
-		// Secret is present
-		v.logger.Warn(fmt.Sprintf("Overwriting secret: %s", name))
-	} else if !errors.Is(err, secrets.ErrSecretNotFound) {
-		// An unrelated error occurred
-		return err
-	}
-
 	// Construct the data wrapper
 	data := make(map[string]string)
 	data[name] = string(value)
 
-	_, err = v.client.Logical().Write(v.constructSecretPath(name), map[string]interface{}{
+	_, err := v.client.Logical().Write(v.constructSecretPath(name), map[string]interface{}{
 		"data": data,
 	})
 	if err != nil {

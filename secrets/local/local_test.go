@@ -6,7 +6,6 @@ import (
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/common"
 	"github.com/Ethernal-Tech/cardano-infrastructure/secrets"
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,26 +24,20 @@ func TestLocalSecretsManagerFactory(t *testing.T) {
 
 	testTable := []struct {
 		name          string
-		config        *secrets.SecretsManagerParams
+		config        *secrets.SecretsManagerConfig
 		shouldSucceed bool
 	}{
 		{
 			"Valid configuration with path info",
-			&secrets.SecretsManagerParams{
-				Logger: hclog.NewNullLogger(),
-				Extra: map[string]interface{}{
-					secrets.Path: workingDirectory,
-				},
+			&secrets.SecretsManagerConfig{
+				Path: workingDirectory,
 			},
 			true,
 		},
 		{
 			"Invalid configuration without path info",
-			&secrets.SecretsManagerParams{
-				Logger: hclog.NewNullLogger(),
-				Extra: map[string]interface{}{
-					"dummy": 123,
-				},
+			&secrets.SecretsManagerConfig{
+				Path: "",
 			},
 			false,
 		},
@@ -52,7 +45,7 @@ func TestLocalSecretsManagerFactory(t *testing.T) {
 
 	for _, testCase := range testTable {
 		t.Run(testCase.name, func(t *testing.T) {
-			localSecretsManager, factoryErr := SecretsManagerFactory(nil, testCase.config)
+			localSecretsManager, factoryErr := SecretsManagerFactory(testCase.config)
 			if testCase.shouldSucceed {
 				assert.NotNil(t, localSecretsManager)
 				assert.NoError(t, factoryErr)
@@ -87,14 +80,11 @@ func getLocalSecretsManager(t *testing.T) secrets.SecretsManager {
 	})
 
 	// Set up an instance of the local secrets manager
-	baseConfig := &secrets.SecretsManagerParams{
-		Logger: hclog.NewNullLogger(),
-		Extra: map[string]interface{}{
-			secrets.Path: workingDirectory,
-		},
+	baseConfig := &secrets.SecretsManagerConfig{
+		Path: workingDirectory,
 	}
 
-	manager, factoryErr := SecretsManagerFactory(nil, baseConfig)
+	manager, factoryErr := SecretsManagerFactory(baseConfig)
 	if factoryErr != nil {
 		t.Fatalf("Unable to instantiate local secrets manager, %v", factoryErr)
 	}
