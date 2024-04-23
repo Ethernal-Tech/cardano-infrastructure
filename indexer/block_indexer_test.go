@@ -585,7 +585,7 @@ func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
 
 	blockIndexer.unconfirmedBlocks = uncomfBlocks
 
-	err = blockIndexer.RollBackwardFunc(common.Point{
+	err = blockIndexer.RollBackwardFunc(chainsync.CallbackContext{}, common.Point{
 		Slot: 7,
 		Hash: []byte{0, 3},
 	}, chainsync.Tip{})
@@ -625,7 +625,7 @@ func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
 	blockIndexer.unconfirmedBlocks = uncomfBlocks
 	blockIndexer.latestBlockPoint = bp
 
-	err := blockIndexer.RollBackwardFunc(common.Point{
+	err := blockIndexer.RollBackwardFunc(chainsync.CallbackContext{}, common.Point{
 		Slot: bp.BlockSlot,
 		Hash: bp.BlockHash,
 	}, chainsync.Tip{})
@@ -670,7 +670,7 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, sp.BlockHash)
 
-	err = blockIndexer.RollBackwardFunc(common.Point{
+	err = blockIndexer.RollBackwardFunc(chainsync.CallbackContext{}, common.Point{
 		Slot: bp.BlockSlot + 10003,
 		Hash: bp.BlockHash,
 	}, chainsync.Tip{})

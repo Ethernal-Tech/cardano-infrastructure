@@ -1,16 +1,16 @@
 module github.com/Ethernal-Tech/cardano-infrastructure
 
-go 1.20
+go 1.21
 
 require (
-	github.com/blinklabs-io/gouroboros v0.75.0
+	github.com/blinklabs-io/gouroboros v0.79.0
 	github.com/fxamacker/cbor/v2 v2.6.0
-	github.com/hashicorp/go-hclog v1.6.2
+	github.com/hashicorp/go-hclog v1.6.3
 	github.com/stretchr/testify v1.8.4
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/utxorpc/go-codegen v0.4.4
+	github.com/utxorpc/go-codegen v0.5.0
 	go.etcd.io/bbolt v1.3.9
-	golang.org/x/crypto v0.21.0
+	golang.org/x/crypto v0.22.0
 	google.golang.org/genproto v0.0.0-20240401170217-c3f982113cda
 )
 
@@ -72,7 +72,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/sys v0.19.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -60,7 +60,9 @@ type BlockIndexer struct {
 
 var _ BlockSyncerHandler = (*BlockIndexer)(nil)
 
-func NewBlockIndexer(config *BlockIndexerConfig, confirmedBlockHandler NewConfirmedBlockHandler, db BlockIndexerDb, logger hclog.Logger) *BlockIndexer {
+func NewBlockIndexer(
+	config *BlockIndexerConfig, confirmedBlockHandler NewConfirmedBlockHandler, db BlockIndexerDb, logger hclog.Logger,
+) *BlockIndexer {
 	if config.AddressCheck&AddressCheckAll == 0 {
 		panic("block indexer must at least check outputs or inputs") //nolint:gocritic
 	}
@@ -81,7 +83,9 @@ func NewBlockIndexer(config *BlockIndexerConfig, confirmedBlockHandler NewConfir
 	}
 }
 
-func (bi *BlockIndexer) RollBackwardFunc(point common.Point, tip chainsync.Tip) error {
+func (bi *BlockIndexer) RollBackwardFunc(
+	ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip,
+) error {
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
@@ -112,7 +116,9 @@ func (bi *BlockIndexer) RollBackwardFunc(point common.Point, tip chainsync.Tip) 
 	return errors.Join(errBlockSyncerFatal, fmt.Errorf("roll backward block (%d, %s) not found", point.Slot, pointHash))
 }
 
-func (bi *BlockIndexer) RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error {
+func (bi *BlockIndexer) RollForwardFunc(
+	blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip,
+) error {
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
@@ -142,10 +148,12 @@ func (bi *BlockIndexer) RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFu
 	// update latest block point in memory if we have confirmed block
 	bi.latestBlockPoint = latestBlockPoint
 	// remove first block from unconfirmed list. copy whole list because we do not want memory leak
-	bi.unconfirmedBlocks = append(append([]blockWithLazyTxRetriever(nil), bi.unconfirmedBlocks[1:]...), blockWithLazyTxRetriever{
-		header: blockHeader,
-		getTxs: getTxsFunc,
-	})
+	bi.unconfirmedBlocks = append(
+		append([]blockWithLazyTxRetriever(nil), bi.unconfirmedBlocks[1:]...),
+		blockWithLazyTxRetriever{
+			header: blockHeader,
+			getTxs: getTxsFunc,
+		})
 
 	return bi.confirmedBlockHandler(confirmedBlock, confirmedTxs)
 }
@@ -177,7 +185,8 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 }
 
 func (bi *BlockIndexer) processConfirmedBlock(
-	confirmedBlockHeader ledger.BlockHeader, allBlockTransactions []ledger.Transaction) (*CardanoBlock, []*Tx, *BlockPoint, error) {
+	confirmedBlockHeader ledger.BlockHeader, allBlockTransactions []ledger.Transaction,
+) (*CardanoBlock, []*Tx, *BlockPoint, error) {
 	var (
 		txsHashes         []string
 		confirmedTxs      []*Tx
@@ -285,7 +294,9 @@ func (bi *BlockIndexer) isTxInputOfInterest(tx ledger.Transaction) (bool, error)
 	return false, nil
 }
 
-func (bi *BlockIndexer) getTxOutputs(txs []ledger.Transaction, addressesOfInterest map[string]bool) (res []*TxInputOutput) {
+func (bi *BlockIndexer) getTxOutputs(
+	txs []ledger.Transaction, addressesOfInterest map[string]bool,
+) (res []*TxInputOutput) {
 	for _, tx := range txs {
 		for ind, txOut := range tx.Outputs() {
 			if len(addressesOfInterest) > 0 && !bi.addressesOfInterest[txOut.Address().String()] {
@@ -321,7 +332,9 @@ func (bi *BlockIndexer) getTxInputs(txs []ledger.Transaction) (res []*TxInput) {
 	return res
 }
 
-func (bi *BlockIndexer) createTx(ledgerBlockHeader ledger.BlockHeader, ledgerTx ledger.Transaction, indx uint32) (*Tx, error) {
+func (bi *BlockIndexer) createTx(
+	ledgerBlockHeader ledger.BlockHeader, ledgerTx ledger.Transaction, indx uint32,
+) (*Tx, error) {
 	tx := &Tx{
 		Indx:      indx,
 		Hash:      ledgerTx.Hash(),

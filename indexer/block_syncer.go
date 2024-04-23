@@ -33,7 +33,7 @@ type BlockSyncer interface {
 }
 
 type BlockSyncerHandler interface {
-	RollBackwardFunc(point common.Point, tip chainsync.Tip) error
+	RollBackwardFunc(ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip) error
 	RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error
 	Reset() (BlockPoint, error)
 }
@@ -120,7 +120,8 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 		return err
 	}
 
-	bs.logger.Debug("Start syncing requested", "networkMagic", bs.config.NetworkMagic, "addr", bs.config.NodeAddress, "point", blockPoint)
+	bs.logger.Debug("Start syncing requested",
+		"networkMagic", bs.config.NetworkMagic, "addr", bs.config.NodeAddress, "point", blockPoint)
 
 	// create connection
 	connection, err := ouroboros.NewConnection(
@@ -143,7 +144,8 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 
 	bs.connection = connection
 
-	bs.logger.Debug("Syncing started", "networkMagic", bs.config.NetworkMagic, "addr", bs.config.NodeAddress, "point", blockPoint)
+	bs.logger.Debug("Syncing started",
+		"networkMagic", bs.config.NetworkMagic, "addr", bs.config.NodeAddress, "point", blockPoint)
 
 	// start syncing
 	if err := connection.ChainSync().Client.Sync([]common.Point{blockPoint.ToCommonPoint()}); err != nil {
@@ -174,7 +176,9 @@ func (bs *BlockSyncerImpl) getBlockTransactions(blockHeader ledger.BlockHeader) 
 	return block.Transactions(), nil
 }
 
-func (bs *BlockSyncerImpl) rollForwardCallback(blockType uint, blockInfo interface{}, tip chainsync.Tip) error {
+func (bs *BlockSyncerImpl) rollForwardCallback(
+	ctx chainsync.CallbackContext, blockType uint, blockInfo interface{}, tip chainsync.Tip,
+) error {
 	blockHeader, ok := blockInfo.(ledger.BlockHeader)
 	if !ok {
 		return errors.Join(errBlockSyncerFatal, errors.New("invalid header"))

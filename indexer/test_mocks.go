@@ -292,13 +292,14 @@ func (m *LedgerBlockMock) Utxorpc() *utxorpc.Block {
 var _ ledger.Block = (*LedgerBlockMock)(nil)
 
 type LedgerTransactionMock struct {
-	FeeVal      uint64
-	HashVal     string
-	InputsVal   []ledger.TransactionInput
-	OutputsVal  []ledger.TransactionOutput
-	MetadataVal *cbor.Value
-	TTLVal      uint64
-	IsInvalid   bool
+	FeeVal             uint64
+	HashVal            string
+	InputsVal          []ledger.TransactionInput
+	OutputsVal         []ledger.TransactionOutput
+	MetadataVal        *cbor.Value
+	TTLVal             uint64
+	IsInvalid          bool
+	ReferenceInputsVal []ledger.TransactionInput
 }
 
 // Cbor implements ledger.Transaction.
@@ -342,6 +343,10 @@ func (m *LedgerTransactionMock) Utxorpc() *utxorpc.Tx {
 
 func (m *LedgerTransactionMock) IsValid() bool {
 	return !m.IsInvalid
+}
+
+func (m *LedgerTransactionMock) ReferenceInputs() []ledger.TransactionInput {
+	return m.ReferenceInputsVal
 }
 
 var _ ledger.Transaction = (*LedgerTransactionMock)(nil)

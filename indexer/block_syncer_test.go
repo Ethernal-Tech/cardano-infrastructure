@@ -18,7 +18,7 @@ import (
 type BlockSyncerHandlerMock struct {
 	BlockPoint         *BlockPoint
 	RollForwardFn      func(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error
-	RollBackwardFuncFn func(point common.Point, tip chainsync.Tip) error
+	RollBackwardFuncFn func(ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip) error
 }
 
 func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock {
@@ -38,9 +38,11 @@ func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock
 	}
 }
 
-func (hMock *BlockSyncerHandlerMock) RollBackwardFunc(point common.Point, tip chainsync.Tip) error {
+func (hMock *BlockSyncerHandlerMock) RollBackwardFunc(
+	ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip,
+) error {
 	if hMock.RollBackwardFuncFn != nil {
-		return hMock.RollBackwardFuncFn(point, tip)
+		return hMock.RollBackwardFuncFn(ctx, point, tip)
 	}
 
 	return nil
