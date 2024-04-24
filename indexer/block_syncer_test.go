@@ -90,6 +90,7 @@ func TestSyncWrongMagic(t *testing.T) {
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: 71,
 		NodeAddress:  NodeAddress,
+		RestartDelay: time.Millisecond * 10,
 	}, mockSyncerBlockHandler, hclog.NewNullLogger())
 
 	defer syncer.Close()
@@ -105,6 +106,7 @@ func TestSyncWrongNodeAddress(t *testing.T) {
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
 		NodeAddress:  "test",
+		RestartDelay: time.Millisecond * 10,
 	}, mockSyncerBlockHandler, hclog.NewNullLogger())
 
 	defer syncer.Close()
@@ -120,6 +122,7 @@ func TestSyncWrongUnixNodeAddress(t *testing.T) {
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
 		NodeAddress:  "/" + NodeAddress,
+		RestartDelay: time.Millisecond * 10,
 	}, mockSyncerBlockHandler, hclog.NewNullLogger())
 
 	defer syncer.Close()
@@ -135,6 +138,7 @@ func TestSyncNonExistingSlot(t *testing.T) {
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
 		NodeAddress:  "/" + NodeAddress,
+		RestartDelay: time.Millisecond * 10,
 	}, mockSyncerBlockHandler, hclog.NewNullLogger())
 
 	defer syncer.Close()
@@ -150,6 +154,7 @@ func TestSyncNonExistingHash(t *testing.T) {
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
 		NodeAddress:  "/" + NodeAddress,
+		RestartDelay: time.Millisecond * 10,
 	}, mockSyncerBlockHandler, hclog.NewNullLogger())
 
 	defer syncer.Close()
@@ -167,6 +172,7 @@ func TestSyncEmptyHash(t *testing.T) {
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
 		NodeAddress:  NodeAddress,
+		RestartDelay: time.Millisecond * 10,
 	}, mockSyncerBlockHandler, hclog.NewNullLogger())
 
 	defer syncer.Close()
@@ -182,6 +188,7 @@ func TestSync(t *testing.T) {
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
 		NodeAddress:  NodeAddress,
+		RestartDelay: time.Millisecond * 10,
 	}, mockSyncerBlockHandler, hclog.NewNullLogger())
 
 	defer syncer.Close()
@@ -197,6 +204,7 @@ func TestSyncWithExistingConnection(t *testing.T) {
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
 		NodeAddress:  NodeAddress,
+		RestartDelay: time.Millisecond * 10,
 	}, mockSyncerBlockHandler, hclog.NewNullLogger())
 
 	defer syncer.Close()
@@ -222,6 +230,7 @@ func TestCloseWithConnectionNil(t *testing.T) {
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
 		NodeAddress:  NodeAddress,
+		RestartDelay: time.Millisecond * 10,
 	}, mockSyncerBlockHandler, hclog.NewNullLogger())
 
 	err := syncer.Close()
@@ -235,6 +244,7 @@ func TestCloseWithConnectionNotNil(t *testing.T) {
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
 		NodeAddress:  NodeAddress,
+		RestartDelay: time.Millisecond * 10,
 	}, mockSyncerBlockHandler, hclog.NewNullLogger())
 
 	connection, err := ouroboros.NewConnection(
@@ -258,6 +268,7 @@ func TestSyncRollForwardCalled(t *testing.T) {
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
 		NodeAddress:  NodeAddress,
+		RestartDelay: time.Millisecond * 10,
 	}, mockSyncerBlockHandler, hclog.NewNullLogger())
 
 	defer syncer.Close()
@@ -278,4 +289,23 @@ func TestSyncRollForwardCalled(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 	require.True(t, called)
+}
+
+func TestSync_ConnectionIsClosed(t *testing.T) {
+	t.Parallel()
+
+	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
+	syncer := NewBlockSyncer(&BlockSyncerConfig{
+		NetworkMagic: NetworkMagic,
+		NodeAddress:  NodeAddress,
+		RestartDelay: time.Millisecond * 10,
+	}, mockSyncerBlockHandler, hclog.NewNullLogger())
+
+	syncer.Close()
+
+	require.NoError(t, syncer.syncExecute())
+	require.Nil(t, syncer.connection)
+
+	require.NoError(t, syncer.Sync())
+	require.Nil(t, syncer.connection)
 }

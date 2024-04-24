@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	ouroboros "github.com/blinklabs-io/gouroboros"
@@ -62,6 +63,8 @@ type BlockSyncerImpl struct {
 	logger       hclog.Logger
 
 	errorCh chan error
+	lock    sync.Mutex
+	closed  chan struct{}
 }
 
 var _ BlockSyncer = (*BlockSyncerImpl)(nil)
@@ -72,6 +75,7 @@ func NewBlockSyncer(config *BlockSyncerConfig, blockHandler BlockSyncerHandler, 
 		config:       config,
 		logger:       logger,
 		errorCh:      make(chan error, 1),
+		closed:       make(chan struct{}),
 	}
 }
 
@@ -81,13 +85,20 @@ func (bs *BlockSyncerImpl) Sync() (err error) {
 		cntTries = syncStartTriesDefault
 	}
 
+	ticker := time.NewTicker(bs.config.RestartDelay)
+	defer ticker.Stop()
+
 	for i := 1; i <= cntTries; i++ {
-		err = bs.syncExecute()
-		if err == nil {
+		if err = bs.syncExecute(); err == nil {
 			break
 		} else if i < cntTries {
-			time.Sleep(bs.config.RestartDelay)
 			bs.logger.Warn("Error while starting syncer", "err", err, "attempt", i, "of", cntTries)
+		}
+
+		select {
+		case <-bs.closed:
+			return
+		case <-ticker.C:
 		}
 	}
 
@@ -95,6 +106,13 @@ func (bs *BlockSyncerImpl) Sync() (err error) {
 }
 
 func (bs *BlockSyncerImpl) Close() error {
+	close(bs.closed)
+
+	// connection should be closed inside lock
+	// because BlockSyncerImpl->syncExecute can create new one from another routine
+	bs.lock.Lock()
+	defer bs.lock.Unlock()
+
 	if bs.connection == nil {
 		return nil
 	}
@@ -107,6 +125,18 @@ func (bs *BlockSyncerImpl) ErrorCh() <-chan error {
 }
 
 func (bs *BlockSyncerImpl) syncExecute() error {
+	// connection should be created inside lock because
+	// BlockSyncerImpl->Close can be called from another routine
+	bs.lock.Lock()
+	defer bs.lock.Unlock()
+
+	// if the syncer is closed in the meantime -> quit
+	select {
+	case <-bs.closed:
+		return nil
+	default:
+	}
+
 	if oldConn := bs.connection; oldConn != nil {
 		if err := oldConn.Close(); err != nil { // close previous connection
 			bs.logger.Warn("Error while closing previous connection", "err", err)
