@@ -12,7 +12,7 @@ func TestDatabase(t *testing.T) {
 	const filePath = "temp_test.db"
 
 	dbCleanup := func() {
-		RemoveDirOrFilePathIfExists(filePath)
+		RemoveDirOrFilePathIfExists(filePath) //nolint:errcheck
 	}
 
 	t.Cleanup(dbCleanup)
@@ -188,7 +188,7 @@ func TestDatabase(t *testing.T) {
 		dbTx.AddConfirmedBlock(block2)
 		dbTx.AddConfirmedBlock(block3)
 		dbTx.AddConfirmedBlock(block4)
-		dbTx.Execute()
+		require.NoError(t, dbTx.Execute())
 
 		blocks, err := db.GetLatestConfirmedBlocks(3)
 		require.NoError(t, err)
@@ -230,7 +230,7 @@ func TestDatabase(t *testing.T) {
 		dbTx.AddConfirmedBlock(block2)
 		dbTx.AddConfirmedBlock(block3)
 		dbTx.AddConfirmedBlock(block4)
-		dbTx.Execute()
+		require.NoError(t, dbTx.Execute())
 
 		blocks, err := db.GetConfirmedBlocksFrom(2, 10)
 		require.NoError(t, err)
@@ -257,7 +257,7 @@ func TestDatabase(t *testing.T) {
 
 		dbTx := db.OpenTx()
 		dbTx.AddConfirmedTxs([]*indexer.Tx{tx1, tx2, tx3, tx4, tx5})
-		dbTx.Execute()
+		require.NoError(t, dbTx.Execute())
 
 		err = db.MarkConfirmedTxsProcessed([]*indexer.Tx{tx1, tx4, tx5})
 		require.NoError(t, err)
@@ -298,7 +298,7 @@ func TestDatabase(t *testing.T) {
 
 		dbTx := db.OpenTx()
 		dbTx.AddConfirmedTxs([]*indexer.Tx{tx1, tx2, tx3, tx4, tx5})
-		dbTx.Execute()
+		require.NoError(t, dbTx.Execute())
 
 		txs, err := db.GetUnprocessedConfirmedTxs(3)
 		require.NoError(t, err)

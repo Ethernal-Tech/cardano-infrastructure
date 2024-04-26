@@ -11,7 +11,7 @@ import (
 func NewDatabase(name string) indexer.Database {
 	switch strings.ToLower(name) {
 	case "leveldb":
-		return &indexerleveldb.LevelDbDatabase{}
+		return &indexerleveldb.LevelDBDatabase{}
 	default:
 		return &indexerbbolt.BBoltDatabase{}
 	}

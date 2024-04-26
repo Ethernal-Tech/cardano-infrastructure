@@ -47,7 +47,7 @@ var _ BlockSyncer = (*BlockSyncerMock)(nil)
 
 type DatabaseMock struct {
 	mock.Mock
-	Writter               *DbTransactionWriterMock
+	Writter               *DBTransactionWriterMock
 	GetLatestBlockPointFn func() (*BlockPoint, error)
 	GetTxOutputFn         func(txInput TxInput) (TxOutput, error)
 	InitFn                func(filepath string) error
@@ -61,7 +61,7 @@ func (m *DatabaseMock) GetLatestBlockPoint() (*BlockPoint, error) {
 		return m.GetLatestBlockPointFn()
 	}
 
-	return args.Get(0).(*BlockPoint), args.Error(1)
+	return args.Get(0).(*BlockPoint), args.Error(1) //nolint:forcetypeassert
 }
 
 // GetTxOutput implements Database.
@@ -72,14 +72,14 @@ func (m *DatabaseMock) GetTxOutput(txInput TxInput) (TxOutput, error) {
 		return m.GetTxOutputFn(txInput)
 	}
 
-	return args.Get(0).(TxOutput), args.Error(1)
+	return args.Get(0).(TxOutput), args.Error(1) //nolint:forcetypeassert
 }
 
 // GetUnprocessedConfirmedTxs implements Database.
 func (m *DatabaseMock) GetUnprocessedConfirmedTxs(maxCnt int) ([]*Tx, error) {
 	args := m.Called(maxCnt)
 
-	return args.Get(0).([]*Tx), args.Error(1)
+	return args.Get(0).([]*Tx), args.Error(1) //nolint:forcetypeassert
 }
 
 // Init implements Database.
@@ -99,14 +99,14 @@ func (m *DatabaseMock) MarkConfirmedTxsProcessed(txs []*Tx) error {
 }
 
 // OpenTx implements Database.
-func (m *DatabaseMock) OpenTx() DbTransactionWriter {
+func (m *DatabaseMock) OpenTx() DBTransactionWriter {
 	args := m.Called()
 
 	if m.Writter != nil {
 		return m.Writter
 	}
 
-	return args.Get(0).(DbTransactionWriter)
+	return args.Get(0).(DBTransactionWriter) //nolint:forcetypeassert
 }
 
 func (m *DatabaseMock) Close() error {
@@ -116,28 +116,28 @@ func (m *DatabaseMock) Close() error {
 func (m *DatabaseMock) GetLatestConfirmedBlocks(maxCnt int) ([]*CardanoBlock, error) {
 	args := m.Called(maxCnt)
 
-	return args.Get(0).([]*CardanoBlock), args.Error(1)
+	return args.Get(0).([]*CardanoBlock), args.Error(1) //nolint:forcetypeassert
 }
 
 func (m *DatabaseMock) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) ([]*CardanoBlock, error) {
 	args := m.Called(slotNumber, maxCnt)
 
-	return args.Get(0).([]*CardanoBlock), args.Error(1)
+	return args.Get(0).([]*CardanoBlock), args.Error(1) //nolint:forcetypeassert
 }
 
 var _ Database = (*DatabaseMock)(nil)
 
-type DbTransactionWriterMock struct {
+type DBTransactionWriterMock struct {
 	mock.Mock
-	AddConfirmedTxsFn     func(txs []*Tx) DbTransactionWriter
-	AddTxOutputsFn        func(txOutputs []*TxInputOutput) DbTransactionWriter
-	RemoveTxOutputsFn     func(txInputs []*TxInput) DbTransactionWriter
-	SetLatestBlockPointFn func(point *BlockPoint) DbTransactionWriter
+	AddConfirmedTxsFn     func(txs []*Tx) DBTransactionWriter
+	AddTxOutputsFn        func(txOutputs []*TxInputOutput) DBTransactionWriter
+	RemoveTxOutputsFn     func(txInputs []*TxInput) DBTransactionWriter
+	SetLatestBlockPointFn func(point *BlockPoint) DBTransactionWriter
 	ExecuteFn             func() error
 }
 
 // AddConfirmedTxs implements DbTransactionWriter.
-func (m *DbTransactionWriterMock) AddConfirmedTxs(txs []*Tx) DbTransactionWriter {
+func (m *DBTransactionWriterMock) AddConfirmedTxs(txs []*Tx) DBTransactionWriter {
 	m.Called(txs)
 
 	if m.AddConfirmedTxsFn != nil {
@@ -147,14 +147,14 @@ func (m *DbTransactionWriterMock) AddConfirmedTxs(txs []*Tx) DbTransactionWriter
 	return m
 }
 
-func (m *DbTransactionWriterMock) AddConfirmedBlock(block *CardanoBlock) DbTransactionWriter {
+func (m *DBTransactionWriterMock) AddConfirmedBlock(block *CardanoBlock) DBTransactionWriter {
 	m.Called(block)
 
 	return m
 }
 
 // AddTxOutputs implements DbTransactionWriter.
-func (m *DbTransactionWriterMock) AddTxOutputs(txOutputs []*TxInputOutput) DbTransactionWriter {
+func (m *DBTransactionWriterMock) AddTxOutputs(txOutputs []*TxInputOutput) DBTransactionWriter {
 	m.Called(txOutputs)
 
 	if m.AddTxOutputsFn != nil {
@@ -165,7 +165,7 @@ func (m *DbTransactionWriterMock) AddTxOutputs(txOutputs []*TxInputOutput) DbTra
 }
 
 // Execute implements DbTransactionWriter.
-func (m *DbTransactionWriterMock) Execute() error {
+func (m *DBTransactionWriterMock) Execute() error {
 	if m.ExecuteFn != nil {
 		return m.ExecuteFn()
 	}
@@ -174,7 +174,7 @@ func (m *DbTransactionWriterMock) Execute() error {
 }
 
 // RemoveTxOutputs implements DbTransactionWriter.
-func (m *DbTransactionWriterMock) RemoveTxOutputs(txInputs []*TxInput, softDelete bool) DbTransactionWriter {
+func (m *DBTransactionWriterMock) RemoveTxOutputs(txInputs []*TxInput, softDelete bool) DBTransactionWriter {
 	m.Called(txInputs, softDelete)
 
 	if m.RemoveTxOutputsFn != nil {
@@ -185,7 +185,7 @@ func (m *DbTransactionWriterMock) RemoveTxOutputs(txInputs []*TxInput, softDelet
 }
 
 // SetLatestBlockPoint implements DbTransactionWriter.
-func (m *DbTransactionWriterMock) SetLatestBlockPoint(point *BlockPoint) DbTransactionWriter {
+func (m *DBTransactionWriterMock) SetLatestBlockPoint(point *BlockPoint) DBTransactionWriter {
 	m.Called(point)
 
 	if m.SetLatestBlockPointFn != nil {
@@ -195,7 +195,7 @@ func (m *DbTransactionWriterMock) SetLatestBlockPoint(point *BlockPoint) DbTrans
 	return m
 }
 
-var _ DbTransactionWriter = (*DbTransactionWriterMock)(nil)
+var _ DBTransactionWriter = (*DBTransactionWriterMock)(nil)
 
 type LedgerBlockHeaderMock struct {
 	BlockNumberVal uint64
@@ -206,7 +206,7 @@ type LedgerBlockHeaderMock struct {
 
 // BlockBodySize implements ledger.BlockHeader.
 func (m *LedgerBlockHeaderMock) BlockBodySize() uint64 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // BlockNumber implements ledger.BlockHeader.
@@ -216,7 +216,7 @@ func (m *LedgerBlockHeaderMock) BlockNumber() uint64 {
 
 // Cbor implements ledger.BlockHeader.
 func (m *LedgerBlockHeaderMock) Cbor() []byte {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Era implements ledger.BlockHeader.
@@ -231,7 +231,7 @@ func (m *LedgerBlockHeaderMock) Hash() string {
 
 // IssuerVkey implements ledger.BlockHeader.
 func (m *LedgerBlockHeaderMock) IssuerVkey() ledger.IssuerVkey {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // SlotNumber implements ledger.BlockHeader.
@@ -247,37 +247,37 @@ type LedgerBlockMock struct {
 
 // BlockBodySize implements ledger.Block.
 func (m *LedgerBlockMock) BlockBodySize() uint64 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // BlockNumber implements ledger.Block.
 func (*LedgerBlockMock) BlockNumber() uint64 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Cbor implements ledger.Block.
 func (m *LedgerBlockMock) Cbor() []byte {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Era implements ledger.Block.
 func (m *LedgerBlockMock) Era() ledger.Era {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Hash implements ledger.Block.
 func (m *LedgerBlockMock) Hash() string {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // IssuerVkey implements ledger.Block.
 func (m *LedgerBlockMock) IssuerVkey() ledger.IssuerVkey {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // SlotNumber implements ledger.Block.
 func (m *LedgerBlockMock) SlotNumber() uint64 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Transactions implements ledger.Block.
@@ -304,7 +304,7 @@ type LedgerTransactionMock struct {
 
 // Cbor implements ledger.Transaction.
 func (m *LedgerTransactionMock) Cbor() []byte {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Fee implements ledger.Transaction.
@@ -366,7 +366,7 @@ func NewLedgerTransactionInputMock(t *testing.T, hash []byte, index uint32) *Led
 }
 
 // Id implements ledger.TransactionInput.
-func (m *LedgerTransactionInputMock) Id() ledger.Blake2b256 {
+func (m *LedgerTransactionInputMock) Id() ledger.Blake2b256 { //nolint
 	return m.HashVal
 }
 
@@ -410,22 +410,22 @@ func (m *LedgerTransactionOutputMock) Amount() uint64 {
 
 // Assets implements ledger.TransactionOutput.
 func (m *LedgerTransactionOutputMock) Assets() *ledger.MultiAsset[uint64] {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Cbor implements ledger.TransactionOutput.
 func (m *LedgerTransactionOutputMock) Cbor() []byte {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Datum implements ledger.TransactionOutput.
 func (m *LedgerTransactionOutputMock) Datum() *cbor.LazyValue {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // DatumHash implements ledger.TransactionOutput.
 func (m *LedgerTransactionOutputMock) DatumHash() *ledger.Blake2b256 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 func (m *LedgerTransactionOutputMock) Utxorpc() *utxorpc.TxOutput {

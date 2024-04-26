@@ -16,9 +16,9 @@ type BBoltTransactionWriter struct {
 	operations []txOperation
 }
 
-var _ core.DbTransactionWriter = (*BBoltTransactionWriter)(nil)
+var _ core.DBTransactionWriter = (*BBoltTransactionWriter)(nil)
 
-func (tw *BBoltTransactionWriter) SetLatestBlockPoint(point *core.BlockPoint) core.DbTransactionWriter {
+func (tw *BBoltTransactionWriter) SetLatestBlockPoint(point *core.BlockPoint) core.DBTransactionWriter {
 	tw.operations = append(tw.operations, func(tx *bbolt.Tx) error {
 		bytes, err := json.Marshal(point)
 		if err != nil {
@@ -35,7 +35,7 @@ func (tw *BBoltTransactionWriter) SetLatestBlockPoint(point *core.BlockPoint) co
 	return tw
 }
 
-func (tw *BBoltTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput) core.DbTransactionWriter {
+func (tw *BBoltTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput) core.DBTransactionWriter {
 	if len(txOutputs) == 0 {
 		return tw
 	}
@@ -60,7 +60,7 @@ func (tw *BBoltTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput) 
 	return tw
 }
 
-func (tw *BBoltTransactionWriter) AddConfirmedBlock(block *core.CardanoBlock) core.DbTransactionWriter {
+func (tw *BBoltTransactionWriter) AddConfirmedBlock(block *core.CardanoBlock) core.DBTransactionWriter {
 	tw.operations = append(tw.operations, func(tx *bbolt.Tx) error {
 		bytes, err := json.Marshal(block)
 		if err != nil {
@@ -77,7 +77,7 @@ func (tw *BBoltTransactionWriter) AddConfirmedBlock(block *core.CardanoBlock) co
 	return tw
 }
 
-func (tw *BBoltTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DbTransactionWriter {
+func (tw *BBoltTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DBTransactionWriter {
 	tw.operations = append(tw.operations, func(tx *bbolt.Tx) error {
 		for _, cardTx := range txs {
 			bytes, err := json.Marshal(cardTx)
@@ -96,7 +96,7 @@ func (tw *BBoltTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DbTransac
 	return tw
 }
 
-func (tw *BBoltTransactionWriter) RemoveTxOutputs(txInputs []*core.TxInput, softDelete bool) core.DbTransactionWriter {
+func (tw *BBoltTransactionWriter) RemoveTxOutputs(txInputs []*core.TxInput, softDelete bool) core.DBTransactionWriter {
 	if len(txInputs) == 0 {
 		return tw
 	}

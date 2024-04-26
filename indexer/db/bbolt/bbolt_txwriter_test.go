@@ -11,7 +11,7 @@ func TestTxWriter(t *testing.T) {
 	const filePath = "temp_test.db"
 
 	dbCleanup := func() {
-		RemoveDirOrFilePathIfExists(filePath)
+		RemoveDirOrFilePathIfExists(filePath) //nolint:errcheck
 	}
 
 	t.Cleanup(dbCleanup)
@@ -43,8 +43,7 @@ func TestTxWriter(t *testing.T) {
 		require.NotNil(t, dbTx)
 
 		dbTx.SetLatestBlockPoint(blockPoint)
-		err = dbTx.Execute()
-		require.NoError(t, err)
+		require.NoError(t, dbTx.Execute())
 
 		bp, err := db.GetLatestBlockPoint()
 		require.NoError(t, err)
@@ -52,7 +51,7 @@ func TestTxWriter(t *testing.T) {
 
 		dbTx = db.OpenTx()
 		dbTx.SetLatestBlockPoint(nil)
-		dbTx.Execute()
+		require.NoError(t, dbTx.Execute())
 
 		bp, err = db.GetLatestBlockPoint()
 		require.NoError(t, err)
@@ -154,15 +153,19 @@ func TestTxWriter(t *testing.T) {
 		txOutput1, err := db.GetTxOutput(txInOut1.Input)
 		require.NoError(t, err)
 		require.NotNil(t, txOutput1)
+
 		expectedOutput1 := txInOut1.Output
 		expectedOutput1.IsUsed = true
+
 		require.EqualValues(t, expectedOutput1, txOutput1)
 
 		txOutput2, err := db.GetTxOutput(txInOut2.Input)
 		require.NoError(t, err)
 		require.NotNil(t, txOutput2)
+
 		expectedOutput2 := txInOut2.Output
 		expectedOutput2.IsUsed = true
+
 		require.EqualValues(t, expectedOutput2, txOutput2)
 	})
 

@@ -27,7 +27,7 @@ type BlockIndexerConfig struct {
 
 	AddressesOfInterest []string `json:"addressesOfInterest"`
 
-	KeepAllTxOutputsInDb bool `json:"keepAllTxOutputsInDb"`
+	KeepAllTxOutputsInDB bool `json:"keepAllTxOutputsInDb"`
 
 	AddressCheck int `json:"addressCheck"`
 
@@ -52,7 +52,7 @@ type BlockIndexer struct {
 	confirmedBlockHandler NewConfirmedBlockHandler
 	addressesOfInterest   map[string]bool
 
-	db BlockIndexerDb
+	db BlockIndexerDB
 
 	mutex  sync.Mutex
 	logger hclog.Logger
@@ -61,7 +61,7 @@ type BlockIndexer struct {
 var _ BlockSyncerHandler = (*BlockIndexer)(nil)
 
 func NewBlockIndexer(
-	config *BlockIndexerConfig, confirmedBlockHandler NewConfirmedBlockHandler, db BlockIndexerDb, logger hclog.Logger,
+	config *BlockIndexerConfig, confirmedBlockHandler NewConfirmedBlockHandler, db BlockIndexerDB, logger hclog.Logger,
 ) *BlockIndexer {
 	if config.AddressCheck&AddressCheckAll == 0 {
 		panic("block indexer must at least check outputs or inputs") //nolint:gocritic
@@ -202,7 +202,7 @@ func (bi *BlockIndexer) processConfirmedBlock(
 		return nil, nil, nil, err
 	}
 
-	if bi.config.KeepAllTxOutputsInDb {
+	if bi.config.KeepAllTxOutputsInDB {
 		txOutputsToSave = bi.getTxOutputs(allBlockTransactions, nil)
 		txOutputsToRemove = bi.getTxInputs(allBlockTransactions)
 	} else if bi.config.AddressCheck&AddressCheckInputs != 0 { // save outputs only if we are checking inputs
@@ -235,9 +235,12 @@ func (bi *BlockIndexer) processConfirmedBlock(
 		BlockHash:   hash2Bytes(confirmedBlockHeader.Hash()),
 		BlockNumber: confirmedBlockHeader.BlockNumber(),
 	}
-	dbTx.AddConfirmedBlock(confirmedBlock)                                                          // save confirmed block (without tx details) in db
-	dbTx.SetLatestBlockPoint(latestBlockPoint)                                                      // update latest block point in db tx
-	dbTx.AddTxOutputs(txOutputsToSave).RemoveTxOutputs(txOutputsToRemove, bi.config.SoftDeleteUtxo) // add all needed outputs, remove used ones in db tx
+	// save confirmed block (without tx details) in db
+	dbTx.AddConfirmedBlock(confirmedBlock)
+	// update latest block point in db tx
+	dbTx.SetLatestBlockPoint(latestBlockPoint)
+	// add all needed outputs, remove used ones in db tx
+	dbTx.AddTxOutputs(txOutputsToSave).RemoveTxOutputs(txOutputsToRemove, bi.config.SoftDeleteUtxo)
 
 	// update database -> execute db transaction
 	if err := dbTx.Execute(); err != nil {

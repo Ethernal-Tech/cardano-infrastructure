@@ -13,20 +13,20 @@ import (
 
 type txOperation func(*leveldb.DB, *leveldb.Batch) error
 
-type LevelDbTransactionWriter struct {
+type LevelDBTransactionWriter struct {
 	db         *leveldb.DB
 	operations []txOperation
 }
 
-var _ core.DbTransactionWriter = (*LevelDbTransactionWriter)(nil)
+var _ core.DBTransactionWriter = (*LevelDBTransactionWriter)(nil)
 
-func NewLevelDbTransactionWriter(db *leveldb.DB) *LevelDbTransactionWriter {
-	return &LevelDbTransactionWriter{
+func NewLevelDBTransactionWriter(db *leveldb.DB) *LevelDBTransactionWriter {
+	return &LevelDBTransactionWriter{
 		db: db,
 	}
 }
 
-func (tw *LevelDbTransactionWriter) SetLatestBlockPoint(point *core.BlockPoint) core.DbTransactionWriter {
+func (tw *LevelDBTransactionWriter) SetLatestBlockPoint(point *core.BlockPoint) core.DBTransactionWriter {
 	tw.operations = append(tw.operations, func(db *leveldb.DB, batch *leveldb.Batch) error {
 		bytes, err := json.Marshal(point)
 		if err != nil {
@@ -41,7 +41,7 @@ func (tw *LevelDbTransactionWriter) SetLatestBlockPoint(point *core.BlockPoint) 
 	return tw
 }
 
-func (tw *LevelDbTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput) core.DbTransactionWriter {
+func (tw *LevelDBTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput) core.DBTransactionWriter {
 	tw.operations = append(tw.operations, func(db *leveldb.DB, batch *leveldb.Batch) error {
 		for _, inpOut := range txOutputs {
 			bytes, err := json.Marshal(inpOut.Output)
@@ -58,7 +58,7 @@ func (tw *LevelDbTransactionWriter) AddTxOutputs(txOutputs []*core.TxInputOutput
 	return tw
 }
 
-func (tw *LevelDbTransactionWriter) AddConfirmedBlock(block *core.CardanoBlock) core.DbTransactionWriter {
+func (tw *LevelDBTransactionWriter) AddConfirmedBlock(block *core.CardanoBlock) core.DBTransactionWriter {
 	tw.operations = append(tw.operations, func(db *leveldb.DB, batch *leveldb.Batch) error {
 		bytes, err := json.Marshal(block)
 		if err != nil {
@@ -73,7 +73,7 @@ func (tw *LevelDbTransactionWriter) AddConfirmedBlock(block *core.CardanoBlock) 
 	return tw
 }
 
-func (tw *LevelDbTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DbTransactionWriter {
+func (tw *LevelDBTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DBTransactionWriter {
 	tw.operations = append(tw.operations, func(db *leveldb.DB, batch *leveldb.Batch) error {
 		for _, tx := range txs {
 			bytes, err := json.Marshal(tx)
@@ -90,7 +90,9 @@ func (tw *LevelDbTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DbTrans
 	return tw
 }
 
-func (tw *LevelDbTransactionWriter) RemoveTxOutputs(txInputs []*core.TxInput, softDelete bool) core.DbTransactionWriter {
+func (tw *LevelDBTransactionWriter) RemoveTxOutputs(
+	txInputs []*core.TxInput, softDelete bool,
+) core.DBTransactionWriter {
 	tw.operations = append(tw.operations, func(db *leveldb.DB, batch *leveldb.Batch) error {
 		for _, inp := range txInputs {
 			key := bucketKey(txOutputsBucket, inp.Key())
@@ -134,7 +136,7 @@ func (tw *LevelDbTransactionWriter) RemoveTxOutputs(txInputs []*core.TxInput, so
 	return tw
 }
 
-func (tw *LevelDbTransactionWriter) Execute() error {
+func (tw *LevelDBTransactionWriter) Execute() error {
 	defer func() {
 		tw.operations = nil
 	}()
