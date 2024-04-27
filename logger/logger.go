@@ -41,7 +41,6 @@ func getLogFileWriter(logFilePath string, appendFile bool) (*os.File, error) {
 	}
 
 	logFileDirectory := filepath.Dir(logFilePath)
-	logFileName := filepath.Base(logFilePath)
 
 	if err := common.CreateDirSafe(logFileDirectory, 0770); err != nil {
 		return nil, err
@@ -49,8 +48,9 @@ func getLogFileWriter(logFilePath string, appendFile bool) (*os.File, error) {
 
 	if !appendFile {
 		suffix := strings.Replace(strings.Replace(time.Now().UTC().Format(time.RFC3339), ":", "_", -1), "-", "_", -1)
-		parts := strings.SplitN(logFileName, ".", 2)
-		if len(parts) == 1 {
+		logFileName := filepath.Base(logFilePath)
+
+		if parts := strings.SplitN(logFileName, ".", 2); len(parts) == 1 {
 			logFileName = fmt.Sprintf("%s_%s", parts[0], suffix)
 		} else {
 			logFileName = fmt.Sprintf("%s_%s.%s", parts[0], suffix, parts[1])

@@ -89,6 +89,7 @@ func NewWitnesses(vkeyWitnesses []interface{}) []Witness {
 
 		key, ok2 := arr[0].([]byte)
 		sign, ok3 := arr[1].([]byte)
+
 		if !ok2 || !ok3 {
 			panic("wrong key inside block") //nolint:gocritic
 		}
@@ -151,6 +152,7 @@ func (tx Tx) String() string {
 	sb.WriteString(strconv.FormatUint(tx.BlockSlot, 10))
 	sb.WriteString("\nfee = ")
 	sb.WriteString(strconv.FormatUint(tx.Fee, 10))
+
 	if tx.Metadata != nil {
 		sb.WriteString("\nmeta = ")
 		sb.WriteString(string(tx.Metadata))
@@ -160,6 +162,7 @@ func (tx Tx) String() string {
 	sb.WriteString(sbInp.String())
 	sb.WriteString("\noutputs = ")
 	sb.WriteString(sbOut.String())
+
 	return sb.String()
 }
 
@@ -184,7 +187,7 @@ func (bp BlockPoint) String() string {
 }
 
 func hash2Bytes(hash string) []byte {
-	v, _ := hex.DecodeString(hash) // nolint
+	v, _ := hex.DecodeString(hash)
 
 	return v
 }

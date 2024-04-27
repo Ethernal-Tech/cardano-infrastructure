@@ -12,7 +12,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-type LevelDbDatabase struct {
+type LevelDBDatabase struct {
 	db *leveldb.DB
 }
 
@@ -24,9 +24,9 @@ var (
 	confirmedBlocks        = []byte("P5_")
 )
 
-var _ core.Database = (*LevelDbDatabase)(nil)
+var _ core.Database = (*LevelDBDatabase)(nil)
 
-func (lvldb *LevelDbDatabase) Init(filePath string) error {
+func (lvldb *LevelDBDatabase) Init(filePath string) error {
 	db, err := leveldb.OpenFile(filePath, nil)
 	if err != nil {
 		return fmt.Errorf("could not open db: %w", err)
@@ -37,11 +37,11 @@ func (lvldb *LevelDbDatabase) Init(filePath string) error {
 	return nil
 }
 
-func (bd *LevelDbDatabase) Close() error {
-	return bd.db.Close()
+func (lvldb *LevelDBDatabase) Close() error {
+	return lvldb.db.Close()
 }
 
-func (lvldb *LevelDbDatabase) GetLatestBlockPoint() (*core.BlockPoint, error) {
+func (lvldb *LevelDBDatabase) GetLatestBlockPoint() (*core.BlockPoint, error) {
 	var result *core.BlockPoint
 
 	bytes, err := lvldb.db.Get(latestBlockPointBucket, nil)
@@ -56,7 +56,7 @@ func (lvldb *LevelDbDatabase) GetLatestBlockPoint() (*core.BlockPoint, error) {
 	return result, nil
 }
 
-func (lvldb *LevelDbDatabase) GetTxOutput(txInput core.TxInput) (result core.TxOutput, err error) {
+func (lvldb *LevelDBDatabase) GetTxOutput(txInput core.TxInput) (result core.TxOutput, err error) {
 	bytes, err := lvldb.db.Get(bucketKey(txOutputsBucket, txInput.Key()), nil)
 	if err != nil {
 		return result, processNotFoundErr(err)
@@ -67,7 +67,7 @@ func (lvldb *LevelDbDatabase) GetTxOutput(txInput core.TxInput) (result core.TxO
 	return result, err
 }
 
-func (lvldb *LevelDbDatabase) MarkConfirmedTxsProcessed(txs []*core.Tx) error {
+func (lvldb *LevelDBDatabase) MarkConfirmedTxsProcessed(txs []*core.Tx) error {
 	batch := new(leveldb.Batch)
 
 	for _, tx := range txs {
@@ -86,7 +86,7 @@ func (lvldb *LevelDbDatabase) MarkConfirmedTxsProcessed(txs []*core.Tx) error {
 	})
 }
 
-func (lvldb *LevelDbDatabase) GetUnprocessedConfirmedTxs(maxCnt int) ([]*core.Tx, error) {
+func (lvldb *LevelDBDatabase) GetUnprocessedConfirmedTxs(maxCnt int) ([]*core.Tx, error) {
 	var result []*core.Tx
 
 	iter := lvldb.db.NewIterator(util.BytesPrefix(unprocessedTxsBucket), nil)
@@ -108,7 +108,7 @@ func (lvldb *LevelDbDatabase) GetUnprocessedConfirmedTxs(maxCnt int) ([]*core.Tx
 	return result, iter.Error()
 }
 
-func (lvldb *LevelDbDatabase) GetLatestConfirmedBlocks(maxCnt int) ([]*core.CardanoBlock, error) {
+func (lvldb *LevelDBDatabase) GetLatestConfirmedBlocks(maxCnt int) ([]*core.CardanoBlock, error) {
 	var result []*core.CardanoBlock
 
 	iter := lvldb.db.NewIterator(util.BytesPrefix(confirmedBlocks), nil)
@@ -130,7 +130,7 @@ func (lvldb *LevelDbDatabase) GetLatestConfirmedBlocks(maxCnt int) ([]*core.Card
 	return result, iter.Error()
 }
 
-func (lvldb *LevelDbDatabase) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) ([]*core.CardanoBlock, error) {
+func (lvldb *LevelDBDatabase) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) ([]*core.CardanoBlock, error) {
 	var result []*core.CardanoBlock
 
 	iter := lvldb.db.NewIterator(util.BytesPrefix(confirmedBlocks), nil)
@@ -152,8 +152,8 @@ func (lvldb *LevelDbDatabase) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt i
 	return result, iter.Error()
 }
 
-func (lvldb *LevelDbDatabase) OpenTx() core.DbTransactionWriter {
-	return NewLevelDbTransactionWriter(lvldb.db)
+func (lvldb *LevelDBDatabase) OpenTx() core.DBTransactionWriter {
+	return NewLevelDBTransactionWriter(lvldb.db)
 }
 
 func bucketKey(bucket []byte, key []byte) []byte {

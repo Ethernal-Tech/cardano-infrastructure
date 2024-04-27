@@ -40,7 +40,7 @@ func TestBlockIndexer_processConfirmedBlockNoTxOfInterest(t *testing.T) {
 		KeepAllTxsHashesInBlock: true,
 	}
 	dbMock := &DatabaseMock{
-		Writter: &DbTransactionWriterMock{},
+		Writter: &DBTransactionWriterMock{},
 	}
 	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
@@ -130,7 +130,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInOutputs(t *testing.T) {
 		KeepAllTxsHashesInBlock: true,
 	}
 	dbMock := &DatabaseMock{
-		Writter: &DbTransactionWriterMock{},
+		Writter: &DBTransactionWriterMock{},
 	}
 	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
@@ -296,7 +296,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInInputs(t *testing.T) {
 		KeepAllTxsHashesInBlock: false,
 	}
 	dbMock := &DatabaseMock{
-		Writter: &DbTransactionWriterMock{},
+		Writter: &DBTransactionWriterMock{},
 	}
 	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
@@ -446,10 +446,10 @@ func TestBlockIndexer_processConfirmedBlockKeepAllTxOutputsInDb(t *testing.T) {
 	}
 	config := &BlockIndexerConfig{
 		AddressCheck:         AddressCheckAll,
-		KeepAllTxOutputsInDb: true,
+		KeepAllTxOutputsInDB: true,
 	}
 	dbMock := &DatabaseMock{
-		Writter: &DbTransactionWriterMock{},
+		Writter: &DBTransactionWriterMock{},
 	}
 	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
@@ -570,7 +570,7 @@ func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
 		AddressCheck:       AddressCheckAll,
 	}
 	dbMock := &DatabaseMock{
-		Writter: &DbTransactionWriterMock{},
+		Writter: &DBTransactionWriterMock{},
 	}
 	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
@@ -616,7 +616,7 @@ func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
 		AddressCheck:       AddressCheckAll,
 	}
 	dbMock := &DatabaseMock{
-		Writter: &DbTransactionWriterMock{},
+		Writter: &DBTransactionWriterMock{},
 	}
 	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
@@ -656,7 +656,7 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 		AddressCheck:       AddressCheckAll,
 	}
 	dbMock := &DatabaseMock{
-		Writter: &DbTransactionWriterMock{},
+		Writter: &DBTransactionWriterMock{},
 	}
 	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		return nil
@@ -728,7 +728,7 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 		ConfirmationBlockCount: 2,
 	}
 	dbMock := &DatabaseMock{
-		Writter: &DbTransactionWriterMock{},
+		Writter: &DBTransactionWriterMock{},
 	}
 	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
 		confirmedTxs = fb

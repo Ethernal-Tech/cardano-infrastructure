@@ -190,6 +190,7 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 
 func (bs *BlockSyncerImpl) getBlock(slot uint64, hash []byte) (ledger.Block, error) {
 	bs.logger.Debug("Get full block", "slot", slot, "hash", hex.EncodeToString(hash), "connected", bs.connection != nil)
+
 	if bs.connection == nil {
 		return nil, errors.New("no connection")
 	}
@@ -241,7 +242,12 @@ func (bs *BlockSyncerImpl) errorHandler() {
 	if !strings.Contains(err.Error(), errBlockSyncerFatal.Error()) && bs.config.RestartOnError {
 		bs.logger.Warn("Error happened during synchronization", "err", err)
 
-		time.Sleep(bs.config.RestartDelay)
+		select {
+		case <-bs.closed:
+			return
+		case <-time.After(bs.config.RestartDelay):
+		}
+
 		if err := bs.Sync(); err != nil {
 			bs.logger.Error("Error happened while trying to restart the synchronization", "err", err)
 			bs.errorCh <- err // propagate error

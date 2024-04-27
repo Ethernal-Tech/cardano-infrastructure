@@ -1,11 +1,11 @@
 package indexer
 
-type DbTransactionWriter interface {
-	SetLatestBlockPoint(point *BlockPoint) DbTransactionWriter
-	AddTxOutputs(txOutputs []*TxInputOutput) DbTransactionWriter
-	AddConfirmedBlock(block *CardanoBlock) DbTransactionWriter
-	AddConfirmedTxs(txs []*Tx) DbTransactionWriter
-	RemoveTxOutputs(txInputs []*TxInput, softDelete bool) DbTransactionWriter
+type DBTransactionWriter interface {
+	SetLatestBlockPoint(point *BlockPoint) DBTransactionWriter
+	AddTxOutputs(txOutputs []*TxInputOutput) DBTransactionWriter
+	AddConfirmedBlock(block *CardanoBlock) DBTransactionWriter
+	AddConfirmedTxs(txs []*Tx) DBTransactionWriter
+	RemoveTxOutputs(txInputs []*TxInput, softDelete bool) DBTransactionWriter
 	Execute() error
 }
 
@@ -13,14 +13,14 @@ type TxOutputRetriever interface {
 	GetTxOutput(txInput TxInput) (TxOutput, error)
 }
 
-type BlockIndexerDb interface {
+type BlockIndexerDB interface {
 	TxOutputRetriever
 	GetLatestBlockPoint() (*BlockPoint, error)
-	OpenTx() DbTransactionWriter
+	OpenTx() DBTransactionWriter
 }
 
 type Database interface {
-	BlockIndexerDb
+	BlockIndexerDB
 	Init(filepath string) error
 	Close() error
 
