@@ -183,6 +183,64 @@ func (bd *BBoltDatabase) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) (
 	return result, nil
 }
 
+func (bd *BBoltDatabase) GetUnprocessedTx(txHash string) (*core.Tx, error) {
+	var result *core.Tx
+
+	err := bd.db.View(func(tx *bbolt.Tx) error {
+		cursor := tx.Bucket(unprocessedTxsBucket).Cursor()
+
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var cardTx *core.Tx
+
+			if err := json.Unmarshal(v, &cardTx); err != nil {
+				return err
+			}
+
+			if cardTx.Hash == txHash {
+				result = cardTx
+
+				return nil
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (bd *BBoltDatabase) GetProcessedTx(txHash string) (*core.Tx, error) {
+	var result *core.Tx
+
+	err := bd.db.View(func(tx *bbolt.Tx) error {
+		cursor := tx.Bucket(processedTxsBucket).Cursor()
+
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var cardTx *core.Tx
+
+			if err := json.Unmarshal(v, &cardTx); err != nil {
+				return err
+			}
+
+			if cardTx.Hash == txHash {
+				result = cardTx
+
+				return nil
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 func (bd *BBoltDatabase) OpenTx() core.DBTransactionWriter {
 	return &BBoltTransactionWriter{
 		db: bd.db,
