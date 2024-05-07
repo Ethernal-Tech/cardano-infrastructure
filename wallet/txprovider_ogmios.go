@@ -15,10 +15,10 @@ type OgmiosProvider struct {
 
 var _ ITxProvider = (*OgmiosProvider)(nil)
 
-func NewOgmiosProvider(url string) (*OgmiosProvider, error) {
+func NewOgmiosProvider(url string) *OgmiosProvider {
 	return &OgmiosProvider{
 		url: url,
-	}, nil
+	}
 }
 
 // Dispose implements ITxProvider.
@@ -110,6 +110,10 @@ func (o *OgmiosProvider) GetTip(ctx context.Context) (QueryTipData, error) {
 
 	var blockHeightResponseData queryNetworkBlockHeightResponse
 	err = json.Unmarshal(blockHeightBody, &blockHeightResponseData)
+
+	if err != nil {
+		return QueryTipData{}, err
+	}
 
 	query := queryLedgerStateTip{
 		Jsonrpc: "2.0",
