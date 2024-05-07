@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"io"
 	"net/http"
 )
 
@@ -55,16 +54,9 @@ func (o *OgmiosProvider) GetProtocolParameters(ctx context.Context) ([]byte, err
 		return nil, getErrorFromResponse(resp)
 	}
 
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	var responseData queryLedgerStateProtocolParametersResponse
 	// Unmarshal the JSON into the struct
-	err = json.Unmarshal(body, &responseData)
-	if err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
 		return nil, err
 	}
 
@@ -92,26 +84,18 @@ func (o *OgmiosProvider) GetTip(ctx context.Context) (QueryTipData, error) {
 	req.Header.Set("Content-Type", "application/json")
 
 	// Make the HTTP request
-	resp, err := new(http.Client).Do(req)
+	respBlockHeight, err := new(http.Client).Do(req)
 	if err != nil {
 		return QueryTipData{}, err
 	}
-	defer resp.Body.Close()
+	defer respBlockHeight.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return QueryTipData{}, getErrorFromResponse(resp)
-	}
-
-	// Read the response body
-	blockHeightBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return QueryTipData{}, err
+	if respBlockHeight.StatusCode != http.StatusOK {
+		return QueryTipData{}, getErrorFromResponse(respBlockHeight)
 	}
 
 	var blockHeightResponseData queryNetworkBlockHeightResponse
-	err = json.Unmarshal(blockHeightBody, &blockHeightResponseData)
-
-	if err != nil {
+	if err = json.NewDecoder(respBlockHeight.Body).Decode(&blockHeightResponseData); err != nil {
 		return QueryTipData{}, err
 	}
 
@@ -134,7 +118,7 @@ func (o *OgmiosProvider) GetTip(ctx context.Context) (QueryTipData, error) {
 	req.Header.Set("Content-Type", "application/json")
 
 	// Make the HTTP request
-	resp, err = new(http.Client).Do(req)
+	resp, err := new(http.Client).Do(req)
 	if err != nil {
 		return QueryTipData{}, err
 	}
@@ -144,17 +128,10 @@ func (o *OgmiosProvider) GetTip(ctx context.Context) (QueryTipData, error) {
 		return QueryTipData{}, getErrorFromResponse(resp)
 	}
 
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return QueryTipData{}, err
-	}
-
 	// Unmarshal the JSON into the struct
 	var responseData queryLedgerStateTipResponse
-	err = json.Unmarshal(body, &responseData)
 
-	if err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
 		return QueryTipData{}, err
 	}
 
@@ -204,16 +181,9 @@ func (o *OgmiosProvider) GetUtxos(ctx context.Context, addr string) ([]Utxo, err
 		return nil, getErrorFromResponse(resp)
 	}
 
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	var responseData queryLedgerStateUtxoResponse
 	// Unmarshal the JSON into the struct
-	err = json.Unmarshal(body, &responseData)
-	if err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
 		return nil, err
 	}
 
