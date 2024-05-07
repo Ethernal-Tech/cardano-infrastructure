@@ -73,13 +73,13 @@ func (o *OgmiosProvider) GetProtocolParameters(ctx context.Context) ([]byte, err
 
 // GetSlot implements ITxProvider.
 func (o *OgmiosProvider) GetTip(ctx context.Context) (QueryTipData, error) {
-	query := queryLedgerStateTip{
+	queryBlockHeight := queryNetworkBlockHeight{
 		Jsonrpc: "2.0",
-		Method:  "queryLedgerState/tip",
+		Method:  "queryNetwork/blockHeight",
 		ID:      nil,
 	}
 
-	queryBytes, err := json.Marshal(query)
+	queryBytes, err := json.Marshal(queryBlockHeight)
 	if err != nil {
 		return QueryTipData{}, err
 	}
@@ -93,6 +93,44 @@ func (o *OgmiosProvider) GetTip(ctx context.Context) (QueryTipData, error) {
 
 	// Make the HTTP request
 	resp, err := new(http.Client).Do(req)
+	if err != nil {
+		return QueryTipData{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return QueryTipData{}, getErrorFromResponse(resp)
+	}
+
+	// Read the response body
+	blockHeightBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return QueryTipData{}, err
+	}
+
+	var blockHeightResponseData queryNetworkBlockHeightResponse
+	err = json.Unmarshal(blockHeightBody, &blockHeightResponseData)
+
+	query := queryLedgerStateTip{
+		Jsonrpc: "2.0",
+		Method:  "queryLedgerState/tip",
+		ID:      nil,
+	}
+
+	queryBytes, err = json.Marshal(query)
+	if err != nil {
+		return QueryTipData{}, err
+	}
+
+	req, err = http.NewRequestWithContext(ctx, "POST", o.url, bytes.NewBuffer(queryBytes))
+	if err != nil {
+		return QueryTipData{}, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Make the HTTP request
+	resp, err = new(http.Client).Do(req)
 	if err != nil {
 		return QueryTipData{}, err
 	}
@@ -117,7 +155,7 @@ func (o *OgmiosProvider) GetTip(ctx context.Context) (QueryTipData, error) {
 	}
 
 	return QueryTipData{
-		Block:           0,
+		Block:           blockHeightResponseData.Result,
 		Epoch:           0,
 		Era:             "",
 		Hash:            responseData.Result.ID,

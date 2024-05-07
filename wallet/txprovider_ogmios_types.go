@@ -127,6 +127,7 @@ type queryLedgerStateTipResponse struct {
 
 type queryLedgerStateProtocolParameters queryLedgerState
 type queryLedgerStateTip queryLedgerState
+type queryNetworkBlockHeight queryLedgerState
 
 type queryLedgerState struct {
 	Jsonrpc string      `json:"jsonrpc"`
@@ -166,6 +167,13 @@ type submitTransactionResponse struct {
 		} `json:"data"`
 	} `json:"error"`
 	ID interface{} `json:"id"`
+}
+
+type queryNetworkBlockHeightResponse struct {
+	Jsonrpc string      `json:"jsonrpc"`
+	Method  string      `json:"method"`
+	Result  uint64      `json:"result"`
+	ID      interface{} `json:"id"`
 }
 
 func convertProtocolParametersOgmios(params queryLedgerStateProtocolParametersResponse) ([]byte, error) {
