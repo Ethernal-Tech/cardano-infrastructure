@@ -282,5 +282,14 @@ func getErrorFromResponse(resp *http.Response) error {
 		return fmt.Errorf("status code %d", resp.StatusCode)
 	}
 
+	if responseData["message"] == nil {
+		msg, err := json.Marshal(responseData["error"])
+		if err != nil {
+			return err
+		}
+
+		return fmt.Errorf("status code %d: %s", resp.StatusCode, string(msg))
+	}
+
 	return fmt.Errorf("status code %d: %s", resp.StatusCode, responseData["message"])
 }
