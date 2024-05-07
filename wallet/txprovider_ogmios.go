@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"io"
 	"net/http"
 )
 
@@ -55,16 +54,9 @@ func (o *OgmiosProvider) GetProtocolParameters(ctx context.Context) ([]byte, err
 		return nil, getErrorFromResponse(resp)
 	}
 
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	var responseData queryLedgerStateProtocolParametersResponse
 	// Unmarshal the JSON into the struct
-	err = json.Unmarshal(body, &responseData)
-	if err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
 		return nil, err
 	}
 
@@ -73,18 +65,52 @@ func (o *OgmiosProvider) GetProtocolParameters(ctx context.Context) ([]byte, err
 
 // GetSlot implements ITxProvider.
 func (o *OgmiosProvider) GetTip(ctx context.Context) (QueryTipData, error) {
+	queryBlockHeight := queryNetworkBlockHeight{
+		Jsonrpc: "2.0",
+		Method:  "queryNetwork/blockHeight",
+		ID:      nil,
+	}
+
+	queryBytes, err := json.Marshal(queryBlockHeight)
+	if err != nil {
+		return QueryTipData{}, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", o.url, bytes.NewBuffer(queryBytes))
+	if err != nil {
+		return QueryTipData{}, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Make the HTTP request
+	respBlockHeight, err := new(http.Client).Do(req)
+	if err != nil {
+		return QueryTipData{}, err
+	}
+	defer respBlockHeight.Body.Close()
+
+	if respBlockHeight.StatusCode != http.StatusOK {
+		return QueryTipData{}, getErrorFromResponse(respBlockHeight)
+	}
+
+	var blockHeightResponseData queryNetworkBlockHeightResponse
+	if err = json.NewDecoder(respBlockHeight.Body).Decode(&blockHeightResponseData); err != nil {
+		return QueryTipData{}, err
+	}
+
 	query := queryLedgerStateTip{
 		Jsonrpc: "2.0",
 		Method:  "queryLedgerState/tip",
 		ID:      nil,
 	}
 
-	queryBytes, err := json.Marshal(query)
+	queryBytes, err = json.Marshal(query)
 	if err != nil {
 		return QueryTipData{}, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", o.url, bytes.NewBuffer(queryBytes))
+	req, err = http.NewRequestWithContext(ctx, "POST", o.url, bytes.NewBuffer(queryBytes))
 	if err != nil {
 		return QueryTipData{}, err
 	}
@@ -102,22 +128,15 @@ func (o *OgmiosProvider) GetTip(ctx context.Context) (QueryTipData, error) {
 		return QueryTipData{}, getErrorFromResponse(resp)
 	}
 
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return QueryTipData{}, err
-	}
-
 	// Unmarshal the JSON into the struct
 	var responseData queryLedgerStateTipResponse
-	err = json.Unmarshal(body, &responseData)
 
-	if err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
 		return QueryTipData{}, err
 	}
 
 	return QueryTipData{
-		Block:           0,
+		Block:           blockHeightResponseData.Result,
 		Epoch:           0,
 		Era:             "",
 		Hash:            responseData.Result.ID,
@@ -162,16 +181,9 @@ func (o *OgmiosProvider) GetUtxos(ctx context.Context, addr string) ([]Utxo, err
 		return nil, getErrorFromResponse(resp)
 	}
 
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	var responseData queryLedgerStateUtxoResponse
 	// Unmarshal the JSON into the struct
-	err = json.Unmarshal(body, &responseData)
-	if err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
 		return nil, err
 	}
 
