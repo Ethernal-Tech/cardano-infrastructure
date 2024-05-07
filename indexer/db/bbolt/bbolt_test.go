@@ -171,6 +171,81 @@ func TestDatabase(t *testing.T) {
 		require.Empty(t, blocks)
 	})
 
+	t.Run("GetUnprocessedTxEmpty", func(t *testing.T) {
+		t.Cleanup(dbCleanup)
+
+		db := &BBoltDatabase{}
+		err := db.Init(filePath)
+		require.NoError(t, err)
+
+		tx, err := db.GetUnprocessedTx("0xtest")
+		require.NoError(t, err)
+		require.Empty(t, tx)
+	})
+
+	t.Run("GetUnprocessedTx", func(t *testing.T) {
+		t.Cleanup(dbCleanup)
+
+		db := &BBoltDatabase{}
+		err := db.Init(filePath)
+		require.NoError(t, err)
+
+		const txHash = "0xtest"
+
+		txs := []*indexer.Tx{
+			{Hash: txHash},
+		}
+
+		dbTx := db.OpenTx()
+		dbTx.AddConfirmedTxs(txs)
+		require.NoError(t, dbTx.Execute())
+
+		tx, err := db.GetUnprocessedTx(txHash)
+		require.NoError(t, err)
+		require.NotEmpty(t, tx)
+		require.Equal(t, txHash, tx.Hash)
+	})
+
+	t.Run("GetProcessedTxEmpty", func(t *testing.T) {
+		t.Cleanup(dbCleanup)
+
+		db := &BBoltDatabase{}
+		err := db.Init(filePath)
+		require.NoError(t, err)
+
+		tx, err := db.GetProcessedTx("0xtest")
+		require.NoError(t, err)
+		require.Empty(t, tx)
+	})
+
+	t.Run("GetProcessedTx", func(t *testing.T) {
+		t.Cleanup(dbCleanup)
+
+		db := &BBoltDatabase{}
+		err := db.Init(filePath)
+		require.NoError(t, err)
+
+		const txHash = "0xtest"
+
+		txs := []*indexer.Tx{
+			{Hash: txHash},
+		}
+
+		dbTx := db.OpenTx()
+		dbTx.AddConfirmedTxs(txs)
+		require.NoError(t, dbTx.Execute())
+		require.NoError(t, db.MarkConfirmedTxsProcessed(txs))
+
+		tx, err := db.GetUnprocessedTx(txHash)
+		require.NoError(t, err)
+		require.Empty(t, tx)
+
+		tx, err = db.GetProcessedTx(txHash)
+		require.NoError(t, err)
+		require.NotEmpty(t, tx)
+		require.Equal(t, txHash, tx.Hash)
+	})
+
 	t.Run("GetLatestConfirmedBlocks", func(t *testing.T) {
 		t.Cleanup(dbCleanup)
 

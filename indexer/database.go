@@ -28,4 +28,6 @@ type Database interface {
 	GetUnprocessedConfirmedTxs(maxCnt int) ([]*Tx, error)
 	GetLatestConfirmedBlocks(maxCnt int) ([]*CardanoBlock, error)
 	GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) ([]*CardanoBlock, error)
+	GetUnprocessedTx(txHash string) (*Tx, error)
+	GetProcessedTx(txHash string) (*Tx, error)
 }

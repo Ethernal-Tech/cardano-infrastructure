@@ -152,6 +152,52 @@ func (lvldb *LevelDBDatabase) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt i
 	return result, iter.Error()
 }
 
+func (lvldb *LevelDBDatabase) GetUnprocessedTx(txHash string) (*core.Tx, error) {
+	var result *core.Tx
+
+	iter := lvldb.db.NewIterator(util.BytesPrefix(unprocessedTxsBucket), nil)
+	defer iter.Release()
+
+	for iter.Next() {
+		var tx *core.Tx
+
+		if err := json.Unmarshal(iter.Value(), &tx); err != nil {
+			return nil, err
+		}
+
+		if tx.Hash == txHash {
+			result = tx
+
+			break
+		}
+	}
+
+	return result, iter.Error()
+}
+
+func (lvldb *LevelDBDatabase) GetProcessedTx(txHash string) (*core.Tx, error) {
+	var result *core.Tx
+
+	iter := lvldb.db.NewIterator(util.BytesPrefix(processedTxsBucket), nil)
+	defer iter.Release()
+
+	for iter.Next() {
+		var tx *core.Tx
+
+		if err := json.Unmarshal(iter.Value(), &tx); err != nil {
+			return nil, err
+		}
+
+		if tx.Hash == txHash {
+			result = tx
+
+			break
+		}
+	}
+
+	return result, iter.Error()
+}
+
 func (lvldb *LevelDBDatabase) OpenTx() core.DBTransactionWriter {
 	return NewLevelDBTransactionWriter(lvldb.db)
 }
