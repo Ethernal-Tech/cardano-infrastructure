@@ -15,10 +15,10 @@ type OgmiosProvider struct {
 
 var _ ITxProvider = (*OgmiosProvider)(nil)
 
-func NewOgmiosProvider(url string) *OgmiosProvider {
+func NewOgmiosProvider(url string) (*OgmiosProvider, error) {
 	return &OgmiosProvider{
 		url: url,
-	}
+	}, nil
 }
 
 // Dispose implements ITxProvider.
