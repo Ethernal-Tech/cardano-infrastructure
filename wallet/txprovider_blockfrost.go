@@ -17,11 +17,11 @@ type TxProviderBlockFrost struct {
 
 var _ ITxProvider = (*TxProviderBlockFrost)(nil)
 
-func NewTxProviderBlockFrost(url string, projectID string) (*TxProviderBlockFrost, error) {
+func NewTxProviderBlockFrost(url string, projectID string) *TxProviderBlockFrost {
 	return &TxProviderBlockFrost{
 		projectID: projectID,
 		url:       url,
-	}, nil
+	}
 }
 
 func (b *TxProviderBlockFrost) Dispose() {
@@ -280,15 +280,6 @@ func getErrorFromResponse(resp *http.Response) error {
 	var responseData map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
 		return fmt.Errorf("status code %d", resp.StatusCode)
-	}
-
-	if responseData["message"] == nil {
-		msg, err := json.Marshal(responseData["error"])
-		if err != nil {
-			return err
-		}
-
-		return fmt.Errorf("status code %d: %s", resp.StatusCode, string(msg))
 	}
 
 	return fmt.Errorf("status code %d: %s", resp.StatusCode, responseData["message"])
