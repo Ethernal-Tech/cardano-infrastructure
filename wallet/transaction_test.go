@@ -149,3 +149,57 @@ func TestTransactionBuilder(t *testing.T) {
 	assert.Equal(t, metadata[0], parsedMetaData[0].BaseData)
 	assert.Equal(t, metadata[4], parsedMetaData[0].ExtendedData)
 }
+
+func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
+	builder, err := NewTxBuilder()
+	require.NoError(t, err)
+
+	defer builder.Dispose()
+
+	builder.AddOutputs(
+		TxOutput{Addr: "0x1"},
+		TxOutput{Addr: "0x2"},
+		TxOutput{Addr: "0x3"},
+		TxOutput{Addr: "0x4"},
+	)
+
+	require.Len(t, builder.outputs, 4)
+	assert.Equal(t, uint64(0), builder.outputs[2].Amount)
+	assert.Equal(t, uint64(0), builder.outputs[3].Amount)
+
+	builder.UpdateOutputAmount(2, 200)
+	builder.UpdateOutputAmount(-1, 500)
+
+	assert.Equal(t, uint64(200), builder.outputs[2].Amount)
+	assert.Equal(t, "0x3", builder.outputs[2].Addr)
+	assert.Equal(t, uint64(500), builder.outputs[3].Amount)
+	assert.Equal(t, "0x4", builder.outputs[3].Addr)
+
+	builder.RemoveOutput(1)
+
+	require.Len(t, builder.outputs, 3)
+	assert.Equal(t, "0x1", builder.outputs[0].Addr)
+	assert.Equal(t, uint64(0), builder.outputs[0].Amount)
+	assert.Equal(t, "0x3", builder.outputs[1].Addr)
+	assert.Equal(t, uint64(200), builder.outputs[1].Amount)
+	assert.Equal(t, "0x4", builder.outputs[2].Addr)
+	assert.Equal(t, uint64(500), builder.outputs[2].Amount)
+
+	builder.RemoveOutput(0)
+
+	require.Len(t, builder.outputs, 2)
+	assert.Equal(t, "0x3", builder.outputs[0].Addr)
+	assert.Equal(t, uint64(200), builder.outputs[0].Amount)
+	assert.Equal(t, "0x4", builder.outputs[1].Addr)
+	assert.Equal(t, uint64(500), builder.outputs[1].Amount)
+
+	builder.RemoveOutput(1)
+
+	require.Len(t, builder.outputs, 1)
+	assert.Equal(t, "0x3", builder.outputs[0].Addr)
+	assert.Equal(t, uint64(200), builder.outputs[0].Amount)
+
+	builder.RemoveOutput(0)
+
+	require.Len(t, builder.outputs, 0)
+}
