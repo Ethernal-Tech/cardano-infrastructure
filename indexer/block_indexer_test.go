@@ -688,8 +688,9 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 		func() ([]ledger.Transaction, error) {
 			return []ledger.Transaction{
 				&LedgerTransactionMock{
+					HashVal: "0x1",
 					OutputsVal: []ledger.TransactionOutput{
-						NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(100)),
+						NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(50)),
 					},
 				},
 			}, nil
@@ -697,11 +698,16 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 		func() ([]ledger.Transaction, error) {
 			return []ledger.Transaction{
 				&LedgerTransactionMock{
+					HashVal: "0x2",
+					InputsVal: []ledger.TransactionInput{
+						NewLedgerTransactionInputMock(t, []byte("0x0"), 20),
+					},
 					OutputsVal: []ledger.TransactionOutput{
 						NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(100)),
 					},
 				},
 				&LedgerTransactionMock{
+					HashVal: "0x3",
 					OutputsVal: []ledger.TransactionOutput{
 						NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(200)),
 					},
@@ -744,8 +750,53 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 
 			dbMock.On("OpenTx").Once()
 			dbMock.Writter.On("Execute").Return(error(nil)).Once()
-			dbMock.Writter.On("AddTxOutputs", ([]*TxInputOutput)(nil)).Once()
-			dbMock.Writter.On("RemoveTxOutputs", []*TxInput(nil), false).Once()
+
+			// first block... then second block
+			if i == 2 {
+				dbMock.Writter.On("AddTxOutputs", []*TxInputOutput{
+					{
+						Input: TxInput{
+							Hash: "0x1",
+						},
+						Output: TxOutput{
+							Address: addressesOfInterest[0],
+							Amount:  50,
+						},
+					},
+				}).Once()
+				dbMock.Writter.On("RemoveTxOutputs", []*TxInput(nil), false).Once()
+			} else {
+				dbMock.Writter.On("AddTxOutputs", []*TxInputOutput{
+					{
+						Input: TxInput{
+							Hash: "0x2",
+						},
+						Output: TxOutput{
+							Address: addressesOfInterest[0],
+							Amount:  100,
+						},
+					},
+					{
+						Input: TxInput{
+							Hash: "0x3",
+						},
+						Output: TxOutput{
+							Address: addressesOfInterest[0],
+							Amount:  200,
+						},
+					},
+				}).Once()
+				dbMock.On("GetTxOutput", TxInput{
+					Hash: "3078300000000000000000000000000000000000000000000000000000000000", Index: 20,
+				}).Return(TxOutput{}, error(nil)).Once()
+				dbMock.Writter.On("RemoveTxOutputs", []*TxInput{
+					{
+						Hash:  "3078300000000000000000000000000000000000000000000000000000000000",
+						Index: 20,
+					},
+				}, false).Once()
+			}
+
 			dbMock.Writter.On("AddConfirmedTxs", mock.Anything).Once()
 			dbMock.Writter.On("AddConfirmedBlock", NewCardanoBlock(blockHeaders[i-2], getTxHashes(txsRetrievedWithGetTxs))).Once()
 			dbMock.Writter.On("SetLatestBlockPoint", &BlockPoint{
