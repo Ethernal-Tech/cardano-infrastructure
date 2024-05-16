@@ -205,7 +205,7 @@ func (bi *BlockIndexer) processConfirmedBlock(
 	if bi.config.KeepAllTxOutputsInDB {
 		txOutputsToSave = bi.getTxOutputs(allBlockTransactions, nil)
 		txOutputsToRemove = bi.getTxInputs(allBlockTransactions)
-	} else if bi.config.AddressCheck&AddressCheckInputs != 0 { // save outputs only if we are checking inputs
+	} else {
 		txOutputsToSave = bi.getTxOutputs(txsOfInterest, bi.addressesOfInterest)
 		txOutputsToRemove = bi.getTxInputs(txsOfInterest)
 	}
