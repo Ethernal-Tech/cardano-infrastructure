@@ -3,6 +3,7 @@ package wallet
 import (
 	"encoding/hex"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/indexer"
@@ -102,7 +103,7 @@ func TestTransactionBuilder(t *testing.T) {
 				Index: 2,
 			},
 		},
-		Sum: MinUTxODefaultValue + 20,
+		Sum: MinUTxODefaultValue*3 - 10,
 	}
 
 	multiSigFeeInputs := TxInputs{
@@ -112,7 +113,7 @@ func TestTransactionBuilder(t *testing.T) {
 				Index: 0,
 			},
 		},
-		Sum: MinUTxODefaultValue,
+		Sum: MinUTxODefaultValue * 2,
 	}
 
 	builder.SetTimeToLive(ttl).SetProtocolParameters(protocolParameters)
@@ -202,4 +203,47 @@ func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
 	builder.RemoveOutput(0)
 
 	require.Len(t, builder.outputs, 0)
+}
+
+func Test_TxBuilder_CheckOutputs(t *testing.T) {
+	b, err := NewTxBuilder()
+	require.NoError(t, err)
+
+	defer b.Dispose()
+
+	b.AddOutputs(TxOutput{
+		Addr:   "x1",
+		Amount: MinUTxODefaultValue,
+	}, TxOutput{
+		Addr:   "x2",
+		Amount: MinUTxODefaultValue + 1,
+	})
+
+	require.NoError(t, b.CheckOutputs())
+
+	b.AddOutputs(TxOutput{
+		Addr:   "x3",
+		Amount: MinUTxODefaultValue - 1,
+	}, TxOutput{
+		Addr:   "x4",
+		Amount: MinUTxODefaultValue - 2,
+	})
+
+	err = b.CheckOutputs()
+	require.Error(t, err)
+
+	require.True(t, strings.Contains(err.Error(), "output (2, x3) has insufficient amount 999999"))
+	require.True(t, strings.Contains(err.Error(), "output (3, x4) has insufficient amount 999998"))
+
+	b.SetMinOutputAmount(MinUTxODefaultValue - 1)
+
+	err = b.CheckOutputs()
+	require.Error(t, err)
+
+	require.False(t, strings.Contains(err.Error(), "output (2, x3) has insufficient amount 999999"))
+	require.True(t, strings.Contains(err.Error(), "output (3, x4) has insufficient amount 999998"))
+
+	b.SetMinOutputAmount(MinUTxODefaultValue - 2)
+
+	require.NoError(t, b.CheckOutputs())
 }
