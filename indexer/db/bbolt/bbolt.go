@@ -3,6 +3,9 @@ package indexerbbolt
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 
 	core "github.com/Ethernal-Tech/cardano-infrastructure/indexer"
 	"go.etcd.io/bbolt"
@@ -179,6 +182,49 @@ func (bd *BBoltDatabase) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) (
 	if err != nil {
 		return nil, err
 	}
+
+	return result, nil
+}
+
+func (bd *BBoltDatabase) GetAllTxOutputs(address string, onlyNotUsed bool) ([]*core.TxInputOutput, error) {
+	var result []*core.TxInputOutput
+
+	err := bd.db.View(func(tx *bbolt.Tx) error {
+		cursor := tx.Bucket(txOutputsBucket).Cursor()
+
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var output core.TxOutput
+
+			if err := json.Unmarshal(v, &output); err != nil {
+				return err
+			}
+
+			if output.Address != address || (onlyNotUsed && output.IsUsed) {
+				continue
+			}
+
+			vs := strings.Split(string(k), "_")
+			num, _ := strconv.Atoi(vs[1])
+
+			result = append(result, &core.TxInputOutput{
+				Input: core.TxInput{
+					Hash:  vs[0],
+					Index: uint32(num),
+				},
+				Output: output,
+			})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Output.Block < result[j].Output.Block ||
+			result[i].Output.Block == result[j].Output.Block && result[i].Input.Hash < result[j].Input.Hash
+	})
 
 	return result, nil
 }

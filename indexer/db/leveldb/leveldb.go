@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 
 	core "github.com/Ethernal-Tech/cardano-infrastructure/indexer"
 
@@ -150,6 +153,43 @@ func (lvldb *LevelDBDatabase) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt i
 	}
 
 	return result, iter.Error()
+}
+
+func (lvldb *LevelDBDatabase) GetAllTxOutputs(address string, onlyNotUsed bool) ([]*core.TxInputOutput, error) {
+	var result []*core.TxInputOutput
+
+	iter := lvldb.db.NewIterator(util.BytesPrefix(txOutputsBucket), nil)
+	defer iter.Release()
+
+	for iter.Next() {
+		var output core.TxOutput
+
+		if err := json.Unmarshal(iter.Value(), &output); err != nil {
+			return nil, err
+		}
+
+		if output.Address != address || (onlyNotUsed && output.IsUsed) {
+			continue
+		}
+
+		vs := strings.Split(string(iter.Key()), "_")
+		num, _ := strconv.Atoi(vs[1])
+
+		result = append(result, &core.TxInputOutput{
+			Input: core.TxInput{
+				Hash:  vs[0],
+				Index: uint32(num),
+			},
+			Output: output,
+		})
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Output.Block < result[j].Output.Block ||
+			result[i].Output.Block == result[j].Output.Block && result[i].Input.Hash < result[j].Input.Hash
+	})
+
+	return result, nil
 }
 
 func (lvldb *LevelDBDatabase) OpenTx() core.DBTransactionWriter {

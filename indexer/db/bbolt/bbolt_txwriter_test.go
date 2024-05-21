@@ -11,7 +11,7 @@ func TestTxWriter(t *testing.T) {
 	const filePath = "temp_test.db"
 
 	dbCleanup := func() {
-		RemoveDirOrFilePathIfExists(filePath) //nolint:errcheck
+		removeDirOrFilePathIfExists(filePath) //nolint:errcheck
 	}
 
 	t.Cleanup(dbCleanup)

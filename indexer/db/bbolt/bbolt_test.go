@@ -12,7 +12,7 @@ func TestDatabase(t *testing.T) {
 	const filePath = "temp_test.db"
 
 	dbCleanup := func() {
-		RemoveDirOrFilePathIfExists(filePath) //nolint:errcheck
+		removeDirOrFilePathIfExists(filePath) //nolint:errcheck
 	}
 
 	t.Cleanup(dbCleanup)
@@ -321,9 +321,87 @@ func TestDatabase(t *testing.T) {
 		require.EqualValues(t, tx4, txs[1])
 		require.EqualValues(t, tx5, txs[2])
 	})
+
+	t.Run("GetAllTxOutputs", func(t *testing.T) {
+		t.Cleanup(dbCleanup)
+
+		const addr = "0x123445454"
+
+		good1 := &indexer.TxInputOutput{
+			Input: indexer.TxInput{
+				Hash:  "0x8888",
+				Index: 2,
+			},
+			Output: indexer.TxOutput{
+				Block:   100,
+				Address: addr,
+				Amount:  100,
+			},
+		}
+		good2 := &indexer.TxInputOutput{
+			Input: indexer.TxInput{
+				Hash:  "0x1111",
+				Index: 0,
+			},
+			Output: indexer.TxOutput{
+				Block:   200,
+				Address: addr,
+				Amount:  150,
+			},
+		}
+		good3 := &indexer.TxInputOutput{
+			Input: indexer.TxInput{
+				Hash:  "0x9999",
+				Index: 1,
+			},
+			Output: indexer.TxOutput{
+				Block:   200,
+				Address: addr,
+				Amount:  200,
+			},
+		}
+
+		txOutputs := []*indexer.TxInputOutput{
+			good3,
+			{
+				Input: indexer.TxInput{
+					Hash:  "0x112287",
+					Index: 2,
+				},
+				Output: indexer.TxOutput{
+					Block:   50,
+					Address: "0x00",
+					Amount:  100,
+				},
+			},
+			good2,
+			{
+				Input: indexer.TxInput{
+					Hash:  "0x55",
+					Index: 4,
+				},
+				Output: indexer.TxOutput{
+					Block:   100,
+					Address: addr,
+					Amount:  300,
+					IsUsed:  true,
+				},
+			},
+			good1,
+		}
+		db := &BBoltDatabase{}
+
+		require.NoError(t, db.Init(filePath))
+		require.NoError(t, db.OpenTx().AddTxOutputs(txOutputs).Execute())
+
+		result, err := db.GetAllTxOutputs(addr, true)
+
+		require.NoError(t, err)
+		require.Equal(t, []*indexer.TxInputOutput{good1, good2, good3}, result)
+	})
 }
 
-func RemoveDirOrFilePathIfExists(dirOrFilePath string) (err error) {
+func removeDirOrFilePathIfExists(dirOrFilePath string) (err error) {
 	if _, err = os.Stat(dirOrFilePath); err == nil {
 		os.RemoveAll(dirOrFilePath)
 	}

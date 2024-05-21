@@ -61,7 +61,7 @@ func (m *DatabaseMock) GetLatestBlockPoint() (*BlockPoint, error) {
 		return m.GetLatestBlockPointFn()
 	}
 
-	return args.Get(0).(*BlockPoint), args.Error(1) //nolint:forcetypeassert
+	return args.Get(0).(*BlockPoint), args.Error(1)
 }
 
 // GetTxOutput implements Database.
@@ -72,14 +72,14 @@ func (m *DatabaseMock) GetTxOutput(txInput TxInput) (TxOutput, error) {
 		return m.GetTxOutputFn(txInput)
 	}
 
-	return args.Get(0).(TxOutput), args.Error(1) //nolint:forcetypeassert
+	return args.Get(0).(TxOutput), args.Error(1)
 }
 
 // GetUnprocessedConfirmedTxs implements Database.
 func (m *DatabaseMock) GetUnprocessedConfirmedTxs(maxCnt int) ([]*Tx, error) {
 	args := m.Called(maxCnt)
 
-	return args.Get(0).([]*Tx), args.Error(1) //nolint:forcetypeassert
+	return args.Get(0).([]*Tx), args.Error(1)
 }
 
 // Init implements Database.
@@ -106,7 +106,7 @@ func (m *DatabaseMock) OpenTx() DBTransactionWriter {
 		return m.Writter
 	}
 
-	return args.Get(0).(DBTransactionWriter) //nolint:forcetypeassert
+	return args.Get(0).(DBTransactionWriter)
 }
 
 func (m *DatabaseMock) Close() error {
@@ -116,13 +116,19 @@ func (m *DatabaseMock) Close() error {
 func (m *DatabaseMock) GetLatestConfirmedBlocks(maxCnt int) ([]*CardanoBlock, error) {
 	args := m.Called(maxCnt)
 
-	return args.Get(0).([]*CardanoBlock), args.Error(1) //nolint:forcetypeassert
+	return args.Get(0).([]*CardanoBlock), args.Error(1)
 }
 
 func (m *DatabaseMock) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) ([]*CardanoBlock, error) {
 	args := m.Called(slotNumber, maxCnt)
 
-	return args.Get(0).([]*CardanoBlock), args.Error(1) //nolint:forcetypeassert
+	return args.Get(0).([]*CardanoBlock), args.Error(1)
+}
+
+func (m *DatabaseMock) GetAllTxOutputs(address string, onlyNotUser bool) ([]*TxInputOutput, error) {
+	args := m.Called(address, onlyNotUser)
+
+	return args.Get(0).([]*TxInputOutput), args.Error(1)
 }
 
 var _ Database = (*DatabaseMock)(nil)

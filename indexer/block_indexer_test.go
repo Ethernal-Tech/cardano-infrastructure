@@ -208,6 +208,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInOutputs(t *testing.T) {
 			Output: TxOutput{
 				Address: txOutputs[0].Address().String(),
 				Amount:  txOutputs[0].Amount(),
+				Block:   blockNumber,
 			},
 		},
 		{
@@ -218,6 +219,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInOutputs(t *testing.T) {
 			Output: TxOutput{
 				Address: txOutputs[1].Address().String(),
 				Amount:  txOutputs[1].Amount(),
+				Block:   blockNumber,
 			},
 		},
 	}).Once()
@@ -494,11 +496,11 @@ func TestBlockIndexer_processConfirmedBlockKeepAllTxOutputsInDb(t *testing.T) {
 	dbMock.Writter.On("AddTxOutputs", []*TxInputOutput{
 		{
 			Input:  TxInput{Hash: hashTx[0], Index: 0},
-			Output: TxOutput{Address: addresses[1], Amount: uint64(200)},
+			Output: TxOutput{Address: addresses[1], Amount: uint64(200), Block: blockNumber},
 		},
 		{
 			Input:  TxInput{Hash: hashTx[1], Index: 0},
-			Output: TxOutput{Address: addresses[1], Amount: uint64(100)},
+			Output: TxOutput{Address: addresses[1], Amount: uint64(100), Block: blockNumber},
 		},
 	}).Once()
 	dbMock.Writter.On("RemoveTxOutputs", []*TxInput{

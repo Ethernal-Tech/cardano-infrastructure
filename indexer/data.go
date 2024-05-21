@@ -41,6 +41,7 @@ type TxInput struct {
 
 type TxOutput struct {
 	Address string `json:"addr"`
+	Block   uint64 `json:"block"`
 	Amount  uint64 `json:"amnt"`
 	IsUsed  bool   `json:"used"`
 }
