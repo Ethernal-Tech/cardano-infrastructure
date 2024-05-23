@@ -67,7 +67,7 @@ func WaitForAmount(ctx context.Context, txRetriever IUTxORetriever,
 	addr string, cmpHandler func(*big.Int) bool, numRetries int, waitTime time.Duration,
 	isRecoverableError ...IsRecoverableErrorFn,
 ) error {
-	return executeWithRetry(ctx, numRetries, waitTime, func() (bool, error) {
+	return ExecuteWithRetry(ctx, numRetries, waitTime, func() (bool, error) {
 		utxos, err := txRetriever.GetUtxos(ctx, addr)
 
 		return err == nil && cmpHandler(GetUtxosSum(utxos)), err
@@ -79,7 +79,7 @@ func WaitForTxHashInUtxos(ctx context.Context, txRetriever IUTxORetriever,
 	addr string, txHash string, numRetries int, waitTime time.Duration,
 	isRecoverableError ...IsRecoverableErrorFn,
 ) error {
-	return executeWithRetry(ctx, numRetries, waitTime, func() (bool, error) {
+	return ExecuteWithRetry(ctx, numRetries, waitTime, func() (bool, error) {
 		utxos, err := txRetriever.GetUtxos(ctx, addr)
 		if err != nil {
 			return false, err
@@ -100,7 +100,7 @@ func WaitForTransaction(ctx context.Context, txRetriever ITxRetriever,
 	hash string, numRetries int, waitTime time.Duration,
 	isRecoverableError ...IsRecoverableErrorFn,
 ) (res map[string]interface{}, err error) {
-	err = executeWithRetry(ctx, numRetries, waitTime, func() (bool, error) {
+	err = ExecuteWithRetry(ctx, numRetries, waitTime, func() (bool, error) {
 		res, err = txRetriever.GetTxByHash(ctx, hash)
 
 		return err == nil && res != nil, err
@@ -186,7 +186,7 @@ func GetKeyHash(verificationKey []byte) (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-func executeWithRetry(ctx context.Context,
+func ExecuteWithRetry(ctx context.Context,
 	numRetries int, waitTime time.Duration,
 	executeFn func() (bool, error),
 	isRecoverableError ...IsRecoverableErrorFn,
