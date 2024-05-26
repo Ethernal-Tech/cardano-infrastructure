@@ -52,7 +52,7 @@ linters-settings:
         rules: "./gorules/rules.go"
 
 issues:
-  new-from-rev: origin/develop # report only new issues with reference to develop branch
+  new-from-rev: origin/main # report only new issues with reference to main branch
   exclude-dirs:
     - tests
   exclude-rules:
