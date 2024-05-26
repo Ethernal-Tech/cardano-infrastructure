@@ -24,6 +24,7 @@ type CardanoAddress interface {
 	GetPayment() StakeCredential
 	GetStake() StakeCredential
 	GetNetwork() CardanoNetworkType
+	GetStakePointer() StakePointer
 	Bytes() []byte
 	String() string
 }
@@ -63,6 +64,7 @@ func NewStakeCredential(hash [KeyHashSize]byte, typ StakeCredentialType) StakeCr
 		Payload: hash,
 	}
 }
+
 func NewStakeCredentialFromData(data []byte, isScript bool) (StakeCredential, error) {
 	if len(data) < KeyHashSize {
 		return StakeCredential{}, ErrInvalidData
@@ -98,6 +100,10 @@ func (a BaseAddress) GetStake() StakeCredential {
 
 func (a BaseAddress) GetNetwork() CardanoNetworkType {
 	return a.Network
+}
+
+func (a BaseAddress) GetStakePointer() StakePointer {
+	return StakePointer{}
 }
 
 func (a BaseAddress) Bytes() []byte {
@@ -145,6 +151,10 @@ func (a EnterpriseAddress) Bytes() []byte {
 	return bytes[:]
 }
 
+func (a EnterpriseAddress) GetStakePointer() StakePointer {
+	return StakePointer{}
+}
+
 func (a EnterpriseAddress) String() string {
 	str, _ := bech32.EncodeFromBase256(a.Network.GetPrefix(), a.Bytes())
 
@@ -169,6 +179,10 @@ func (a RewardAddress) GetStake() StakeCredential {
 
 func (a RewardAddress) GetNetwork() CardanoNetworkType {
 	return a.Network
+}
+
+func (a RewardAddress) GetStakePointer() StakePointer {
+	return StakePointer{}
 }
 
 func (a RewardAddress) Bytes() []byte {
@@ -209,6 +223,10 @@ func (a PointerAddress) GetStake() StakeCredential {
 
 func (a PointerAddress) GetNetwork() CardanoNetworkType {
 	return a.Network
+}
+
+func (a PointerAddress) GetStakePointer() StakePointer {
+	return a.StakePointer
 }
 
 func (a PointerAddress) Bytes() (bytes []byte) {
