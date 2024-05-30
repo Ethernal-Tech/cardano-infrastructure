@@ -6,8 +6,8 @@ import (
 	"os"
 
 	sm "cloud.google.com/go/secretmanager/apiv1"
+	smpb "cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 	"github.com/Ethernal-Tech/cardano-infrastructure/secrets"
-	smpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 )
 
 type GCPSecretsManager struct {

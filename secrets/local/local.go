@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/common"
@@ -53,7 +55,7 @@ func (l *LocalSecretsManager) Setup() error {
 	l.secretPathMapLock.Lock()
 	defer l.secretPathMapLock.Unlock()
 
-	subDirectories := []string{secrets.ConsensusFolderLocal, secrets.NetworkFolderLocal}
+	subDirectories := []string{secrets.ConsensusFolderLocal, secrets.NetworkFolderLocal, secrets.CardanoFolderLocal}
 
 	// Set up the local directories
 	if err := common.SetupDataDir(l.path, subDirectories, 0750); err != nil {
@@ -81,11 +83,19 @@ func (l *LocalSecretsManager) Setup() error {
 		secrets.NetworkKeyLocal,
 	)
 
+	// baseDir/cardano/
+	l.secretPathMap[secrets.CardanoKeyLocalPrefix] = filepath.Join(
+		l.path,
+		secrets.CardanoFolderLocal,
+	)
+
 	return nil
 }
 
 // GetSecret gets the local SecretsManager's secret from disk
 func (l *LocalSecretsManager) GetSecret(name string) ([]byte, error) {
+	name, fileName := l.handleCardanoSecretName(name)
+
 	l.secretPathMapLock.RLock()
 	secretPath, ok := l.secretPathMap[name]
 	l.secretPathMapLock.RUnlock()
@@ -93,6 +103,8 @@ func (l *LocalSecretsManager) GetSecret(name string) ([]byte, error) {
 	if !ok {
 		return nil, secrets.ErrSecretNotFound
 	}
+
+	secretPath = path.Join(secretPath, fileName)
 
 	// Read the secret from disk
 	secret, err := os.ReadFile(secretPath)
@@ -114,6 +126,8 @@ func (l *LocalSecretsManager) SetSecret(name string, value []byte) error {
 		return nil
 	}
 
+	name, fileName := l.handleCardanoSecretName(name)
+
 	l.secretPathMapLock.Lock()
 	secretPath, ok := l.secretPathMap[name]
 	l.secretPathMapLock.Unlock()
@@ -121,6 +135,8 @@ func (l *LocalSecretsManager) SetSecret(name string, value []byte) error {
 	if !ok {
 		return secrets.ErrSecretNotFound
 	}
+
+	secretPath = path.Join(secretPath, fileName)
 
 	// Checks for existing secret
 	if common.FileExists(secretPath) {
@@ -148,6 +164,8 @@ func (l *LocalSecretsManager) HasSecret(name string) bool {
 
 // RemoveSecret removes the local SecretsManager's secret from disk
 func (l *LocalSecretsManager) RemoveSecret(name string) error {
+	name, fileName := l.handleCardanoSecretName(name)
+
 	l.secretPathMapLock.Lock()
 	secretPath, ok := l.secretPathMap[name]
 	defer l.secretPathMapLock.Unlock()
@@ -156,6 +174,8 @@ func (l *LocalSecretsManager) RemoveSecret(name string) error {
 		return secrets.ErrSecretNotFound
 	}
 
+	secretPath = path.Join(secretPath, fileName)
+
 	delete(l.secretPathMap, name)
 
 	if removeErr := os.Remove(secretPath); removeErr != nil {
@@ -163,4 +183,16 @@ func (l *LocalSecretsManager) RemoveSecret(name string) error {
 	}
 
 	return nil
+}
+
+func (l *LocalSecretsManager) handleCardanoSecretName(name string) (string, string) {
+	if strings.HasPrefix(name, secrets.CardanoKeyLocalPrefix) {
+		return secrets.CardanoKeyLocalPrefix,
+			strings.Replace(
+				strings.TrimPrefix(name, secrets.CardanoKeyLocalPrefix),
+				"_key", ".key", 1,
+			)
+	}
+
+	return name, ""
 }

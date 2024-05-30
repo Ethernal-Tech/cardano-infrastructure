@@ -12,7 +12,7 @@ import (
 
 func TestLocalSecretsManagerFactory(t *testing.T) {
 	// Set up the expected folder structure
-	workingDirectory, tempErr := os.MkdirTemp("/tmp", "local-secrets-manager")
+	workingDirectory, tempErr := os.MkdirTemp("", "local-secrets-manager")
 	if tempErr != nil {
 		t.Fatalf("Unable to instantiate local secrets manager directories, %v", tempErr)
 	}
@@ -63,7 +63,7 @@ func getLocalSecretsManager(t *testing.T) secrets.SecretsManager {
 	t.Helper()
 
 	// Set up the expected folder structure
-	workingDirectory, tempErr := os.MkdirTemp("/tmp", "local-secrets-manager")
+	workingDirectory, tempErr := os.MkdirTemp("", "local-secrets-manager")
 	if tempErr != nil {
 		t.Fatalf("Unable to instantiate local secrets manager directories, %v", tempErr)
 	}
@@ -120,6 +120,12 @@ func TestLocalSecretsManager_GetSetRemoveSecret(
 			"dummySecret",
 			[]byte{1},
 			false,
+		},
+		{
+			"cardano secrets storage key",
+			secrets.CardanoKeyLocalPrefix + "prime_cardano_key",
+			[]byte{4, 16},
+			true,
 		},
 	}
 
