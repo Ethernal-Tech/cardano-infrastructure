@@ -1,7 +1,9 @@
 package indexer
 
 import (
-	ouroboros "github.com/blinklabs-io/gouroboros/ledger"
+	"fmt"
+
+	"github.com/blinklabs-io/gouroboros/ledger"
 )
 
 type TxInfo struct {
@@ -19,12 +21,7 @@ type TxInfoFull struct {
 }
 
 func ParseTxInfo(rawTx []byte) (TxInfo, error) {
-	typ, err := ouroboros.DetermineTransactionType(rawTx)
-	if err != nil {
-		return TxInfo{}, err
-	}
-
-	gtx, err := ouroboros.NewTransactionFromCbor(typ, rawTx)
+	gtx, err := tryParseTxRaw(rawTx)
 	if err != nil {
 		return TxInfo{}, err
 	}
@@ -44,12 +41,7 @@ func ParseTxInfo(rawTx []byte) (TxInfo, error) {
 }
 
 func ParseTxFull(rawTx []byte) (TxInfoFull, error) {
-	typ, err := ouroboros.DetermineTransactionType(rawTx)
-	if err != nil {
-		return TxInfoFull{}, err
-	}
-
-	gtx, err := ouroboros.NewTransactionFromCbor(typ, rawTx)
+	gtx, err := tryParseTxRaw(rawTx)
 	if err != nil {
 		return TxInfoFull{}, err
 	}
@@ -89,4 +81,32 @@ func ParseTxFull(rawTx []byte) (TxInfoFull, error) {
 		Outputs: outputsFull,
 		Inputs:  inputsFull,
 	}, nil
+}
+
+func tryParseTxRaw(data []byte) (ledger.Transaction, error) {
+	if tx, err := ledger.NewAlonzoTransactionFromCbor(data); err == nil {
+		return tx, nil
+	}
+
+	if tx, err := ledger.NewConwayTransactionFromCbor(data); err == nil {
+		return tx, nil
+	}
+
+	if tx, err := ledger.NewBabbageTransactionFromCbor(data); err == nil {
+		return tx, nil
+	}
+
+	if tx, err := ledger.NewMaryTransactionFromCbor(data); err == nil {
+		return tx, nil
+	}
+
+	if tx, err := ledger.NewAllegraTransactionFromCbor(data); err == nil {
+		return tx, nil
+	}
+
+	if tx, err := ledger.NewShelleyTransactionFromCbor(data); err == nil {
+		return tx, nil
+	}
+
+	return nil, fmt.Errorf("unknown transaction type")
 }

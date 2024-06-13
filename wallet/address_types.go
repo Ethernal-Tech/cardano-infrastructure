@@ -16,9 +16,7 @@ const (
 	ScriptStakeCredentialType
 	EmptyStakeCredentialType
 
-	KeyHashSize    int                = 28
-	MainNetNetwork CardanoNetworkType = 1
-	TestNetNetwork CardanoNetworkType = 0
+	KeyHashSize int = 28
 )
 
 type CardanoAddress interface {
@@ -28,26 +26,6 @@ type CardanoAddress interface {
 	GetStakePointer() StakePointer
 	Bytes() []byte
 	String() string
-}
-
-func (n CardanoNetworkType) GetPrefix() string {
-	if n == MainNetNetwork {
-		return "addr"
-	}
-
-	return "addr_test"
-}
-
-func (n CardanoNetworkType) GetStakePrefix() string {
-	if n == MainNetNetwork {
-		return "stake"
-	}
-
-	return "stake_test"
-}
-
-func (n CardanoNetworkType) IsMainNet() bool {
-	return n == MainNetNetwork
 }
 
 type StakeCredential struct {
