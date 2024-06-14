@@ -65,7 +65,7 @@ func ParseTxFull(rawTx []byte) (TxInfoFull, error) {
 
 	for i, inp := range inputs {
 		inputsFull[i] = TxInput{
-			Hash:  inp.Id().String(),
+			Hash:  Hash(inp.Id()),
 			Index: inp.Index(),
 		}
 	}

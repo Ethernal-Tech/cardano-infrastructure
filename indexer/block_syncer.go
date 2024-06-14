@@ -188,18 +188,18 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 	return nil
 }
 
-func (bs *BlockSyncerImpl) getBlock(slot uint64, hash []byte) (ledger.Block, error) {
-	bs.logger.Debug("Get full block", "slot", slot, "hash", hex.EncodeToString(hash), "connected", bs.connection != nil)
-
+func (bs *BlockSyncerImpl) getBlockTransactions(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error) {
 	if bs.connection == nil {
-		return nil, errors.New("no connection")
+		return nil, errors.New("failed to get block transactions: no connection")
 	}
 
-	return bs.connection.BlockFetch().Client.GetBlock(common.NewPoint(slot, hash))
-}
+	bs.logger.Debug("Get block transactions", "slot", blockHeader.SlotNumber(), "hash", blockHeader.Hash())
 
-func (bs *BlockSyncerImpl) getBlockTransactions(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error) {
-	block, err := bs.getBlock(blockHeader.SlotNumber(), hash2Bytes(blockHeader.Hash()))
+	hash := NewHashFromHexString(blockHeader.Hash())
+
+	block, err := bs.connection.BlockFetch().Client.GetBlock(
+		common.NewPoint(blockHeader.SlotNumber(), hash[:]),
+	)
 	if err != nil {
 		return nil, err
 	}

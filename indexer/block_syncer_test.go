@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"encoding/hex"
 	"errors"
 	"strings"
 	"testing"
@@ -23,7 +22,6 @@ type BlockSyncerHandlerMock struct {
 
 func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock {
 	bn := uint64(0)
-	hashBytes, _ := hex.DecodeString(hash)
 
 	if hash == ExistingPointHashStr {
 		bn = ExistingPointBlockNum
@@ -32,7 +30,7 @@ func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock
 	return &BlockSyncerHandlerMock{
 		BlockPoint: &BlockPoint{
 			BlockSlot:   slot,
-			BlockHash:   hashBytes,
+			BlockHash:   NewHashFromHexString(hash),
 			BlockNumber: bn,
 		},
 	}
@@ -163,12 +161,12 @@ func TestSyncNonExistingHash(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-func TestSyncEmptyHash(t *testing.T) {
+func TestSyncZeroSlot(t *testing.T) {
 	t.Parallel()
 
 	var emptyHash []byte
 
-	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, string(emptyHash))
+	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(0, string(emptyHash))
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
 		NodeAddress:  NodeAddress,

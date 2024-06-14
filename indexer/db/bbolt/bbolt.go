@@ -1,11 +1,10 @@
 package indexerbbolt
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
-	"strings"
 
 	core "github.com/Ethernal-Tech/cardano-infrastructure/indexer"
 	"go.etcd.io/bbolt"
@@ -203,14 +202,10 @@ func (bd *BBoltDatabase) GetAllTxOutputs(address string, onlyNotUsed bool) ([]*c
 				continue
 			}
 
-			vs := strings.Split(string(k), "_")
-			num, _ := strconv.Atoi(vs[1])
+			input, _ := core.NewTxInputFromBytes(k)
 
 			result = append(result, &core.TxInputOutput{
-				Input: core.TxInput{
-					Hash:  vs[0],
-					Index: uint32(num),
-				},
+				Input:  input,
 				Output: output,
 			})
 		}
@@ -223,7 +218,8 @@ func (bd *BBoltDatabase) GetAllTxOutputs(address string, onlyNotUsed bool) ([]*c
 
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Output.Block < result[j].Output.Block ||
-			result[i].Output.Block == result[j].Output.Block && result[i].Input.Hash < result[j].Input.Hash
+			result[i].Output.Block == result[j].Output.Block &&
+				bytes.Compare(result[i].Input.Hash[:], result[j].Input.Hash[:]) < 0
 	})
 
 	return result, nil
