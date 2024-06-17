@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -10,6 +11,33 @@ import (
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 )
 
+const HashSize = 32
+
+type Hash [HashSize]byte
+
+func (h Hash) String() string {
+	return hex.EncodeToString(h[:])
+}
+
+func NewHashFromHexString(hash string) Hash {
+	v, _ := hex.DecodeString(strings.TrimPrefix(hash, "0x"))
+
+	return NewHashFromBytes(v)
+}
+
+func NewHashFromBytes(bytes []byte) Hash {
+	if len(bytes) != HashSize {
+		result := Hash{}
+		size := min(HashSize, len(bytes))
+
+		copy(result[HashSize-size:], bytes[:size])
+
+		return result
+	}
+
+	return Hash(bytes)
+}
+
 type Witness struct {
 	VKey      []byte `json:"key"`
 	Signature []byte `json:"sgn"`
@@ -17,15 +45,15 @@ type Witness struct {
 
 type BlockPoint struct {
 	BlockSlot   uint64 `json:"slot"`
-	BlockHash   []byte `json:"hash"`
+	BlockHash   Hash   `json:"hash"`
 	BlockNumber uint64 `json:"num"`
 }
 
 type Tx struct {
 	BlockSlot uint64           `json:"slot"`
-	BlockHash string           `json:"bhash"`
+	BlockHash Hash             `json:"bhash"`
 	Indx      uint32           `json:"ind"`
-	Hash      string           `json:"hash"`
+	Hash      Hash             `json:"hash"`
 	Metadata  []byte           `json:"metadata"`
 	Inputs    []*TxInputOutput `json:"inp"`
 	Outputs   []*TxOutput      `json:"out"`
@@ -35,7 +63,7 @@ type Tx struct {
 }
 
 type TxInput struct {
-	Hash  string `json:"id"`
+	Hash  Hash   `json:"id"`
 	Index uint32 `json:"ind"`
 }
 
@@ -52,18 +80,18 @@ type TxInputOutput struct {
 }
 
 type CardanoBlock struct {
-	Slot    uint64   `json:"slot"`
-	Hash    string   `json:"hash"`
-	Number  uint64   `json:"num"`
-	EraID   uint8    `json:"era"`
-	EraName string   `json:"-"`
-	Txs     []string `json:"txs"`
+	Slot    uint64 `json:"slot"`
+	Hash    Hash   `json:"hash"`
+	Number  uint64 `json:"num"`
+	EraID   uint8  `json:"era"`
+	EraName string `json:"-"`
+	Txs     []Hash `json:"txs"`
 }
 
-func NewCardanoBlock(header ledger.BlockHeader, txs []string) *CardanoBlock {
+func NewCardanoBlock(header ledger.BlockHeader, txs []Hash) *CardanoBlock {
 	return &CardanoBlock{
 		Slot:    header.SlotNumber(),
-		Hash:    header.Hash(),
+		Hash:    NewHashFromHexString(header.Hash()),
 		Number:  header.BlockNumber(),
 		EraID:   header.Era().Id,
 		EraName: header.Era().Name,
@@ -76,7 +104,11 @@ func (cb CardanoBlock) Key() []byte {
 }
 
 func SlotNumberToKey(slotNumber uint64) []byte {
-	return []byte(fmt.Sprintf("%20d", slotNumber))
+	bytes := make([]byte, 8)
+
+	binary.BigEndian.PutUint64(bytes, slotNumber)
+
+	return bytes
 }
 
 func NewWitnesses(vkeyWitnesses []interface{}) []Witness {
@@ -105,7 +137,12 @@ func NewWitnesses(vkeyWitnesses []interface{}) []Witness {
 }
 
 func (tx Tx) Key() []byte {
-	return []byte(fmt.Sprintf("%20d_%6d", tx.BlockSlot, tx.Indx))
+	key := make([]byte, 8+4)
+
+	binary.BigEndian.PutUint64(key[:8], tx.BlockSlot)
+	binary.BigEndian.PutUint32(key[8:], tx.Indx)
+
+	return key
 }
 
 func (tx Tx) String() string {
@@ -121,7 +158,7 @@ func (tx Tx) String() string {
 		}
 
 		sbInp.WriteString("[")
-		sbInp.WriteString(x.Input.Hash)
+		sbInp.WriteString(x.Input.Hash.String())
 		sbInp.WriteString(", ")
 		sbInp.WriteString(strconv.FormatUint(uint64(x.Input.Index), 10))
 		sbInp.WriteString(", ")
@@ -146,9 +183,9 @@ func (tx Tx) String() string {
 	}
 
 	sb.WriteString("hash = ")
-	sb.WriteString(tx.Hash)
+	sb.WriteString(tx.Hash.String())
 	sb.WriteString("\nblock hash = ")
-	sb.WriteString(tx.BlockHash)
+	sb.WriteString(tx.BlockHash.String())
 	sb.WriteString("\nblock slot = ")
 	sb.WriteString(strconv.FormatUint(tx.BlockSlot, 10))
 	sb.WriteString("\nfee = ")
@@ -172,27 +209,44 @@ func (to TxOutput) IsNotUsed() bool {
 }
 
 func (ti TxInput) Key() []byte {
-	return []byte(fmt.Sprintf("%s_%d", ti.Hash, ti.Index))
+	key := make([]byte, HashSize+4)
+
+	copy(key[:], ti.Hash[:])
+	binary.BigEndian.PutUint32(key[HashSize:], ti.Index)
+
+	return key
+}
+
+func NewTxInputFromBytes(bytes []byte) (TxInput, error) {
+	if len(bytes) != HashSize+4 {
+		return TxInput{}, fmt.Errorf("invalid bytes size: %d", len(bytes))
+	}
+
+	return TxInput{
+		Hash:  Hash(bytes[:HashSize]),
+		Index: binary.BigEndian.Uint32(bytes[HashSize:]),
+	}, nil
 }
 
 func (bp BlockPoint) ToCommonPoint() common.Point {
-	if len(bp.BlockHash) == 0 {
+	if bp.BlockSlot == 0 {
 		return common.NewPointOrigin() // from genesis
 	}
 
-	return common.NewPoint(bp.BlockSlot, bp.BlockHash)
+	return common.NewPoint(bp.BlockSlot, bp.BlockHash[:])
 }
 
 func (bp BlockPoint) String() string {
-	return fmt.Sprintf("slot = %d, hash = %s, num = %d", bp.BlockSlot, hex.EncodeToString(bp.BlockHash), bp.BlockNumber)
+	return fmt.Sprintf("slot = %d, hash = %s, num = %d",
+		bp.BlockSlot, hex.EncodeToString(bp.BlockHash[:]), bp.BlockNumber)
 }
 
-func hash2Bytes(hash string) []byte {
-	v, _ := hex.DecodeString(hash)
+func bytes2HashString(bytes []byte) string {
+	if len(bytes) == HashSize {
+		return hex.EncodeToString(bytes)
+	}
 
-	return v
-}
+	h := NewHashFromBytes(bytes)
 
-func bytes2Hash(hash []byte) string {
-	return hex.EncodeToString(hash)
+	return hex.EncodeToString(h[:])
 }

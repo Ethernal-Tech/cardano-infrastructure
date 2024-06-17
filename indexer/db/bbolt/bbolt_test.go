@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Ethernal-Tech/cardano-infrastructure/indexer"
+	indexer "github.com/Ethernal-Tech/cardano-infrastructure/indexer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -71,12 +71,12 @@ func TestDatabase(t *testing.T) {
 		blockPoint1 := &indexer.BlockPoint{
 			BlockSlot:   1,
 			BlockNumber: 1,
-			BlockHash:   []byte("hash1"),
+			BlockHash:   indexer.Hash{1},
 		}
 		blockPoint2 := &indexer.BlockPoint{
 			BlockSlot:   2,
 			BlockNumber: 2,
-			BlockHash:   []byte("hash2"),
+			BlockHash:   indexer.Hash{12},
 		}
 
 		db := &BBoltDatabase{}
@@ -100,7 +100,7 @@ func TestDatabase(t *testing.T) {
 		t.Cleanup(dbCleanup)
 
 		txInput := indexer.TxInput{
-			Hash:  ("tx_hash_1"),
+			Hash:  indexer.Hash{1, 2},
 			Index: 1,
 		}
 
@@ -118,7 +118,7 @@ func TestDatabase(t *testing.T) {
 
 		txInOut1 := &indexer.TxInputOutput{
 			Input: indexer.TxInput{
-				Hash:  "tx_hash_1",
+				Hash:  indexer.Hash{1, 2},
 				Index: 1,
 			},
 			Output: indexer.TxOutput{
@@ -129,7 +129,7 @@ func TestDatabase(t *testing.T) {
 		}
 		txInOut2 := &indexer.TxInputOutput{
 			Input: indexer.TxInput{
-				Hash:  "tx_hash_1",
+				Hash:  indexer.Hash{14, 43, 78},
 				Index: 2,
 			},
 			Output: indexer.TxOutput{
@@ -329,7 +329,7 @@ func TestDatabase(t *testing.T) {
 
 		good1 := &indexer.TxInputOutput{
 			Input: indexer.TxInput{
-				Hash:  "0x8888",
+				Hash:  indexer.Hash{11, 2},
 				Index: 2,
 			},
 			Output: indexer.TxOutput{
@@ -340,7 +340,7 @@ func TestDatabase(t *testing.T) {
 		}
 		good2 := &indexer.TxInputOutput{
 			Input: indexer.TxInput{
-				Hash:  "0x1111",
+				Hash:  indexer.Hash{89, 2},
 				Index: 0,
 			},
 			Output: indexer.TxOutput{
@@ -351,7 +351,7 @@ func TestDatabase(t *testing.T) {
 		}
 		good3 := &indexer.TxInputOutput{
 			Input: indexer.TxInput{
-				Hash:  "0x9999",
+				Hash:  indexer.Hash{111, 2},
 				Index: 1,
 			},
 			Output: indexer.TxOutput{
@@ -365,7 +365,7 @@ func TestDatabase(t *testing.T) {
 			good3,
 			{
 				Input: indexer.TxInput{
-					Hash:  "0x112287",
+					Hash:  indexer.Hash{9},
 					Index: 2,
 				},
 				Output: indexer.TxOutput{
@@ -377,7 +377,7 @@ func TestDatabase(t *testing.T) {
 			good2,
 			{
 				Input: indexer.TxInput{
-					Hash:  "0x55",
+					Hash:  indexer.Hash{19},
 					Index: 4,
 				},
 				Output: indexer.TxOutput{

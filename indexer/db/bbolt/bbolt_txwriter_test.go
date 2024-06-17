@@ -63,7 +63,7 @@ func TestTxWriter(t *testing.T) {
 
 		txInOut1 := &indexer.TxInputOutput{
 			Input: indexer.TxInput{
-				Hash:  "tx_hash_1",
+				Hash:  indexer.Hash{1, 2, 3},
 				Index: 1,
 			},
 			Output: indexer.TxOutput{
@@ -74,7 +74,7 @@ func TestTxWriter(t *testing.T) {
 		}
 		txInOut2 := &indexer.TxInputOutput{
 			Input: indexer.TxInput{
-				Hash:  "tx_hash_1",
+				Hash:  indexer.Hash{1, 2, 78},
 				Index: 2,
 			},
 			Output: indexer.TxOutput{
@@ -113,7 +113,7 @@ func TestTxWriter(t *testing.T) {
 
 		txInOut1 := &indexer.TxInputOutput{
 			Input: indexer.TxInput{
-				Hash:  "tx_hash_1",
+				Hash:  indexer.Hash{48},
 				Index: 1,
 			},
 			Output: indexer.TxOutput{
@@ -124,7 +124,7 @@ func TestTxWriter(t *testing.T) {
 		}
 		txInOut2 := &indexer.TxInputOutput{
 			Input: indexer.TxInput{
-				Hash:  "tx_hash_1",
+				Hash:  indexer.Hash{11},
 				Index: 2,
 			},
 			Output: indexer.TxOutput{
@@ -176,7 +176,7 @@ func TestTxWriter(t *testing.T) {
 
 		txInOut1 := &indexer.TxInputOutput{
 			Input: indexer.TxInput{
-				Hash:  "tx_hash_1",
+				Hash:  indexer.Hash{24},
 				Index: 1,
 			},
 			Output: indexer.TxOutput{
@@ -187,7 +187,7 @@ func TestTxWriter(t *testing.T) {
 		}
 		txInOut2 := &indexer.TxInputOutput{
 			Input: indexer.TxInput{
-				Hash:  "tx_hash_1",
+				Hash:  indexer.Hash{44},
 				Index: 2,
 			},
 			Output: indexer.TxOutput{

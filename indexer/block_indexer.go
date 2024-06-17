@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"sync"
@@ -89,7 +88,7 @@ func (bi *BlockIndexer) RollBackwardFunc(
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
-	pointHash := bytes2Hash(point.Hash)
+	pointHash := bytes2HashString(point.Hash)
 
 	// linear is ok, there will be smaller number of unconfirmed blocks in memory
 	for i := len(bi.unconfirmedBlocks) - 1; i >= 0; i-- {
@@ -104,7 +103,7 @@ func (bi *BlockIndexer) RollBackwardFunc(
 		}
 	}
 
-	if bi.latestBlockPoint.BlockSlot == point.Slot && bytes.Equal(bi.latestBlockPoint.BlockHash, point.Hash) {
+	if bi.latestBlockPoint.BlockSlot == point.Slot && bi.latestBlockPoint.BlockHash.String() == pointHash {
 		bi.unconfirmedBlocks = nil
 		bi.logger.Info("Roll backward to confirmed block", "hash", pointHash, "slot", point.Slot)
 
@@ -113,7 +112,10 @@ func (bi *BlockIndexer) RollBackwardFunc(
 	}
 
 	// we have confirmed some block that should not be confirmed!!!! TODO: what to do in this case?
-	return errors.Join(errBlockSyncerFatal, fmt.Errorf("roll backward block (%d, %s) not found", point.Slot, pointHash))
+	return errors.Join(errBlockSyncerFatal,
+		fmt.Errorf("roll backward block not found. new = (%d, %s) vs latest = (%d, %s)",
+			point.Slot, pointHash,
+			bi.latestBlockPoint.BlockSlot, bi.latestBlockPoint.BlockHash))
 }
 
 func (bi *BlockIndexer) RollForwardFunc(
@@ -188,7 +190,7 @@ func (bi *BlockIndexer) processConfirmedBlock(
 	confirmedBlockHeader ledger.BlockHeader, allBlockTransactions []ledger.Transaction,
 ) (*CardanoBlock, []*Tx, *BlockPoint, error) {
 	var (
-		txsHashes         []string
+		txsHashes         []Hash
 		confirmedTxs      []*Tx
 		txOutputsToSave   []*TxInputOutput
 		txOutputsToRemove []*TxInput
@@ -232,7 +234,7 @@ func (bi *BlockIndexer) processConfirmedBlock(
 	confirmedBlock := NewCardanoBlock(confirmedBlockHeader, txsHashes)
 	latestBlockPoint := &BlockPoint{
 		BlockSlot:   confirmedBlockHeader.SlotNumber(),
-		BlockHash:   hash2Bytes(confirmedBlockHeader.Hash()),
+		BlockHash:   NewHashFromHexString(confirmedBlockHeader.Hash()),
 		BlockNumber: confirmedBlockHeader.BlockNumber(),
 	}
 	// save confirmed block (without tx details) in db
@@ -284,7 +286,7 @@ func (bi *BlockIndexer) isTxOutputOfInterest(tx ledger.Transaction) bool {
 func (bi *BlockIndexer) isTxInputOfInterest(tx ledger.Transaction) (bool, error) {
 	for _, inp := range tx.Inputs() {
 		txOutput, err := bi.db.GetTxOutput(TxInput{
-			Hash:  inp.Id().String(),
+			Hash:  Hash(inp.Id()),
 			Index: inp.Index(),
 		})
 		if err != nil {
@@ -308,7 +310,7 @@ func (bi *BlockIndexer) getTxOutputs(
 
 			res = append(res, &TxInputOutput{
 				Input: TxInput{
-					Hash:  tx.Hash(),
+					Hash:  NewHashFromHexString(tx.Hash()),
 					Index: uint32(ind),
 				},
 				Output: TxOutput{
@@ -327,7 +329,7 @@ func (bi *BlockIndexer) getTxInputs(txs []ledger.Transaction) (res []*TxInput) {
 	for _, tx := range txs {
 		for _, inp := range tx.Inputs() {
 			res = append(res, &TxInput{
-				Hash:  inp.Id().String(),
+				Hash:  Hash(inp.Id()),
 				Index: inp.Index(),
 			})
 		}
@@ -341,10 +343,10 @@ func (bi *BlockIndexer) createTx(
 ) (*Tx, error) {
 	tx := &Tx{
 		Indx:      indx,
-		Hash:      ledgerTx.Hash(),
+		Hash:      NewHashFromHexString(ledgerTx.Hash()),
 		Fee:       ledgerTx.Fee(),
 		BlockSlot: ledgerBlockHeader.SlotNumber(),
-		BlockHash: ledgerBlockHeader.Hash(),
+		BlockHash: NewHashFromHexString(ledgerBlockHeader.Hash()),
 		Valid:     ledgerTx.IsValid(),
 	}
 
@@ -353,7 +355,7 @@ func (bi *BlockIndexer) createTx(
 
 		for j, inp := range inputs {
 			txInput := TxInput{
-				Hash:  inp.Id().String(),
+				Hash:  Hash(inp.Id()),
 				Index: inp.Index(),
 			}
 
@@ -405,14 +407,14 @@ func (bi *BlockIndexer) createTx(
 	return tx, nil
 }
 
-func getTxHashes(txs []ledger.Transaction) []string {
+func getTxHashes(txs []ledger.Transaction) []Hash {
 	if len(txs) == 0 {
 		return nil
 	}
 
-	res := make([]string, len(txs))
+	res := make([]Hash, len(txs))
 	for i, x := range txs {
-		res[i] = x.Hash()
+		res[i] = NewHashFromHexString(x.Hash())
 	}
 
 	return res
