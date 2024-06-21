@@ -1,5 +1,7 @@
 package wallet
 
+type CardanoNetworkType byte
+
 const (
 	VectorMainNetNetwork CardanoNetworkType = 5
 	VectorTestNetNetwork CardanoNetworkType = 4

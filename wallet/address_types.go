@@ -9,8 +9,6 @@ import (
 // code mainly from https://github.com/fivebinaries/go-cardano-serialization/blob/master/address/address.go
 type StakeCredentialType byte
 
-type CardanoNetworkType byte
-
 const (
 	KeyStakeCredentialType StakeCredentialType = iota
 	ScriptStakeCredentialType
