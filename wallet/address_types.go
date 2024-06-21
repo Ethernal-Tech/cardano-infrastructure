@@ -66,6 +66,7 @@ type BaseAddress struct {
 	Network CardanoNetworkType
 	Payment StakeCredential
 	Stake   StakeCredential
+	Extra   []byte
 }
 
 func (a BaseAddress) GetPayment() StakeCredential {
@@ -85,13 +86,14 @@ func (a BaseAddress) GetStakePointer() StakePointer {
 }
 
 func (a BaseAddress) Bytes() []byte {
-	bytes := [KeyHashSize*2 + 1]byte{}
+	bytes := make([]byte, KeyHashSize*2+1+len(a.Extra))
 	bytes[0] = (byte(a.Payment.Kind) << 4) | (byte(a.Stake.Kind) << 5) | (byte(a.Network) & 0xf)
 
-	copy(bytes[1:29], a.Payment.Payload[:])
-	copy(bytes[29:], a.Stake.Payload[:])
+	copy(bytes[1:KeyHashSize+1], a.Payment.Payload[:])
+	copy(bytes[KeyHashSize+1:], a.Stake.Payload[:])
+	copy(bytes[KeyHashSize*2+1:], a.Extra)
 
-	return bytes[:]
+	return bytes
 }
 
 func (a BaseAddress) String() string {
