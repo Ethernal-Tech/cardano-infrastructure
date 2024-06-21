@@ -9,6 +9,7 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type txOperation func(*leveldb.DB, *leveldb.Batch) error
@@ -131,6 +132,21 @@ func (tw *LevelDBTransactionWriter) RemoveTxOutputs(
 		}
 
 		return nil
+	})
+
+	return tw
+}
+
+func (tw *LevelDBTransactionWriter) DeleteAllTxOutputsPhysically() core.DBTransactionWriter {
+	tw.operations = append(tw.operations, func(db *leveldb.DB, batch *leveldb.Batch) error {
+		iter := db.NewIterator(util.BytesPrefix(txOutputsBucket), nil)
+		defer iter.Release()
+
+		for iter.Next() {
+			batch.Delete(iter.Key())
+		}
+
+		return iter.Error()
 	})
 
 	return tw

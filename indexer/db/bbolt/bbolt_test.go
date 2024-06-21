@@ -333,7 +333,7 @@ func TestDatabase(t *testing.T) {
 				Index: 2,
 			},
 			Output: indexer.TxOutput{
-				Block:   100,
+				Slot:    100,
 				Address: addr,
 				Amount:  100,
 			},
@@ -344,7 +344,7 @@ func TestDatabase(t *testing.T) {
 				Index: 0,
 			},
 			Output: indexer.TxOutput{
-				Block:   200,
+				Slot:    200,
 				Address: addr,
 				Amount:  150,
 			},
@@ -355,7 +355,7 @@ func TestDatabase(t *testing.T) {
 				Index: 1,
 			},
 			Output: indexer.TxOutput{
-				Block:   200,
+				Slot:    200,
 				Address: addr,
 				Amount:  200,
 			},
@@ -369,7 +369,7 @@ func TestDatabase(t *testing.T) {
 					Index: 2,
 				},
 				Output: indexer.TxOutput{
-					Block:   50,
+					Slot:    50,
 					Address: "0x00",
 					Amount:  100,
 				},
@@ -381,7 +381,7 @@ func TestDatabase(t *testing.T) {
 					Index: 4,
 				},
 				Output: indexer.TxOutput{
-					Block:   100,
+					Slot:    100,
 					Address: addr,
 					Amount:  300,
 					IsUsed:  true,

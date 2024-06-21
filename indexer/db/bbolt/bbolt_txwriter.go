@@ -137,6 +137,20 @@ func (tw *BBoltTransactionWriter) RemoveTxOutputs(txInputs []*core.TxInput, soft
 	return tw
 }
 
+func (tw *BBoltTransactionWriter) DeleteAllTxOutputsPhysically() core.DBTransactionWriter {
+	tw.operations = append(tw.operations, func(tx *bbolt.Tx) error {
+		if err := tx.DeleteBucket(txOutputsBucket); err != nil {
+			return err
+		}
+
+		_, err := tx.CreateBucket(txOutputsBucket)
+
+		return err
+	})
+
+	return tw
+}
+
 func (tw *BBoltTransactionWriter) Execute() error {
 	defer func() {
 		tw.operations = nil

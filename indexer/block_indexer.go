@@ -205,10 +205,10 @@ func (bi *BlockIndexer) processConfirmedBlock(
 	}
 
 	if bi.config.KeepAllTxOutputsInDB {
-		txOutputsToSave = bi.getTxOutputs(confirmedBlockHeader.BlockNumber(), allBlockTransactions, nil)
+		txOutputsToSave = bi.getTxOutputs(confirmedBlockHeader.SlotNumber(), allBlockTransactions, nil)
 		txOutputsToRemove = bi.getTxInputs(allBlockTransactions)
 	} else {
-		txOutputsToSave = bi.getTxOutputs(confirmedBlockHeader.BlockNumber(), txsOfInterest, bi.addressesOfInterest)
+		txOutputsToSave = bi.getTxOutputs(confirmedBlockHeader.SlotNumber(), txsOfInterest, bi.addressesOfInterest)
 		txOutputsToRemove = bi.getTxInputs(txsOfInterest)
 	}
 
@@ -300,7 +300,7 @@ func (bi *BlockIndexer) isTxInputOfInterest(tx ledger.Transaction) (bool, error)
 }
 
 func (bi *BlockIndexer) getTxOutputs(
-	blockNum uint64, txs []ledger.Transaction, addressesOfInterest map[string]bool,
+	slot uint64, txs []ledger.Transaction, addressesOfInterest map[string]bool,
 ) (res []*TxInputOutput) {
 	for _, tx := range txs {
 		for ind, txOut := range tx.Outputs() {
@@ -314,7 +314,7 @@ func (bi *BlockIndexer) getTxOutputs(
 					Index: uint32(ind),
 				},
 				Output: TxOutput{
-					Block:   blockNum,
+					Slot:    slot,
 					Address: txOut.Address().String(),
 					Amount:  txOut.Amount(),
 				},
@@ -376,7 +376,7 @@ func (bi *BlockIndexer) createTx(
 
 		for j, out := range outputs {
 			tx.Outputs[j] = &TxOutput{
-				Block:   ledgerBlockHeader.BlockNumber(),
+				Slot:    ledgerBlockHeader.SlotNumber(),
 				Address: out.Address().String(),
 				Amount:  out.Amount(),
 			}

@@ -180,8 +180,8 @@ func (lvldb *LevelDBDatabase) GetAllTxOutputs(address string, onlyNotUsed bool) 
 	}
 
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].Output.Block < result[j].Output.Block ||
-			result[i].Output.Block == result[j].Output.Block &&
+		return result[i].Output.Slot < result[j].Output.Slot ||
+			result[i].Output.Slot == result[j].Output.Slot &&
 				bytes.Compare(result[i].Input.Hash[:], result[j].Input.Hash[:]) < 0
 	})
 

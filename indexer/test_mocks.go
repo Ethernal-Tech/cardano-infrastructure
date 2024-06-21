@@ -208,6 +208,12 @@ func (m *DBTransactionWriterMock) SetLatestBlockPoint(point *BlockPoint) DBTrans
 	return m
 }
 
+func (m *DBTransactionWriterMock) DeleteAllTxOutputsPhysically() DBTransactionWriter {
+	m.Called()
+
+	return m
+}
+
 var _ DBTransactionWriter = (*DBTransactionWriterMock)(nil)
 
 type LedgerBlockHeaderMock struct {

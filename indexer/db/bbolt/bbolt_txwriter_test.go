@@ -298,4 +298,57 @@ func TestTxWriter(t *testing.T) {
 
 		require.EqualValues(t, []*indexer.Tx{tx1, tx2, tx3, tx4, tx5}, txs)
 	})
+
+	t.Run("DeleteAllTxOutputsPhysically", func(t *testing.T) {
+		t.Cleanup(dbCleanup)
+
+		const addr = "addr_1_test"
+
+		txInOuts := []*indexer.TxInputOutput{
+			{
+				Input: indexer.TxInput{
+					Hash: indexer.Hash{1, 2, 3},
+				},
+				Output: indexer.TxOutput{
+					Address: addr,
+					Amount:  100,
+				},
+			},
+			{
+				Input: indexer.TxInput{
+					Hash: indexer.Hash{1, 2, 78},
+				},
+				Output: indexer.TxOutput{
+					Address: addr,
+					Amount:  200,
+				},
+			},
+		}
+
+		db := &BBoltDatabase{}
+
+		require.NoError(t, db.Init(filePath))
+		require.NoError(t, db.OpenTx().AddTxOutputs(txInOuts).Execute())
+
+		result, err := db.GetAllTxOutputs(addr, true)
+
+		require.NoError(t, err)
+		require.Equal(t, txInOuts, result)
+
+		require.NoError(t, db.OpenTx().DeleteAllTxOutputsPhysically().Execute())
+
+		result, err = db.GetAllTxOutputs(addr, true)
+
+		require.NoError(t, err)
+		require.Len(t, result, 0)
+
+		require.NoError(t, db.OpenTx().AddTxOutputs(txInOuts).Execute())
+
+		require.NoError(t, db.OpenTx().DeleteAllTxOutputsPhysically().AddTxOutputs(txInOuts[1:]).Execute())
+
+		result, err = db.GetAllTxOutputs(addr, true)
+
+		require.NoError(t, err)
+		require.Equal(t, txInOuts[1:], result)
+	})
 }
