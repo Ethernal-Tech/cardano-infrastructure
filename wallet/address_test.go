@@ -1,8 +1,10 @@
 package wallet
 
 import (
+	"crypto/rand"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -122,6 +124,7 @@ func TestNewAddress(t *testing.T) {
 
 	for i, a := range addresses {
 		addr, err := NewAddress(a)
+		assert.NoError(t, err, "%s has error: %v", a, err)
 
 		if err == nil {
 			assert.Equal(t, i <= 10, addr.GetNetwork().IsMainNet(), "%s should be on mainnet: %v", a, i <= 9)
@@ -138,8 +141,28 @@ func TestNewAddress(t *testing.T) {
 			}
 
 			assert.Equal(t, a, addr.String())
-		} else {
-			assert.NoError(t, err, "%s has error: %v", a, err)
 		}
 	}
+}
+
+func TestNewAddressVector(t *testing.T) {
+	key1 := make([]byte, 64)
+	key2 := make([]byte, 64)
+
+	_, err := rand.Read(key1)
+	require.NoError(t, err)
+
+	_, err = rand.Read(key2)
+	require.NoError(t, err)
+
+	ba, err := NewBaseAddress(VectorTestNetNetwork, key1, key2)
+	require.NoError(t, err)
+
+	require.True(t, strings.HasPrefix(ba.String(), "vector_test"))
+
+	ba, err = NewBaseAddress(VectorMainNetNetwork, key1, key2)
+	require.NoError(t, err)
+
+	require.True(t, strings.HasPrefix(ba.String(), "vector"))
+	require.False(t, strings.HasPrefix(ba.String(), "vector_test"))
 }

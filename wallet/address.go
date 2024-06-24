@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/wallet/bech32"
 )
@@ -18,7 +17,7 @@ var (
 func NewAddress(raw string) (addr CardanoAddress, err error) {
 	var data []byte
 
-	if strings.HasPrefix(raw, "addr") || strings.HasPrefix(raw, "stake") {
+	if IsAddressWithValidPrefix(raw) {
 		_, data, err = bech32.DecodeToBase256(raw)
 		if err != nil {
 			return nil, err

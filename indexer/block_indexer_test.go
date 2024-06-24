@@ -658,9 +658,8 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 		},
 	}
 	bp := &BlockPoint{
-		BlockSlot:   5,
-		BlockHash:   Hash{0, 1},
-		BlockNumber: 1,
+		BlockSlot: 5,
+		BlockHash: Hash{0, 1},
 	}
 	config := &BlockIndexerConfig{
 		StartingBlockPoint: nil,

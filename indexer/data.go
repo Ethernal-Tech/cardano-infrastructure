@@ -250,3 +250,11 @@ func bytes2HashString(bytes []byte) string {
 
 	return hex.EncodeToString(h[:])
 }
+
+func (t TxInput) String() string {
+	return fmt.Sprintf("%s:%d", t.Hash, t.Index)
+}
+
+func (t TxInputOutput) String() string {
+	return fmt.Sprintf("%s:%d:%s:%d", t.Input.Hash, t.Input.Index, t.Output.Address, t.Output.Amount)
+}
