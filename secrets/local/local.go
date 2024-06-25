@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -104,7 +103,7 @@ func (l *LocalSecretsManager) GetSecret(name string) ([]byte, error) {
 		return nil, secrets.ErrSecretNotFound
 	}
 
-	secretPath = path.Join(secretPath, fileName)
+	secretPath = filepath.Join(secretPath, fileName)
 
 	// Read the secret from disk
 	secret, err := os.ReadFile(secretPath)
@@ -136,7 +135,7 @@ func (l *LocalSecretsManager) SetSecret(name string, value []byte) error {
 		return secrets.ErrSecretNotFound
 	}
 
-	secretPath = path.Join(secretPath, fileName)
+	secretPath = filepath.Join(secretPath, fileName)
 
 	// Checks for existing secret
 	if common.FileExists(secretPath) {
@@ -174,9 +173,9 @@ func (l *LocalSecretsManager) RemoveSecret(name string) error {
 		return secrets.ErrSecretNotFound
 	}
 
-	secretPath = path.Join(secretPath, fileName)
+	secretPath = filepath.Join(secretPath, fileName)
 
-	delete(l.secretPathMap, name)
+	// we do not need to remove key from secretPathMap: delete(l.secretPathMap, name)
 
 	if removeErr := os.Remove(secretPath); removeErr != nil {
 		return fmt.Errorf("unable to remove secret, %w", removeErr)
