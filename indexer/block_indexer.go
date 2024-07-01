@@ -275,7 +275,8 @@ func (bi *BlockIndexer) filterTxsOfInterest(txs []ledger.Transaction) (result []
 
 func (bi *BlockIndexer) isTxOutputOfInterest(tx ledger.Transaction) bool {
 	for _, out := range tx.Outputs() {
-		if bi.addressesOfInterest[out.Address().String()] {
+		addr := LedgerAddressToString(out.Address())
+		if bi.addressesOfInterest[addr] {
 			return true
 		}
 	}
@@ -304,7 +305,8 @@ func (bi *BlockIndexer) getTxOutputs(
 ) (res []*TxInputOutput) {
 	for _, tx := range txs {
 		for ind, txOut := range tx.Outputs() {
-			if len(addressesOfInterest) > 0 && !bi.addressesOfInterest[txOut.Address().String()] {
+			addr := LedgerAddressToString(txOut.Address())
+			if len(addressesOfInterest) > 0 && !bi.addressesOfInterest[addr] {
 				continue
 			}
 
@@ -315,7 +317,7 @@ func (bi *BlockIndexer) getTxOutputs(
 				},
 				Output: TxOutput{
 					Slot:    slot,
-					Address: txOut.Address().String(),
+					Address: addr,
 					Amount:  txOut.Amount(),
 				},
 			})
@@ -377,7 +379,7 @@ func (bi *BlockIndexer) createTx(
 		for j, out := range outputs {
 			tx.Outputs[j] = &TxOutput{
 				Slot:    ledgerBlockHeader.SlotNumber(),
-				Address: out.Address().String(),
+				Address: LedgerAddressToString(out.Address()),
 				Amount:  out.Amount(),
 			}
 		}

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Ethernal-Tech/cardano-infrastructure/wallet"
 	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 )
@@ -257,4 +258,12 @@ func (t TxInput) String() string {
 
 func (t TxInputOutput) String() string {
 	return fmt.Sprintf("%s:%d:%s:%d", t.Input.Hash, t.Input.Index, t.Output.Address, t.Output.Amount)
+}
+
+// LedgerAddressToString translates string representation of address to our wallet representation
+// this will handle vector and other specific cases
+func LedgerAddressToString(addr ledger.Address) string {
+	ourAddr, _ := wallet.NewAddressFromBytes(addr.Bytes())
+
+	return ourAddr.String()
 }
