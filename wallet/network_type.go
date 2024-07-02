@@ -5,10 +5,21 @@ import "strings"
 type CardanoNetworkType byte
 
 const (
+	TestNetProtocolMagic = uint(1097911063)
+	MainNetProtocolMagic = uint(764824073)
+
+	PrimeTestNetProtocolMagic  = uint(3311)
+	PrimeMainNetProtocolMagic  = uint(764824073)
+	VectorTestNetProtocolMagic = uint(1127)
+	VectorMainNetProtocolMagic = uint(3327)
+
 	VectorMainNetNetwork CardanoNetworkType = 3
 	VectorTestNetNetwork CardanoNetworkType = 2
 	MainNetNetwork       CardanoNetworkType = 1
 	TestNetNetwork       CardanoNetworkType = 0
+
+	KeyHashSize = 28
+	KeySize     = 32
 )
 
 func (n CardanoNetworkType) GetPrefix() string {

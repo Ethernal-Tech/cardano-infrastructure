@@ -3,7 +3,7 @@ package logger
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"regexp"
 	"testing"
 
@@ -19,8 +19,8 @@ func Test_getLogFileWriter(t *testing.T) {
 		os.Remove(testDir)
 	}()
 
-	filePathWithExtension := path.Join(testDir, "dummy1", "file.log")
-	filePathWithoutExtension := path.Join(testDir, "dummy2", "file")
+	filePathWithExtension := filepath.Join(testDir, "dummy1", "file.log")
+	filePathWithoutExtension := filepath.Join(testDir, "dummy2", "file")
 
 	t.Run("empty", func(t *testing.T) {
 		f, err := getLogFileWriter(" ", true)

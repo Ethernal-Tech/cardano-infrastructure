@@ -1,7 +1,7 @@
 package logger
 
 import (
-	"path"
+	"path/filepath"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
@@ -36,7 +36,7 @@ func (l *LoggerContainerImpl) GetLogger(s string) (hclog.Logger, error) {
 
 	nc := l.config
 	if nc.LogFilePath != "" {
-		nc.LogFilePath = path.Join(nc.LogFilePath, s+".log")
+		nc.LogFilePath = filepath.Join(nc.LogFilePath, s+".log")
 	}
 
 	newLogger, err := NewLogger(nc)

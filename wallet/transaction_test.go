@@ -35,16 +35,20 @@ func TestTransactionBuilder(t *testing.T) {
 		"d215701e2eb17c741b9d306cba553f9fbaaca1e12a5925a065b90fa8",
 	}
 
-	policyScriptMultiSig, err := NewPolicyScript(walletsKeyHashes, len(walletsKeyHashes)*2/3+1)
+	policyScriptMultiSig := NewPolicyScript(walletsKeyHashes, len(walletsKeyHashes)*2/3+1)
+	policyScriptFeeMultiSig := NewPolicyScript(walletsFeeKeyHashes, len(walletsFeeKeyHashes)*2/3+1)
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+
+	multisigPolicyID, err := cliUtils.GetPolicyID(policyScriptMultiSig)
 	require.NoError(t, err)
 
-	policyScriptFeeMultiSig, err := NewPolicyScript(walletsFeeKeyHashes, len(walletsFeeKeyHashes)*2/3+1)
+	feeMultisigPolicyID, err := cliUtils.GetPolicyID(policyScriptFeeMultiSig)
 	require.NoError(t, err)
 
-	multiSigAddr, err := policyScriptMultiSig.CreateMultiSigAddress(testNetMagic)
+	multiSigAddr, err := NewPolicyScriptAddress(TestNetNetwork, multisigPolicyID)
 	require.NoError(t, err)
 
-	multiSigFeeAddr, err := policyScriptFeeMultiSig.CreateMultiSigAddress(testNetMagic)
+	multiSigFeeAddr, err := NewPolicyScriptAddress(TestNetNetwork, feeMultisigPolicyID)
 	require.NoError(t, err)
 
 	type metaDataKey0 struct {
@@ -77,7 +81,7 @@ func TestTransactionBuilder(t *testing.T) {
 	}
 	outputsSum := GetOutputsSum(outputs)
 
-	builder, err := NewTxBuilder()
+	builder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -112,9 +116,9 @@ func TestTransactionBuilder(t *testing.T) {
 	builder.SetTimeToLive(ttl).SetProtocolParameters(protocolParameters)
 	builder.SetMetaData(metadataBytes).SetTestNetMagic(testNetMagic)
 	builder.AddOutputs(outputs...).AddOutputs(TxOutput{
-		Addr: multiSigAddr,
+		Addr: multiSigAddr.String(),
 	}).AddOutputs(TxOutput{
-		Addr: multiSigFeeAddr,
+		Addr: multiSigFeeAddr.String(),
 	})
 	builder.AddInputsWithScript(policyScriptMultiSig, multiSigInputs.Inputs...)
 	builder.AddInputsWithScript(policyScriptFeeMultiSig, multiSigFeeInputs.Inputs...)
@@ -135,7 +139,7 @@ func TestTransactionBuilder(t *testing.T) {
 }
 
 func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
-	builder, err := NewTxBuilder()
+	builder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -189,7 +193,7 @@ func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
 }
 
 func Test_TxBuilder_CheckOutputs(t *testing.T) {
-	b, err := NewTxBuilder()
+	b, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
 	require.NoError(t, err)
 
 	defer b.Dispose()

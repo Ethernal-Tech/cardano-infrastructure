@@ -3,7 +3,6 @@ package logger
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -56,7 +55,7 @@ func getLogFileWriter(logFilePath string, appendFile bool) (*os.File, error) {
 			logFileName = fmt.Sprintf("%s_%s.%s", parts[0], suffix, parts[1])
 		}
 
-		logFilePath = path.Join(logFileDirectory, logFileName)
+		logFilePath = filepath.Join(logFileDirectory, logFileName)
 	}
 
 	return os.OpenFile(logFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0660)
