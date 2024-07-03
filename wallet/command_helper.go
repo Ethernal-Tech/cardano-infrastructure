@@ -23,21 +23,22 @@ func (rce runCommandError) Error() string {
 }
 
 func ResolveCardanoCliBinary(networkID CardanoNetworkType) string {
-	if networkID == VectorMainNetNetwork || networkID == VectorTestNetNetwork {
-		bin := os.Getenv("CARDANO_CLI_BINARY_VECTOR")
-		if bin != "" {
-			return bin
-		}
-		// fallback
-		return "cardano-cli-vector"
+	var env, name string
+
+	switch networkID {
+	case VectorMainNetNetwork, VectorTestNetNetwork:
+		env = "CARDANO_CLI_BINARY_VECTOR"
+		name = "vector-cli"
+	default:
+		env = "CARDANO_CLI_BINARY"
+		name = "cardano-cli"
 	}
 
-	bin := os.Getenv("CARDANO_CLI_BINARY")
-	if bin != "" {
+	if bin := os.Getenv(env); bin != "" {
 		return bin
 	}
 	// fallback
-	return "cardano-cli"
+	return name
 }
 
 func runCommand(binary string, args []string, envVariables ...string) (string, error) {
