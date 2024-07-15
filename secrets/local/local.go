@@ -54,7 +54,8 @@ func (l *LocalSecretsManager) Setup() error {
 	l.secretPathMapLock.Lock()
 	defer l.secretPathMapLock.Unlock()
 
-	subDirectories := []string{secrets.ConsensusFolderLocal, secrets.NetworkFolderLocal, secrets.CardanoFolderLocal}
+	subDirectories := []string{
+		secrets.ConsensusFolderLocal, secrets.NetworkFolderLocal, secrets.CardanoFolderLocal, secrets.OtherFolderLocal}
 
 	// Set up the local directories
 	if err := common.SetupDataDir(l.path, subDirectories, 0750); err != nil {
@@ -86,6 +87,12 @@ func (l *LocalSecretsManager) Setup() error {
 	l.secretPathMap[secrets.CardanoKeyLocalPrefix] = filepath.Join(
 		l.path,
 		secrets.CardanoFolderLocal,
+	)
+
+	// baseDir/evm/
+	l.secretPathMap[secrets.OtherKeyLocalPrefix] = filepath.Join(
+		l.path,
+		secrets.OtherFolderLocal,
 	)
 
 	return nil
@@ -189,6 +196,12 @@ func (l *LocalSecretsManager) handleCardanoSecretName(name string) (string, stri
 		return secrets.CardanoKeyLocalPrefix,
 			strings.Replace(
 				strings.TrimPrefix(name, secrets.CardanoKeyLocalPrefix),
+				"_key", ".key", 1,
+			)
+	} else if strings.HasPrefix(name, secrets.OtherKeyLocalPrefix) {
+		return secrets.OtherKeyLocalPrefix,
+			strings.Replace(
+				strings.TrimPrefix(name, secrets.OtherKeyLocalPrefix),
 				"_key", ".key", 1,
 			)
 	}

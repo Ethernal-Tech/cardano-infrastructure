@@ -34,6 +34,7 @@ const (
 	ValidatorBLSKeyLocal  = "validator-bls.key"
 	NetworkKeyLocal       = "libp2p.key"
 	CardanoKeyLocalPrefix = "cardano_"
+	OtherKeyLocalPrefix   = "other_"
 )
 
 // Define constant folder names for the local StorageManager
@@ -41,6 +42,7 @@ const (
 	ConsensusFolderLocal = "consensus"
 	NetworkFolderLocal   = "libp2p"
 	CardanoFolderLocal   = "cardano"
+	OtherFolderLocal     = "other"
 )
 
 var (

@@ -127,6 +127,18 @@ func TestLocalSecretsManager_GetSetRemoveSecret(
 			[]byte{4, 16},
 			true,
 		},
+		{
+			"evm secrets storage key nexus",
+			secrets.OtherKeyLocalPrefix + "nexus_key",
+			[]byte{4, 16, 20},
+			true,
+		},
+		{
+			"evm secrets storage key dulitl",
+			secrets.OtherKeyLocalPrefix + "dulitl_relayer_key",
+			[]byte{4, 16, 25},
+			true,
+		},
 	}
 
 	for _, testCase := range testTable {
