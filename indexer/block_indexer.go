@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	infraCommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/blinklabs-io/gouroboros/protocol/chainsync"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
@@ -47,7 +48,7 @@ type BlockIndexer struct {
 
 	// latest confirmed and saved block point
 	latestBlockPoint      *BlockPoint
-	unconfirmedBlocks     CircularQueue[blockWithLazyTxRetriever]
+	unconfirmedBlocks     infraCommon.CircularQueue[blockWithLazyTxRetriever]
 	confirmedBlockHandler NewConfirmedBlockHandler
 	addressesOfInterest   map[string]bool
 
@@ -75,7 +76,7 @@ func NewBlockIndexer(
 		config:                config,
 		latestBlockPoint:      nil,
 		confirmedBlockHandler: confirmedBlockHandler,
-		unconfirmedBlocks:     NewCircularQueue[blockWithLazyTxRetriever](int(config.ConfirmationBlockCount)),
+		unconfirmedBlocks:     infraCommon.NewCircularQueue[blockWithLazyTxRetriever](int(config.ConfirmationBlockCount)),
 		db:                    db,
 		addressesOfInterest:   addressesOfInterest,
 		logger:                logger,
