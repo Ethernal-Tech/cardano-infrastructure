@@ -14,6 +14,8 @@ func TestCircularQueue(t *testing.T) {
 	}
 
 	t.Run("push and pop pointer", func(t *testing.T) {
+		t.Parallel()
+
 		cq := NewCircularQueue[*Item](5)
 
 		require.Nil(t, cq.Pop())
@@ -48,6 +50,8 @@ func TestCircularQueue(t *testing.T) {
 	})
 
 	t.Run("push and pop struct", func(t *testing.T) {
+		t.Parallel()
+
 		cq2 := NewCircularQueue[Item](5)
 		for i := 0; i < 5; i++ {
 			require.NoError(t, cq2.Push(Item{Val: 160 + i*10}))
@@ -63,6 +67,8 @@ func TestCircularQueue(t *testing.T) {
 	})
 
 	t.Run("clear from", func(t *testing.T) {
+		t.Parallel()
+
 		cq := NewCircularQueue[*Item](5)
 		for i := 0; i < 5; i++ {
 			require.NoError(t, cq.Push(&Item{Val: 160 + i*10}))
@@ -72,6 +78,7 @@ func TestCircularQueue(t *testing.T) {
 		require.NoError(t, cq.Push(&Item{Val: 160 + 5*10}))
 
 		cq.ClearFrom(1)
+
 		for i := 0; i < cq.size; i++ {
 			pos := (cq.pos + i) % cq.size
 
@@ -80,6 +87,21 @@ func TestCircularQueue(t *testing.T) {
 			} else {
 				require.Equal(t, &Item{Val: 170}, cq.items[pos])
 			}
+		}
+	})
+
+	t.Run("set count", func(t *testing.T) {
+		t.Parallel()
+
+		cq := NewCircularQueue[*Item](5)
+		for i := 0; i < 5; i++ {
+			require.NoError(t, cq.Push(&Item{Val: 160 + i*10}))
+		}
+
+		for i := 0; i < 5; i++ {
+			cq.SetCount(5 - i - 1)
+
+			require.Equal(t, 5-i-1, len(cq.ToList()))
 		}
 	})
 }

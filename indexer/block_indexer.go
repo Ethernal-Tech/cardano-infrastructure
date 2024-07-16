@@ -128,7 +128,7 @@ func (bi *BlockIndexer) RollForwardFunc(
 	if !bi.unconfirmedBlocks.IsFull() {
 		// If there are not enough children blocks to promote the first one to the confirmed state,
 		// a new block header is added, and the function returns
-		bi.unconfirmedBlocks.Push(blockWithLazyTxRetriever{
+		_ = bi.unconfirmedBlocks.Push(blockWithLazyTxRetriever{
 			header: blockHeader,
 			getTxs: getTxsFunc,
 		})
@@ -152,7 +152,7 @@ func (bi *BlockIndexer) RollForwardFunc(
 	bi.latestBlockPoint = latestBlockPoint
 
 	bi.unconfirmedBlocks.Pop()
-	bi.unconfirmedBlocks.Push(blockWithLazyTxRetriever{
+	_ = bi.unconfirmedBlocks.Push(blockWithLazyTxRetriever{
 		header: blockHeader,
 		getTxs: getTxsFunc,
 	})

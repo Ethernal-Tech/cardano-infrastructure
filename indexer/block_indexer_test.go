@@ -596,7 +596,7 @@ func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
 	require.Equal(t, *bp, sp)
 
 	for _, x := range uncomfBlocks {
-		blockIndexer.unconfirmedBlocks.Push(x)
+		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
 	}
 
 	err = blockIndexer.RollBackwardFunc(chainsync.CallbackContext{}, common.Point{
@@ -640,7 +640,7 @@ func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
 	blockIndexer.latestBlockPoint = bp
 
 	for _, x := range uncomfBlocks {
-		blockIndexer.unconfirmedBlocks.Push(x)
+		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
 	}
 
 	err := blockIndexer.RollBackwardFunc(chainsync.CallbackContext{}, common.Point{
@@ -669,8 +669,9 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 		BlockHash: Hash{0, 1},
 	}
 	config := &BlockIndexerConfig{
-		StartingBlockPoint: nil,
-		AddressCheck:       AddressCheckAll,
+		ConfirmationBlockCount: 5,
+		StartingBlockPoint:     nil,
+		AddressCheck:           AddressCheckAll,
 	}
 	dbMock := &DatabaseMock{
 		Writter: &DBTransactionWriterMock{},
@@ -681,7 +682,7 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
 
 	for _, x := range uncomfBlocks {
-		blockIndexer.unconfirmedBlocks.Push(x)
+		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
 	}
 
 	dbMock.On("GetLatestBlockPoint").Return((*BlockPoint)(nil), error(nil)).Once()
