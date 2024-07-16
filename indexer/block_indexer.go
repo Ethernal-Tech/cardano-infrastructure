@@ -47,7 +47,7 @@ type BlockIndexer struct {
 
 	// latest confirmed and saved block point
 	latestBlockPoint      *BlockPoint
-	unconfirmedBlocks     []blockWithLazyTxRetriever
+	unconfirmedBlocks     CircularQueue[blockWithLazyTxRetriever]
 	confirmedBlockHandler NewConfirmedBlockHandler
 	addressesOfInterest   map[string]bool
 
@@ -75,7 +75,7 @@ func NewBlockIndexer(
 		config:                config,
 		latestBlockPoint:      nil,
 		confirmedBlockHandler: confirmedBlockHandler,
-		unconfirmedBlocks:     nil,
+		unconfirmedBlocks:     NewCircularQueue[blockWithLazyTxRetriever](int(config.ConfirmationBlockCount)),
 		db:                    db,
 		addressesOfInterest:   addressesOfInterest,
 		logger:                logger,
@@ -91,20 +91,21 @@ func (bi *BlockIndexer) RollBackwardFunc(
 	pointHash := bytes2HashString(point.Hash)
 
 	// linear is ok, there will be smaller number of unconfirmed blocks in memory
-	for i := len(bi.unconfirmedBlocks) - 1; i >= 0; i-- {
-		unc := bi.unconfirmedBlocks[i]
-		if unc.header.SlotNumber() == point.Slot && unc.header.Hash() == pointHash {
-			bi.unconfirmedBlocks = bi.unconfirmedBlocks[:i+1]
+	indx := bi.unconfirmedBlocks.Find(func(unc blockWithLazyTxRetriever) bool {
+		return unc.header.SlotNumber() == point.Slot && unc.header.Hash() == pointHash
+	})
+	if indx != -1 {
+		bi.logger.Info("Roll backward to unconfirmed block",
+			"hash", pointHash, "slot", point.Slot, "indx", indx)
 
-			bi.logger.Info("Roll backward to unconfirmed block",
-				"hash", unc.header.Hash(), "slot", unc.header.SlotNumber(), "no", i)
+		bi.unconfirmedBlocks.SetCount(indx + 1)
 
-			return nil
-		}
+		return nil
 	}
 
 	if bi.latestBlockPoint.BlockSlot == point.Slot && bi.latestBlockPoint.BlockHash.String() == pointHash {
-		bi.unconfirmedBlocks = nil
+		bi.unconfirmedBlocks.SetCount(0)
+
 		bi.logger.Info("Roll backward to confirmed block", "hash", pointHash, "slot", point.Slot)
 
 		// everything is ok -> we are reverting to the latest confirmed block
@@ -124,10 +125,10 @@ func (bi *BlockIndexer) RollForwardFunc(
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
-	if uint(len(bi.unconfirmedBlocks)) < bi.config.ConfirmationBlockCount {
+	if !bi.unconfirmedBlocks.IsFull() {
 		// If there are not enough children blocks to promote the first one to the confirmed state,
 		// a new block header is added, and the function returns
-		bi.unconfirmedBlocks = append(bi.unconfirmedBlocks, blockWithLazyTxRetriever{
+		bi.unconfirmedBlocks.Push(blockWithLazyTxRetriever{
 			header: blockHeader,
 			getTxs: getTxsFunc,
 		})
@@ -135,7 +136,7 @@ func (bi *BlockIndexer) RollForwardFunc(
 		return nil
 	}
 
-	firstBlock := bi.unconfirmedBlocks[0]
+	firstBlock := bi.unconfirmedBlocks.Peek()
 
 	txs, err := firstBlock.getTxs()
 	if err != nil {
@@ -149,13 +150,12 @@ func (bi *BlockIndexer) RollForwardFunc(
 
 	// update latest block point in memory if we have confirmed block
 	bi.latestBlockPoint = latestBlockPoint
-	// remove first block from unconfirmed list. copy whole list because we do not want memory leak
-	bi.unconfirmedBlocks = append(
-		append([]blockWithLazyTxRetriever(nil), bi.unconfirmedBlocks[1:]...),
-		blockWithLazyTxRetriever{
-			header: blockHeader,
-			getTxs: getTxsFunc,
-		})
+
+	bi.unconfirmedBlocks.Pop()
+	bi.unconfirmedBlocks.Push(blockWithLazyTxRetriever{
+		header: blockHeader,
+		getTxs: getTxsFunc,
+	})
 
 	return bi.confirmedBlockHandler(confirmedBlock, confirmedTxs)
 }
@@ -181,7 +181,7 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 	}
 
 	bi.latestBlockPoint = latestPoint
-	bi.unconfirmedBlocks = nil // clear all unconfirmed from the memory
+	bi.unconfirmedBlocks.SetCount(0) // clear all unconfirmed from the memory
 
 	return *latestPoint, nil
 }
