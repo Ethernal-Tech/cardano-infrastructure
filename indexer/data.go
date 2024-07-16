@@ -263,7 +263,10 @@ func (t TxInputOutput) String() string {
 // LedgerAddressToString translates string representation of address to our wallet representation
 // this will handle vector and other specific cases
 func LedgerAddressToString(addr ledger.Address) string {
-	ourAddr, _ := wallet.NewAddressFromBytes(addr.Bytes())
+	ourAddr, err := wallet.NewAddressFromBytes(addr.Bytes())
+	if err != nil {
+		return addr.String()
+	}
 
 	return ourAddr.String()
 }

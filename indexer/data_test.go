@@ -9,6 +9,8 @@ import (
 )
 
 func TestTxInputKey(t *testing.T) {
+	t.Parallel()
+
 	const (
 		index = uint32(17878329)
 		hash  = "FF00FFCCFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00AAFF00AA"
@@ -27,6 +29,8 @@ func TestTxInputKey(t *testing.T) {
 }
 
 func TestTxKey(t *testing.T) {
+	t.Parallel()
+
 	const (
 		blockSlot = uint64(78_023_893_190_777_456)
 		index     = uint32(2_889_111_003)
@@ -49,6 +53,8 @@ func TestTxKey(t *testing.T) {
 }
 
 func TestCardanoBlockKey(t *testing.T) {
+	t.Parallel()
+
 	const (
 		blockSlot = uint64(942_623_893_190_777_456)
 	)
