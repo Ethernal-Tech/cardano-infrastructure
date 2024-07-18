@@ -321,6 +321,103 @@ type LedgerTransactionMock struct {
 	ReferenceInputsVal []ledger.TransactionInput
 }
 
+// AssetMint implements ledger.Transaction.
+func (m *LedgerTransactionMock) AssetMint() *ledger.MultiAsset[int64] {
+	panic("unimplemented")
+}
+
+// AuxDataHash implements ledger.Transaction.
+func (m *LedgerTransactionMock) AuxDataHash() *ledger.Blake2b256 {
+	panic("unimplemented")
+}
+
+// Certificates implements ledger.Transaction.
+func (m *LedgerTransactionMock) Certificates() []ledger.Certificate {
+	panic("unimplemented")
+}
+
+// Collateral implements ledger.Transaction.
+func (m *LedgerTransactionMock) Collateral() []ledger.TransactionInput {
+	panic("unimplemented")
+}
+
+// CollateralReturn implements ledger.Transaction.
+func (m *LedgerTransactionMock) CollateralReturn() ledger.TransactionOutput {
+	panic("unimplemented")
+}
+
+// Consumed implements ledger.Transaction.
+func (m *LedgerTransactionMock) Consumed() []ledger.TransactionInput {
+	panic("unimplemented")
+}
+
+// CurrentTreasuryValue implements ledger.Transaction.
+func (m *LedgerTransactionMock) CurrentTreasuryValue() int64 {
+	panic("unimplemented")
+}
+
+// Donation implements ledger.Transaction.
+func (m *LedgerTransactionMock) Donation() uint64 {
+	panic("unimplemented")
+}
+
+// Metadata implements ledger.Transaction.
+func (m *LedgerTransactionMock) Metadata() *cbor.LazyValue {
+	if m.MetadataVal == nil {
+		return nil
+	}
+
+	lazy := &cbor.LazyValue{}
+	_ = lazy.UnmarshalCBOR(m.MetadataVal.Cbor())
+
+	return lazy
+}
+
+// Produced implements ledger.Transaction.
+func (m *LedgerTransactionMock) Produced() []ledger.Utxo {
+	panic("unimplemented")
+}
+
+// ProposalProcedures implements ledger.Transaction.
+func (m *LedgerTransactionMock) ProposalProcedures() []ledger.ProposalProcedure {
+	panic("unimplemented")
+}
+
+// ProtocolParametersUpdate implements ledger.Transaction.
+func (m *LedgerTransactionMock) ProtocolParametersUpdate() map[ledger.Blake2b224]any {
+	panic("unimplemented")
+}
+
+// RequiredSigners implements ledger.Transaction.
+func (m *LedgerTransactionMock) RequiredSigners() []ledger.Blake2b224 {
+	panic("unimplemented")
+}
+
+// ScriptDataHash implements ledger.Transaction.
+func (m *LedgerTransactionMock) ScriptDataHash() *ledger.Blake2b256 {
+	panic("unimplemented")
+}
+
+// TotalCollateral implements ledger.Transaction.
+func (m *LedgerTransactionMock) TotalCollateral() uint64 {
+	panic("unimplemented")
+}
+
+// ValidityIntervalStart implements ledger.Transaction.
+func (m *LedgerTransactionMock) ValidityIntervalStart() uint64 {
+	panic("unimplemented")
+}
+
+// VotingProcedures implements ledger.Transaction.
+func (m *LedgerTransactionMock) VotingProcedures() ledger.VotingProcedures {
+	panic("unimplemented")
+}
+
+// Withdrawals implements ledger.Transaction.
+func (m *LedgerTransactionMock) Withdrawals() map[*ledger.Address]uint64 {
+	panic("unimplemented")
+}
+
 // Cbor implements ledger.Transaction.
 func (m *LedgerTransactionMock) Cbor() []byte {
 	panic("unimplemented") //nolint
@@ -339,11 +436,6 @@ func (m *LedgerTransactionMock) Hash() string {
 // Inputs implements ledger.Transaction.
 func (m *LedgerTransactionMock) Inputs() []ledger.TransactionInput {
 	return m.InputsVal
-}
-
-// Metadata implements ledger.Transaction.
-func (m *LedgerTransactionMock) Metadata() *cbor.Value {
-	return m.MetadataVal
 }
 
 // Outputs implements ledger.Transaction.

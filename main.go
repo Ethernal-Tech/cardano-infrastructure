@@ -64,6 +64,7 @@ func startSyncer(
 	}
 
 	confirmedBlockHandler := func(confirmedBlock *indexer.CardanoBlock, txs []*indexer.Tx) error {
+		fmt.Println("Confirmed block", confirmedBlock.Slot, confirmedBlock.Hash.String(), len(txs))
 		logger.Info("Confirmed block",
 			"hash", hex.EncodeToString(confirmedBlock.Hash[:]), "slot", confirmedBlock.Slot,
 			"allTxs", len(confirmedBlock.Txs), "ourTxs", len(txs))
@@ -119,6 +120,8 @@ func startSyncer(
 		}
 	}()
 
+	go indexerObj.Start(ctx)
+
 	err = syncer.Sync()
 	if err != nil {
 		return err
@@ -128,11 +131,10 @@ func startSyncer(
 }
 
 func main() {
-	syncerTimeout := time.Second * 10
-	sequenceCount := 10
+	syncerTimeout := time.Second * 240
+	sequenceCount := 6
 	chainType := ChainVector
-	addressesOfInterest := []string{"vector_test1w2f6af09h85uxe63qn4vv6ywlnu9ttdlfpm9tz8snewthrgklp6sz",
-		"vector_test1wfpm9w2zzzh5g2ayt66rm7hl0dgsvxuaxkudj00y3hqwn8sgfzpgj"}
+	addressesOfInterest := []string{"vector_test1w2n8n9m438wgvt2463vh83gj4t26h5vljdjcurd7d0z54dc8l2nzl"}
 
 	baseDirectory, err := os.MkdirTemp("", "syncer-test")
 	if err != nil {

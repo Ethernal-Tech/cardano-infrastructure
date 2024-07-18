@@ -1,10 +1,11 @@
 package indexer
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/blinklabs-io/gouroboros/ledger"
-	"github.com/blinklabs-io/gouroboros/protocol/chainsync"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
@@ -599,11 +600,18 @@ func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
 		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
 	}
 
-	err = blockIndexer.RollBackwardFunc(chainsync.CallbackContext{}, common.Point{
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
+
+	go blockIndexer.Start(ctx)
+
+	err = blockIndexer.RollBackwardFunc(common.Point{
 		Slot: 7,
 		Hash: []byte{0, 3},
-	}, chainsync.Tip{})
+	})
 	require.NoError(t, err)
+
+	time.Sleep(time.Millisecond * 200)
 
 	require.Equal(t, uncomfBlocks[0:2], blockIndexer.unconfirmedBlocks.ToList())
 	dbMock.AssertExpectations(t)
@@ -643,10 +651,10 @@ func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
 		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
 	}
 
-	err := blockIndexer.RollBackwardFunc(chainsync.CallbackContext{}, common.Point{
+	err := blockIndexer.executeRollBackward(common.Point{
 		Slot: bp.BlockSlot,
 		Hash: bp.BlockHash[:],
-	}, chainsync.Tip{})
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, 0, blockIndexer.unconfirmedBlocks.Len())
@@ -691,10 +699,10 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, Hash{}, sp.BlockHash) // all zeroes
 
-	err = blockIndexer.RollBackwardFunc(chainsync.CallbackContext{}, common.Point{
+	err = blockIndexer.executeRollBackward(common.Point{
 		Slot: bp.BlockSlot + 10003,
 		Hash: bp.BlockHash[:],
-	}, chainsync.Tip{})
+	})
 	require.ErrorIs(t, err, errBlockSyncerFatal)
 
 	dbMock.AssertExpectations(t)
@@ -766,6 +774,11 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 	}
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
+
+	go blockIndexer.Start(ctx)
+
 	for i, h := range blockHeaders {
 		if i >= 2 {
 			txsRetrievedWithGetTxs, err := getTxs[i-2]()
@@ -831,9 +844,11 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 			}).Once()
 		}
 
-		err := blockIndexer.RollForwardFunc(h, getTxs[i], chainsync.Tip{})
+		err := blockIndexer.RollForwardFunc(h, getTxs[i])
 
 		require.NoError(t, err)
+
+		time.Sleep(time.Millisecond * 200)
 
 		if i < 2 {
 			require.Equal(t, i+1, blockIndexer.unconfirmedBlocks.Len())
