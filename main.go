@@ -16,22 +16,22 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-func startSyncer(ctx context.Context, chainType int, id int, baseDirectory string) error {
+func startSyncer(
+	ctx context.Context, chainType int, id int, baseDirectory string, addressesOfInterest []string,
+	blockHashStr string, blockSlot uint64,
+) error {
 	var (
-		address             string
-		networkMagic        uint32
-		addressesOfInterest []string
+		address      string
+		networkMagic uint32
 	)
 
 	switch chainType {
 	case 0:
 		address = "localhost:5200"
 		networkMagic = uint32(1127)
-		addressesOfInterest = []string{}
 	case 1:
 		address = "localhost:5100"
 		networkMagic = uint32(3311)
-		addressesOfInterest = []string{}
 	case 2:
 		address = "backbone.cardano-mainnet.iohk.io:3001"
 		networkMagic = uint32(764824073)
@@ -72,10 +72,15 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 		return dbs.MarkConfirmedTxsProcessed(unprocessedTxs)
 	}
 
+	blockHash, _ := hex.DecodeString(blockHashStr)
+	if blockHashStr == "" {
+		blockHash = make([]byte, 32)
+	}
+
 	indexerConfig := &indexer.BlockIndexerConfig{
 		StartingBlockPoint: &indexer.BlockPoint{
-			BlockSlot:   0,
-			BlockHash:   [32]byte{},
+			BlockSlot:   blockSlot,
+			BlockHash:   [32]byte(blockHash),
 			BlockNumber: 0,
 		},
 		AddressCheck:            indexer.AddressCheckAll,
@@ -104,9 +109,12 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 		case err := <-syncer.ErrorCh():
 			logger.Error("syncer fatal err", "err", err)
 
+			indexerObj.Close()
 			dbs.Close()
 		}
 	}()
+
+	go indexerObj.Start(ctx)
 
 	err = syncer.Sync()
 	if err != nil {
@@ -117,8 +125,11 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 }
 
 func main() {
-	syncerTimeout := time.Second * 50
+	syncerTimeout := time.Second * 250
 	sequenceCount := 10
+	addressesOfInterest := []string{"addr_test1wr64gtafm8rpkndue4ck2nx95u4flhwf643l2qmg9emjajg2ww0nj"}
+	blockHash := "28de818c3aa1103ab12964307441d2d12790e04d5869789be9d4de1a01014a07"
+	blockSlot := uint64(75130796)
 
 	baseDirectory, err := os.MkdirTemp("", "syncer-test")
 	if err != nil {
@@ -137,7 +148,8 @@ func main() {
 
 		timeOutContext, cancel := context.WithTimeout(context.Background(), syncerTimeout)
 
-		if err := startSyncer(timeOutContext, 3, i, baseDirectory); err != nil {
+		err := startSyncer(timeOutContext, 3, i, baseDirectory, addressesOfInterest, blockHash, blockSlot)
+		if err != nil {
 			fmt.Println("syncer error", err)
 		}
 
