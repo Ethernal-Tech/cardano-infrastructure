@@ -16,21 +16,20 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-func startSyncer(ctx context.Context, isVector bool, id int, baseDirectory string) error {
+func startSyncer(
+	ctx context.Context, isVector bool, id int, baseDirectory string, addressesOfInterest []string,
+) error {
 	var (
-		address             string
-		networkMagic        uint32
-		addressesOfInterest []string
+		address      string
+		networkMagic uint32
 	)
 
 	if isVector {
 		address = "localhost:5200"
 		networkMagic = uint32(1127)
-		addressesOfInterest = []string{}
 	} else {
 		address = "localhost:5100"
 		networkMagic = uint32(3311)
-		addressesOfInterest = []string{}
 	}
 
 	logger, err := logger.NewLogger(logger.LoggerConfig{
@@ -113,8 +112,10 @@ func startSyncer(ctx context.Context, isVector bool, id int, baseDirectory strin
 }
 
 func main() {
-	syncerTimeout := time.Second * 50
+	syncerTimeout := time.Second * 10
 	sequenceCount := 10
+	isVector := true
+	addressesOfInterest := []string{}
 
 	baseDirectory, err := os.MkdirTemp("", "syncer-test")
 	if err != nil {
@@ -139,7 +140,9 @@ func main() {
 
 		timeOutContext, cancel := context.WithCancel(ctx)
 
-		startSyncer(timeOutContext, false, i, baseDirectory)
+		if err := startSyncer(timeOutContext, isVector, i, baseDirectory, addressesOfInterest); err != nil {
+			fmt.Println("error", err)
+		}
 
 		select {
 		case <-signalChannel:
