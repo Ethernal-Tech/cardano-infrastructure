@@ -16,20 +16,36 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
+type ChainType byte
+
+const (
+	ChainVector ChainType = iota
+	ChainPrime
+	ChainMainNet
+	ChainTestNet
+)
+
 func startSyncer(
-	ctx context.Context, isVector bool, id int, baseDirectory string, addressesOfInterest []string,
+	ctx context.Context, chainType ChainType, id int, baseDirectory string, addressesOfInterest []string,
 ) error {
 	var (
 		address      string
 		networkMagic uint32
 	)
 
-	if isVector {
+	switch chainType {
+	case ChainVector:
 		address = "localhost:5200"
 		networkMagic = uint32(1127)
-	} else {
+	case ChainPrime:
 		address = "localhost:5100"
 		networkMagic = uint32(3311)
+	case ChainMainNet:
+		address = "backbone.cardano-mainnet.iohk.io:3001"
+		networkMagic = uint32(764824073)
+	case ChainTestNet:
+		address = "preprod-node.play.dev.cardano.org:3001"
+		networkMagic = 1
 	}
 
 	logger, err := logger.NewLogger(logger.LoggerConfig{
@@ -114,8 +130,9 @@ func startSyncer(
 func main() {
 	syncerTimeout := time.Second * 10
 	sequenceCount := 10
-	isVector := true
-	addressesOfInterest := []string{}
+	chainType := ChainVector
+	addressesOfInterest := []string{"vector_test1w2f6af09h85uxe63qn4vv6ywlnu9ttdlfpm9tz8snewthrgklp6sz",
+		"vector_test1wfpm9w2zzzh5g2ayt66rm7hl0dgsvxuaxkudj00y3hqwn8sgfzpgj"}
 
 	baseDirectory, err := os.MkdirTemp("", "syncer-test")
 	if err != nil {
@@ -140,7 +157,7 @@ func main() {
 
 		timeOutContext, cancel := context.WithCancel(ctx)
 
-		if err := startSyncer(timeOutContext, isVector, i, baseDirectory, addressesOfInterest); err != nil {
+		if err := startSyncer(timeOutContext, chainType, i, baseDirectory, addressesOfInterest); err != nil {
 			fmt.Println("error", err)
 		}
 
