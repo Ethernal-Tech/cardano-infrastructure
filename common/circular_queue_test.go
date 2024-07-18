@@ -86,6 +86,7 @@ func TestCircularQueue(t *testing.T) {
 				require.Nil(t, cq.items[pos])
 			} else {
 				require.Equal(t, &Item{Val: 170}, cq.items[pos])
+				require.Equal(t, &Item{Val: 170}, cq.Get(i))
 			}
 		}
 	})
