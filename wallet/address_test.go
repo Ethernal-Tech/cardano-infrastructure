@@ -2,8 +2,6 @@ package wallet
 
 import (
 	"crypto/rand"
-	"encoding/hex"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -17,7 +15,7 @@ func TestAddressParts(t *testing.T) {
 
 	wallet3 := NewWallet(wallet1.GetVerificationKey(), wallet1.GetSigningKey())
 
-	cliUtils := NewCliUtils("vector-cli")
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
 
 	wallet1KeyHash, err := GetKeyHash(wallet1.GetVerificationKey())
 	require.NoError(t, err)
@@ -25,10 +23,10 @@ func TestAddressParts(t *testing.T) {
 	wallet1StakeKeyHash, err := GetKeyHash(wallet1.GetStakeVerificationKey())
 	require.NoError(t, err)
 
-	walletAddress, walletStakeAddress, err := cliUtils.GetWalletAddress(wallet1, VectorTestNetProtocolMagic)
+	walletAddress, walletStakeAddress, err := cliUtils.GetWalletAddress(wallet1, TestNetProtocolMagic)
 	require.NoError(t, err)
 
-	wallet3Address, _, err := cliUtils.GetWalletAddress(wallet3, VectorTestNetProtocolMagic)
+	wallet3Address, _, err := cliUtils.GetWalletAddress(wallet3, 0)
 	require.NoError(t, err)
 
 	cWalletAddress, err := NewAddress(walletAddress)
@@ -42,13 +40,13 @@ func TestAddressParts(t *testing.T) {
 
 	assert.Equal(t, walletAddress, cWalletAddress.String())
 
-	baseAddr, err := NewBaseAddress(VectorTestNetNetwork, wallet1.GetVerificationKey(), wallet1.GetStakeVerificationKey())
+	baseAddr, err := NewBaseAddress(TestNetNetwork, wallet1.GetVerificationKey(), wallet1.GetStakeVerificationKey())
 	require.NoError(t, err)
 
-	rewardAddr, err := NewRewardAddress(VectorTestNetNetwork, wallet1.GetStakeVerificationKey())
+	rewardAddr, err := NewRewardAddress(TestNetNetwork, wallet1.GetStakeVerificationKey())
 	require.NoError(t, err)
 
-	enterpriseAddr, err := NewEnterpriseAddress(VectorTestNetNetwork, wallet1.GetVerificationKey())
+	enterpriseAddr, err := NewEnterpriseAddress(MainNetNetwork, wallet1.GetVerificationKey())
 	require.NoError(t, err)
 
 	assert.Equal(t, walletAddress, baseAddr.String())
@@ -126,26 +124,4 @@ func TestNewAddressVector(t *testing.T) {
 
 	require.True(t, strings.HasPrefix(ba.String(), "vector"))
 	require.False(t, strings.HasPrefix(ba.String(), "vector_test"))
-}
-
-func TestNewAddressVector2(t *testing.T) {
-	ut := NewCliUtils("vector-cli")
-	dt, err := ut.GetAddressInfo("vector_test1wggt7yv99fz9unmcmxkd38ux69sgu94rdzufwgexvj4upncv8ree6")
-	fmt.Println(dt, err)
-	check([]byte{114, 16, 191, 17, 133, 42, 68, 94, 79, 120, 217, 172, 216, 159, 134, 209, 96, 142, 22, 163, 104, 184, 151, 35, 38, 100, 171, 192, 207})
-	check([]byte{98, 195, 89, 194, 206, 200, 143, 136, 28, 59, 178, 204, 161, 255, 155, 115, 216, 118, 59, 76, 95, 111, 210, 10, 179, 179, 222, 252, 239})
-	check([]byte{114, 237, 67, 50, 10, 167, 46, 112, 52, 125, 159, 130, 87, 102, 244, 171, 35, 9, 253, 131, 22, 21, 26, 84, 224, 90, 211, 9, 202})
-	check([]byte{98, 195, 89, 194, 206, 200, 143, 136, 28, 59, 178, 204, 161, 255, 155, 115, 216, 118, 59, 76, 95, 111, 210, 10, 179, 179, 222, 252, 239})
-	check([]byte{98, 173, 142, 10, 185, 46, 31, 235, 252, 175, 68, 136, 157, 104, 195, 174, 120, 181, 157, 201, 197, 250, 158, 5, 162, 114, 33, 76, 19})
-	check([]byte{98, 145, 156, 204, 21, 98, 56, 217, 19, 143, 175, 91, 215, 246, 135, 252, 21, 140, 81, 179, 76, 225, 80, 116, 42, 60, 212, 25, 120})
-}
-
-func check(addrb []byte) {
-	addr, err := NewAddressFromBytes(addrb)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	p := addr.GetPayment().Payload
-	fmt.Println(addr.String(), addr.GetNetwork(), hex.EncodeToString(p[:]))
 }
