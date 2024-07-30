@@ -80,6 +80,14 @@ func (cq *CircularQueue[T]) ClearFrom(from int) {
 	}
 }
 
+func (cq *CircularQueue[T]) Get(indx int) (t T) {
+	if indx < 0 || indx >= cq.count {
+		return t
+	}
+
+	return cq.items[(cq.pos+indx)%cq.size]
+}
+
 func (cq *CircularQueue[T]) Find(handler func(t T) bool) int {
 	for i := 0; i < cq.count; i++ {
 		pos := (cq.pos + i) % cq.size
