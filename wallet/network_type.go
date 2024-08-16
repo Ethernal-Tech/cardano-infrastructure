@@ -17,9 +17,6 @@ const (
 	VectorTestNetNetwork CardanoNetworkType = 2
 	MainNetNetwork       CardanoNetworkType = 1
 	TestNetNetwork       CardanoNetworkType = 0
-
-	KeyHashSize = 28
-	KeySize     = 32
 )
 
 func (n CardanoNetworkType) GetPrefix() string {
