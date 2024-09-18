@@ -14,10 +14,7 @@ func Test_getLogFileWriter(t *testing.T) {
 	testDir, err := os.MkdirTemp("", "logger-test")
 	require.NoError(t, err)
 
-	defer func() {
-		os.RemoveAll(testDir)
-		os.Remove(testDir)
-	}()
+	defer os.RemoveAll(testDir)
 
 	filePathWithExtension := filepath.Join(testDir, "dummy1", "file.log")
 	filePathWithoutExtension := filepath.Join(testDir, "dummy2", "file")

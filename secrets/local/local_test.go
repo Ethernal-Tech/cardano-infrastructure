@@ -76,7 +76,6 @@ func getLocalSecretsManager(t *testing.T) secrets.SecretsManager {
 	// Set up a clean-up procedure
 	t.Cleanup(func() {
 		_ = os.RemoveAll(workingDirectory)
-		_ = os.Remove(workingDirectory)
 	})
 
 	// Set up an instance of the local secrets manager
