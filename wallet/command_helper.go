@@ -41,7 +41,18 @@ func ResolveCardanoCliBinary(networkID CardanoNetworkType) string {
 	return name
 }
 
-func runCommand(binary string, args []string, envVariables ...string) (string, error) {
+func ResolveCardanoAddressBinary() string {
+	env := "CARDANO_ADDRESS_BINARY"
+	name := "cardano-address"
+
+	if bin := os.Getenv(env); bin != "" {
+		return bin
+	}
+	// fallback
+	return name
+}
+
+func runCommand(binary string, args []string, inputFile ...string) (string, error) {
 	var (
 		stdErrBuffer bytes.Buffer
 		stdOutBuffer bytes.Buffer
@@ -51,7 +62,16 @@ func runCommand(binary string, args []string, envVariables ...string) (string, e
 	cmd.Stderr = &stdErrBuffer
 	cmd.Stdout = &stdOutBuffer
 
-	cmd.Env = append(os.Environ(), envVariables...)
+	if len(inputFile) > 0 {
+		file, err := os.Open(inputFile[0])
+		if err != nil {
+			return "", err
+		}
+
+		defer file.Close()
+
+		cmd.Stdin = file
+	}
 
 	err := cmd.Run()
 
