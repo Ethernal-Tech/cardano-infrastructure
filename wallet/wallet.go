@@ -133,7 +133,7 @@ func PadKeyToSize(key []byte) []byte {
 
 // NewWalletFromMnemonic creates wallet from menomonics
 func NewWalletFromMnemonic(
-	cardanoCliBinary, cardanoAddressBinary, mnemonic string, num int,
+	cardanoCliBinary, cardanoAddressBinary, mnemonic string, account int,
 ) (IWallet, error) {
 	baseDirectory, err := os.MkdirTemp("", "mnemonics")
 	if err != nil {
@@ -192,13 +192,13 @@ func NewWalletFromMnemonic(
 
 	if err := runCommandAddr(
 		rootXskFilePath, paymentXskFilePath, "key", "child",
-		fmt.Sprintf("1852H/1815H/0H/0/%d", num)); err != nil {
+		fmt.Sprintf("1852H/1815H/%dH/0/0", account)); err != nil {
 		return nil, err
 	}
 
 	if err := runCommandAddr(
 		rootXskFilePath, stakeXskFilePath, "key", "child",
-		fmt.Sprintf("1852H/1815H/0H/2/%d", num)); err != nil {
+		fmt.Sprintf("1852H/1815H/%dH/2/0", account)); err != nil {
 		return nil, err
 	}
 
