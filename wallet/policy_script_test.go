@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -128,4 +129,32 @@ func TestPolicyScript_SpecificKeysAllPermutations(t *testing.T) {
 
 		require.Equal(t, cliAddr, addr.String())
 	})
+}
+
+func TestPolicyScript_GetCount(t *testing.T) {
+	hashes := []string{"123", "245", "459", "129"}
+	adminHash := "888"
+	ps := NewPolicyScript(hashes, len(hashes)*2/3+1)
+
+	assert.Equal(t, 4, (&PolicyScript{
+		Type: "any",
+		Scripts: []PolicyScript{
+			{
+				Type:    "sig",
+				KeyHash: adminHash,
+			},
+			*ps,
+		},
+	}).GetCount())
+
+	assert.Equal(t, 5, (&PolicyScript{
+		Type: "all",
+		Scripts: []PolicyScript{
+			{
+				Type:    "sig",
+				KeyHash: adminHash,
+			},
+			*ps,
+		},
+	}).GetCount())
 }
