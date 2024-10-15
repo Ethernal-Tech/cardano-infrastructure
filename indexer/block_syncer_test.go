@@ -8,7 +8,6 @@ import (
 
 	ouroboros "github.com/blinklabs-io/gouroboros"
 	"github.com/blinklabs-io/gouroboros/ledger"
-	"github.com/blinklabs-io/gouroboros/protocol/chainsync"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
@@ -16,8 +15,8 @@ import (
 
 type BlockSyncerHandlerMock struct {
 	BlockPoint         *BlockPoint
-	RollForwardFn      func(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error
-	RollBackwardFuncFn func(ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip) error
+	RollForwardFn      func(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc) error
+	RollBackwardFuncFn func(point common.Point) error
 }
 
 func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock {
@@ -36,19 +35,17 @@ func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock
 	}
 }
 
-func (hMock *BlockSyncerHandlerMock) RollBackwardFunc(
-	ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip,
-) error {
+func (hMock *BlockSyncerHandlerMock) RollBackwardFunc(point common.Point) error {
 	if hMock.RollBackwardFuncFn != nil {
-		return hMock.RollBackwardFuncFn(ctx, point, tip)
+		return hMock.RollBackwardFuncFn(point)
 	}
 
 	return nil
 }
 
-func (hMock *BlockSyncerHandlerMock) RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error {
+func (hMock *BlockSyncerHandlerMock) RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc) error {
 	if hMock.RollForwardFn != nil {
-		return hMock.RollForwardFn(blockHeader, getTxsFunc, tip)
+		return hMock.RollForwardFn(blockHeader, getTxsFunc)
 	}
 
 	return nil
@@ -271,7 +268,7 @@ func TestSyncRollForwardCalled(t *testing.T) {
 
 	defer syncer.Close()
 
-	mockSyncerBlockHandler.RollForwardFn = func(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error {
+	mockSyncerBlockHandler.RollForwardFn = func(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc) error {
 		t.Helper()
 
 		_, err := getTxsFunc()

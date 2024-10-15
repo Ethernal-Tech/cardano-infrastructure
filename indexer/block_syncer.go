@@ -34,8 +34,8 @@ type BlockSyncer interface {
 }
 
 type BlockSyncerHandler interface {
-	RollBackwardFunc(ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip) error
-	RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error
+	RollBackwardFunc(point common.Point) error
+	RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc) error
 	Reset() (BlockPoint, error)
 }
 
@@ -159,7 +159,7 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 		ouroboros.WithNodeToNode(true),
 		ouroboros.WithKeepAlive(bs.config.KeepAlive),
 		ouroboros.WithChainSyncConfig(chainsync.NewConfig(
-			chainsync.WithRollBackwardFunc(bs.blockHandler.RollBackwardFunc),
+			chainsync.WithRollBackwardFunc(bs.rollBackwardCallback),
 			chainsync.WithRollForwardFunc(bs.rollForwardCallback),
 		)),
 	)
@@ -207,6 +207,16 @@ func (bs *BlockSyncerImpl) getBlockTransactions(blockHeader ledger.BlockHeader) 
 	return block.Transactions(), nil
 }
 
+func (bs *BlockSyncerImpl) rollBackwardCallback(
+	ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip,
+) error {
+	bs.logger.Debug("Roll backward",
+		"hash", hex.EncodeToString(point.Hash), "slot", point.Slot,
+		"tip_slot", tip.Point.Slot, "tip_hash", hex.EncodeToString(tip.Point.Hash))
+
+	return bs.blockHandler.RollBackwardFunc(point)
+}
+
 func (bs *BlockSyncerImpl) rollForwardCallback(
 	ctx chainsync.CallbackContext, blockType uint, blockInfo interface{}, tip chainsync.Tip,
 ) error {
@@ -223,7 +233,7 @@ func (bs *BlockSyncerImpl) rollForwardCallback(
 		return bs.getBlockTransactions(blockHeader)
 	}
 
-	return bs.blockHandler.RollForwardFunc(blockHeader, getTxsFunc, tip)
+	return bs.blockHandler.RollForwardFunc(blockHeader, getTxsFunc)
 }
 
 func (bs *BlockSyncerImpl) errorHandler() {

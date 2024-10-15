@@ -1,13 +1,14 @@
 package indexer
 
 import (
+	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
 
 	infraCommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 	"github.com/blinklabs-io/gouroboros/ledger"
-	"github.com/blinklabs-io/gouroboros/protocol/chainsync"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 	"github.com/hashicorp/go-hclog"
 )
@@ -17,23 +18,19 @@ const (
 	AddressCheckInputs  = 1 << (iota - 1) // 1 << 0 = 0x00...0001 = 1
 	AddressCheckOutputs                   // 1 << 1 = 0x00...0010 = 2
 	AddressCheckAll     = AddressCheckInputs | AddressCheckOutputs
+
+	queueCapacity = 5000
 )
 
 type BlockIndexerConfig struct {
 	StartingBlockPoint *BlockPoint `json:"startingBlockPoint"`
-
 	// how many children blocks is needed for some block to be considered final
-	ConfirmationBlockCount uint `json:"confirmationBlockCount"`
-
-	AddressesOfInterest []string `json:"addressesOfInterest"`
-
-	KeepAllTxOutputsInDB bool `json:"keepAllTxOutputsInDb"`
-
-	AddressCheck int `json:"addressCheck"`
-
-	SoftDeleteUtxo bool `json:"softDeleteUtxo"`
-
-	KeepAllTxsHashesInBlock bool `json:"keepAllTxsHashesInBlock"`
+	ConfirmationBlockCount  uint     `json:"confirmationBlockCount"`
+	AddressesOfInterest     []string `json:"addressesOfInterest"`
+	KeepAllTxOutputsInDB    bool     `json:"keepAllTxOutputsInDb"`
+	AddressCheck            int      `json:"addressCheck"`
+	SoftDeleteUtxo          bool     `json:"softDeleteUtxo"`
+	KeepAllTxsHashesInBlock bool     `json:"keepAllTxsHashesInBlock"`
 }
 
 type NewConfirmedBlockHandler func(*CardanoBlock, []*Tx) error
@@ -41,6 +38,20 @@ type NewConfirmedBlockHandler func(*CardanoBlock, []*Tx) error
 type blockWithLazyTxRetriever struct {
 	header ledger.BlockHeader
 	getTxs GetTxsFunc
+}
+
+type queueItem struct {
+	isBlockItem bool
+	blockData   blockWithLazyTxRetriever
+	point       common.Point
+}
+
+func (qi *queueItem) String() string {
+	if qi.isBlockItem {
+		return fmt.Sprintf("block: %d, %s", qi.blockData.header.SlotNumber(), qi.blockData.header.Hash())
+	}
+
+	return fmt.Sprintf("point: %d, %s", qi.point.Slot, hex.EncodeToString(qi.point.Hash))
 }
 
 type BlockIndexer struct {
@@ -54,7 +65,9 @@ type BlockIndexer struct {
 
 	db BlockIndexerDB
 
-	mutex  sync.Mutex
+	mutex      sync.Mutex
+	notifyChan chan *queueItem
+
 	logger hclog.Logger
 }
 
@@ -79,13 +92,60 @@ func NewBlockIndexer(
 		unconfirmedBlocks:     infraCommon.NewCircularQueue[blockWithLazyTxRetriever](int(config.ConfirmationBlockCount)),
 		db:                    db,
 		addressesOfInterest:   addressesOfInterest,
+		notifyChan:            make(chan *queueItem, queueCapacity),
 		logger:                logger,
 	}
 }
 
-func (bi *BlockIndexer) RollBackwardFunc(
-	ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip,
-) error {
+func (bi *BlockIndexer) Start(ctx context.Context) {
+	bi.logger.Debug("Starting block indexer loop")
+
+	for {
+		select {
+		case <-ctx.Done():
+			bi.logger.Info("exiting block indexer loop")
+
+			return
+		case item := <-bi.notifyChan:
+			var err error
+
+			if item.isBlockItem {
+				err = bi.executeRollForward(item.blockData)
+			} else {
+				err = bi.executeRollBackward(item.point)
+			}
+
+			if errors.Is(err, errBlockSyncerFatal) {
+				bi.logger.Error("Fatal error", "err", err, "item", item)
+
+				return
+			} else if err != nil {
+				bi.logger.Debug("Error while executing queue", "err", err, "item", item)
+			}
+		}
+
+	}
+}
+
+func (bi *BlockIndexer) RollBackwardFunc(point common.Point) error {
+	bi.notifyChan <- &queueItem{point: point}
+
+	return nil
+}
+
+func (bi *BlockIndexer) RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc) error {
+	bi.notifyChan <- &queueItem{
+		isBlockItem: true,
+		blockData: blockWithLazyTxRetriever{
+			header: blockHeader,
+			getTxs: getTxsFunc,
+		},
+	}
+
+	return nil
+}
+
+func (bi *BlockIndexer) executeRollBackward(point common.Point) error {
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
@@ -120,19 +180,14 @@ func (bi *BlockIndexer) RollBackwardFunc(
 			bi.latestBlockPoint.BlockSlot, bi.latestBlockPoint.BlockHash))
 }
 
-func (bi *BlockIndexer) RollForwardFunc(
-	blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip,
-) error {
+func (bi *BlockIndexer) executeRollForward(block blockWithLazyTxRetriever) error {
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
 	if !bi.unconfirmedBlocks.IsFull() {
 		// If there are not enough children blocks to promote the first one to the confirmed state,
 		// a new block header is added, and the function returns
-		_ = bi.unconfirmedBlocks.Push(blockWithLazyTxRetriever{
-			header: blockHeader,
-			getTxs: getTxsFunc,
-		})
+		_ = bi.unconfirmedBlocks.Push(block)
 
 		return nil
 	}
@@ -153,10 +208,7 @@ func (bi *BlockIndexer) RollForwardFunc(
 	bi.latestBlockPoint = latestBlockPoint
 
 	bi.unconfirmedBlocks.Pop()
-	_ = bi.unconfirmedBlocks.Push(blockWithLazyTxRetriever{
-		header: blockHeader,
-		getTxs: getTxsFunc,
-	})
+	_ = bi.unconfirmedBlocks.Push(block)
 
 	return bi.confirmedBlockHandler(confirmedBlock, confirmedTxs)
 }
@@ -386,8 +438,8 @@ func (bi *BlockIndexer) createTx(
 		}
 	}
 
-	if ledgerTx.Metadata() != nil && ledgerTx.Metadata().Cbor() != nil {
-		tx.Metadata = ledgerTx.Metadata().Cbor()
+	if metadata := ledgerTx.Metadata(); metadata != nil {
+		tx.Metadata = metadata.Cbor()
 	}
 
 	switch realTx := ledgerTx.(type) {
