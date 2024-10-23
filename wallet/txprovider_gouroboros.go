@@ -5,39 +5,40 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"time"
 
 	gouroboros "github.com/blinklabs-io/gouroboros"
 	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/blinklabs-io/gouroboros/protocol/localstatequery"
+	"github.com/blinklabs-io/gouroboros/protocol/localtxsubmission"
+	"github.com/fxamacker/cbor/v2"
 )
 
 type TxProviderGoUroBoros struct {
-	connection *gouroboros.Connection
+	connection      *gouroboros.Connection
+	networkMagic    uint32
+	socketPath      string
+	keepAlive       bool
+	txSubmitTimeout time.Duration
 }
 
 var _ ITxProvider = (*TxProviderGoUroBoros)(nil)
 
 func NewTxProviderGoUroBoros(
-	networkMagic uint32, socketPath string, keepAlive bool,
+	networkMagic uint32, socketPath string, keepAlive bool, txSubmitTimeout time.Duration,
 ) (*TxProviderGoUroBoros, error) {
-	// create connection
-	connection, err := gouroboros.NewConnection(
-		gouroboros.WithNetworkMagic(networkMagic),
-		gouroboros.WithNodeToNode(false),
-		gouroboros.WithKeepAlive(keepAlive),
-		gouroboros.WithFullDuplex(true),
-	)
+	connection, err := createGoUroBorosConnection(networkMagic, socketPath, keepAlive, txSubmitTimeout)
 	if err != nil {
 		return nil, err
 	}
 
-	// dial node -> connect to node
-	if err := connection.Dial("unix", socketPath); err != nil {
-		return nil, err
-	}
-
 	return &TxProviderGoUroBoros{
-		connection: connection,
+		connection:      connection,
+		networkMagic:    networkMagic,
+		socketPath:      socketPath,
+		keepAlive:       keepAlive,
+		txSubmitTimeout: txSubmitTimeout,
 	}, nil
 }
 
@@ -55,12 +56,21 @@ func (b *TxProviderGoUroBoros) GetProtocolParameters(ctx context.Context) ([]byt
 }
 
 func (b *TxProviderGoUroBoros) GetUtxos(ctx context.Context, addr string) ([]Utxo, error) {
-	address, err := ledger.NewAddress(addr)
+	// create connection every time - otherwise wont work. WHY?!?!
+	conn, err := createGoUroBorosConnection(
+		b.networkMagic, b.socketPath, b.keepAlive, b.txSubmitTimeout)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := b.connection.LocalStateQuery().Client.GetUTxOByAddress([]ledger.Address{address})
+	defer conn.Close()
+
+	address, err := getLedgerAddress(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := conn.LocalStateQuery().Client.GetUTxOByAddress([]ledger.Address{address})
 	if err != nil {
 		return nil, err
 	}
@@ -103,16 +113,56 @@ func (b *TxProviderGoUroBoros) GetTip(ctx context.Context) (QueryTipData, error)
 }
 
 func (b *TxProviderGoUroBoros) SubmitTx(ctx context.Context, txSigned []byte) error {
-	eraID, err := b.connection.LocalStateQuery().Client.GetCurrentEra()
+	txType, err := ledger.DetermineTransactionType(txSigned)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse transaction to determine type: %s", err)
 	}
 
-	return b.connection.LocalTxSubmission().Client.SubmitTx(uint16(eraID), txSigned)
+	return b.connection.LocalTxSubmission().Client.SubmitTx(uint16(txType), txSigned)
 }
 
 func (b *TxProviderGoUroBoros) GetTxByHash(ctx context.Context, hash string) (map[string]interface{}, error) {
 	panic("not implemented") //nolint:gocritic
+}
+
+func createGoUroBorosConnection(
+	networkMagic uint32, socketPath string, keepAlive bool, txSubmitTimeout time.Duration,
+) (*gouroboros.Connection, error) {
+	connection, err := gouroboros.NewConnection(
+		gouroboros.WithNetworkMagic(networkMagic),
+		gouroboros.WithNodeToNode(false),
+		gouroboros.WithKeepAlive(keepAlive),
+		gouroboros.WithLocalTxSubmissionConfig(
+			localtxsubmission.NewConfig(
+				localtxsubmission.WithTimeout(txSubmitTimeout*time.Second),
+			)),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// dial node -> connect to node
+	if err := connection.Dial("unix", socketPath); err != nil {
+		return nil, err
+	}
+
+	return connection, nil
+}
+
+func getLedgerAddress(raw string) (addr ledger.Address, err error) {
+	addrBase, err := NewAddress(raw)
+	if err != nil {
+		return addr, err
+	}
+
+	cborBytes, err := cbor.Marshal(addrBase.Bytes())
+	if err != nil {
+		return addr, err
+	}
+
+	err = addr.UnmarshalCBOR(cborBytes)
+
+	return addr, err
 }
 
 func convertUroBorosProtocolParameters(ps localstatequery.CurrentProtocolParamsResult) ([]byte, error) {
