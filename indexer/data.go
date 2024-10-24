@@ -55,7 +55,7 @@ type Tx struct {
 	BlockHash Hash             `json:"bhash"`
 	Indx      uint32           `json:"ind"`
 	Hash      Hash             `json:"hash"`
-	Metadata  []byte           `json:"metadata"`
+	Metadata  []byte           `json:"metadata,omitempty"`
 	Inputs    []*TxInputOutput `json:"inp"`
 	Outputs   []*TxOutput      `json:"out"`
 	Fee       uint64           `json:"fee"`
@@ -69,10 +69,12 @@ type TxInput struct {
 }
 
 type TxOutput struct {
-	Address string `json:"addr"`
-	Slot    uint64 `json:"slot"`
-	Amount  uint64 `json:"amnt"`
-	IsUsed  bool   `json:"used"`
+	Address   string `json:"addr"`
+	Slot      uint64 `json:"slot"`
+	Amount    uint64 `json:"amnt"`
+	Datum     []byte `json:"datum,omitempty"`
+	DatumHash string `json:"datumHash,omitempty"`
+	IsUsed    bool   `json:"used"`
 }
 
 type TxInputOutput struct {
