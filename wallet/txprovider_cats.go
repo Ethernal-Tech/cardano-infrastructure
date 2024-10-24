@@ -36,7 +36,7 @@ func (c *TxProviderCats) Dispose() {}
 // GetProtocolParameters implements ITxProvider.
 func (c *TxProviderCats) GetProtocolParameters(ctx context.Context) ([]byte, error) {
 	response, err := executeHTTPCats[getProtocolParametersCats](
-		ctx, c.getUrl("retrieve", "protocol-params"), "GET", c.apiKeyHeader, c.apiKey, nil)
+		ctx, c.getURL("retrieve", "protocol-params"), "GET", c.apiKeyHeader, c.apiKey, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (c *TxProviderCats) GetProtocolParameters(ctx context.Context) ([]byte, err
 // GetSlot implements ITxProvider.
 func (c *TxProviderCats) GetTip(ctx context.Context) (QueryTipData, error) {
 	response, err := executeHTTPCats[getTipCats](
-		ctx, c.getUrl("retrieve", "tip"), "GET", c.apiKeyHeader, c.apiKey, nil)
+		ctx, c.getURL("retrieve", "tip"), "GET", c.apiKeyHeader, c.apiKey, nil)
 	if err != nil {
 		return QueryTipData{}, err
 	}
@@ -58,7 +58,7 @@ func (c *TxProviderCats) GetTip(ctx context.Context) (QueryTipData, error) {
 // GetUtxos implements ITxProvider.
 func (c *TxProviderCats) GetUtxos(ctx context.Context, addr string) ([]Utxo, error) {
 	response, err := executeHTTPCats[getUtxosResponseCats](
-		ctx, c.getUrl("retrieve", "utxo", addr), "GET", c.apiKeyHeader, c.apiKey, nil)
+		ctx, c.getURL("retrieve", "utxo", addr), "GET", c.apiKeyHeader, c.apiKey, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (c *TxProviderCats) GetUtxos(ctx context.Context, addr string) ([]Utxo, err
 // Expects TxCborString
 func (c *TxProviderCats) SubmitTx(ctx context.Context, txSigned []byte) error {
 	_, err := executeHTTPCats[baseResponseCats](
-		ctx, c.getUrl("submit", "tx"), "POST", c.apiKeyHeader, c.apiKey, submitTxRequestCats{
+		ctx, c.getURL("submit", "tx"), "POST", c.apiKeyHeader, c.apiKey, submitTxRequestCats{
 			Data: txSigned,
 		})
 
@@ -80,7 +80,7 @@ func (c *TxProviderCats) GetTxByHash(ctx context.Context, hash string) (map[stri
 	panic("not implemented") //nolint:gocritic
 }
 
-func (c *TxProviderCats) getUrl(parts ...string) string {
+func (c *TxProviderCats) getURL(parts ...string) string {
 	return strings.Join(append([]string{c.url}, parts...), "/")
 }
 

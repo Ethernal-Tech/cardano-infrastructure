@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	gouroboros "github.com/blinklabs-io/gouroboros"
@@ -13,41 +14,105 @@ import (
 	"github.com/blinklabs-io/gouroboros/protocol/localstatequery"
 	"github.com/blinklabs-io/gouroboros/protocol/localtxsubmission"
 	"github.com/fxamacker/cbor/v2"
+	"github.com/hashicorp/go-hclog"
 )
 
-type TxProviderGoUroBoros struct {
-	connection      *gouroboros.Connection
+type txProviderGoUroBorosConfig struct {
 	networkMagic    uint32
 	socketPath      string
 	keepAlive       bool
 	txSubmitTimeout time.Duration
+	acquireTimeout  time.Duration
+	logger          hclog.Logger
+}
+
+type TxProviderGoUroBorosOption func(*txProviderGoUroBorosConfig)
+
+func WithTxProviderGoUroBorosKeepAlive(keepAlive bool) TxProviderGoUroBorosOption {
+	return func(c *txProviderGoUroBorosConfig) {
+		c.keepAlive = keepAlive
+	}
+}
+
+func WithTxProviderGoUroBorosTxSubmitTimeout(txSubmitTimeout time.Duration) TxProviderGoUroBorosOption {
+	return func(c *txProviderGoUroBorosConfig) {
+		c.txSubmitTimeout = txSubmitTimeout
+	}
+}
+
+func WithTxProviderGoUroBorosAcquireTimeout(acquireTimeout time.Duration) TxProviderGoUroBorosOption {
+	return func(c *txProviderGoUroBorosConfig) {
+		c.acquireTimeout = acquireTimeout
+	}
+}
+
+func WithTxProviderGoUroBorosLogger(logger hclog.Logger) TxProviderGoUroBorosOption {
+	return func(c *txProviderGoUroBorosConfig) {
+		c.logger = logger
+	}
+}
+
+type TxProviderGoUroBoros struct {
+	config txProviderGoUroBorosConfig
+
+	connection *gouroboros.Connection
+	closeCh    chan struct{}
+	errChan    chan error
+	lock       sync.Mutex
+
+	lastAcquiredTime time.Time
 }
 
 var _ ITxProvider = (*TxProviderGoUroBoros)(nil)
 
 func NewTxProviderGoUroBoros(
-	networkMagic uint32, socketPath string, keepAlive bool, txSubmitTimeout time.Duration,
-) (*TxProviderGoUroBoros, error) {
-	connection, err := createGoUroBorosConnection(networkMagic, socketPath, keepAlive, txSubmitTimeout)
+	networkMagic uint32, socketPath string, options ...TxProviderGoUroBorosOption,
+) *TxProviderGoUroBoros {
+	config := txProviderGoUroBorosConfig{
+		networkMagic:    networkMagic,
+		socketPath:      socketPath,
+		keepAlive:       true,
+		txSubmitTimeout: 5 * time.Second,
+		acquireTimeout:  2 * time.Second,
+		logger:          hclog.NewNullLogger(),
+	}
+
+	for _, op := range options {
+		op(&config)
+	}
+
+	txProvider := &TxProviderGoUroBoros{
+		closeCh: make(chan struct{}),
+		config:  config,
+	}
+
+	go txProvider.loop()
+
+	return txProvider
+}
+
+func (b *TxProviderGoUroBoros) Dispose() {
+	close(b.closeCh)
+
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if b.connection != nil {
+		b.connection.Close()
+	}
+}
+
+func (b *TxProviderGoUroBoros) GetProtocolParameters(ctx context.Context) ([]byte, error) {
+	conn, err := b.getConnection()
 	if err != nil {
 		return nil, err
 	}
 
-	return &TxProviderGoUroBoros{
-		connection:      connection,
-		networkMagic:    networkMagic,
-		socketPath:      socketPath,
-		keepAlive:       keepAlive,
-		txSubmitTimeout: txSubmitTimeout,
-	}, nil
-}
+	if err := b.acquire(); err != nil {
+		return nil, err
+	}
 
-func (b *TxProviderGoUroBoros) Dispose() {
-	_ = b.connection.Close() // log at least?
-}
-
-func (b *TxProviderGoUroBoros) GetProtocolParameters(ctx context.Context) ([]byte, error) {
-	protParams, err := b.connection.LocalStateQuery().Client.GetCurrentProtocolParams()
+	protParams, err := conn.LocalStateQuery().Client.GetCurrentProtocolParams()
 	if err != nil {
 		return nil, err
 	}
@@ -56,14 +121,14 @@ func (b *TxProviderGoUroBoros) GetProtocolParameters(ctx context.Context) ([]byt
 }
 
 func (b *TxProviderGoUroBoros) GetUtxos(ctx context.Context, addr string) ([]Utxo, error) {
-	// create connection every time - otherwise wont work. WHY?!?!
-	conn, err := createGoUroBorosConnection(
-		b.networkMagic, b.socketPath, b.keepAlive, b.txSubmitTimeout)
+	conn, err := b.getConnection()
 	if err != nil {
 		return nil, err
 	}
 
-	defer conn.Close()
+	if err := b.acquire(); err != nil {
+		return nil, err
+	}
 
 	address, err := getLedgerAddress(addr)
 	if err != nil {
@@ -89,17 +154,26 @@ func (b *TxProviderGoUroBoros) GetUtxos(ctx context.Context, addr string) ([]Utx
 }
 
 func (b *TxProviderGoUroBoros) GetTip(ctx context.Context) (QueryTipData, error) {
-	blockNum, err := b.connection.LocalStateQuery().Client.GetChainBlockNo()
+	conn, err := b.getConnection()
 	if err != nil {
 		return QueryTipData{}, err
 	}
 
-	chainPoint, err := b.connection.LocalStateQuery().Client.GetChainPoint()
+	if err := b.acquire(); err != nil {
+		return QueryTipData{}, err
+	}
+
+	blockNum, err := conn.LocalStateQuery().Client.GetChainBlockNo()
 	if err != nil {
 		return QueryTipData{}, err
 	}
 
-	epochNo, err := b.connection.LocalStateQuery().Client.GetEpochNo()
+	chainPoint, err := conn.LocalStateQuery().Client.GetChainPoint()
+	if err != nil {
+		return QueryTipData{}, err
+	}
+
+	epochNo, err := conn.LocalStateQuery().Client.GetEpochNo()
 	if err != nil {
 		return QueryTipData{}, err
 	}
@@ -115,26 +189,87 @@ func (b *TxProviderGoUroBoros) GetTip(ctx context.Context) (QueryTipData, error)
 func (b *TxProviderGoUroBoros) SubmitTx(ctx context.Context, txSigned []byte) error {
 	txType, err := ledger.DetermineTransactionType(txSigned)
 	if err != nil {
-		return fmt.Errorf("could not parse transaction to determine type: %s", err)
+		return fmt.Errorf("could not parse transaction to determine type: %w", err)
 	}
 
-	return b.connection.LocalTxSubmission().Client.SubmitTx(uint16(txType), txSigned)
+	conn, err := b.getConnection()
+	if err != nil {
+		return err
+	}
+
+	return conn.LocalTxSubmission().Client.SubmitTx(uint16(txType), txSigned) //nolint:gosec
 }
 
 func (b *TxProviderGoUroBoros) GetTxByHash(ctx context.Context, hash string) (map[string]interface{}, error) {
 	panic("not implemented") //nolint:gocritic
 }
 
+func (b *TxProviderGoUroBoros) getConnection() (*gouroboros.Connection, error) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if b.connection == nil {
+		b.config.logger.Debug("new connection created", "time", time.Now().UTC())
+
+		b.errChan = make(chan error) // create new channel because old one is closed
+
+		conn, err := createGoUroBorosConnection(
+			b.config.networkMagic, b.config.socketPath,
+			b.config.keepAlive, b.config.txSubmitTimeout, b.errChan)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve connection: %w", err)
+		}
+
+		b.connection = conn
+	}
+
+	return b.connection, nil
+}
+
+func (b *TxProviderGoUroBoros) acquire() error {
+	b.lock.Lock()
+	currentTime := time.Now().UTC()
+	isTimeOut := b.config.acquireTimeout == 0 || currentTime.Sub(b.lastAcquiredTime) > b.config.acquireTimeout
+
+	if isTimeOut {
+		b.lastAcquiredTime = currentTime
+	}
+
+	b.lock.Unlock()
+
+	if isTimeOut {
+		b.config.logger.Debug("new point acquired", "time", currentTime)
+
+		return b.connection.LocalStateQuery().Client.Acquire(nil)
+	}
+
+	return nil
+}
+
+func (b *TxProviderGoUroBoros) loop() {
+	for {
+		select {
+		case <-b.closeCh:
+			return // close routine
+		case <-b.errChan:
+			b.lock.Lock()
+			b.connection = nil
+			b.lock.Unlock()
+		}
+	}
+}
+
 func createGoUroBorosConnection(
-	networkMagic uint32, socketPath string, keepAlive bool, txSubmitTimeout time.Duration,
+	networkMagic uint32, socketPath string, keepAlive bool, txSubmitTimeout time.Duration, errChan chan error,
 ) (*gouroboros.Connection, error) {
 	connection, err := gouroboros.NewConnection(
 		gouroboros.WithNetworkMagic(networkMagic),
 		gouroboros.WithNodeToNode(false),
 		gouroboros.WithKeepAlive(keepAlive),
+		gouroboros.WithErrorChan(errChan),
 		gouroboros.WithLocalTxSubmissionConfig(
 			localtxsubmission.NewConfig(
-				localtxsubmission.WithTimeout(txSubmitTimeout*time.Second),
+				localtxsubmission.WithTimeout(txSubmitTimeout),
 			)),
 	)
 	if err != nil {
