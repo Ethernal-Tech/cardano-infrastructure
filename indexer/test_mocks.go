@@ -267,7 +267,7 @@ type LedgerBlockMock struct {
 
 // Type implements ledger.Block.
 func (m *LedgerBlockMock) Type() int {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // BlockBodySize implements ledger.Block.
@@ -329,92 +329,94 @@ type LedgerTransactionMock struct {
 
 // AssetMint implements common.Transaction.
 func (m *LedgerTransactionMock) AssetMint() *common.MultiAsset[int64] {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // AuxDataHash implements common.Transaction.
 func (m *LedgerTransactionMock) AuxDataHash() *common.Blake2b256 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Certificates implements common.Transaction.
 func (m *LedgerTransactionMock) Certificates() []common.Certificate {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Collateral implements common.Transaction.
 func (m *LedgerTransactionMock) Collateral() []common.TransactionInput {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // CollateralReturn implements common.Transaction.
 func (m *LedgerTransactionMock) CollateralReturn() common.TransactionOutput {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Consumed implements common.Transaction.
 func (m *LedgerTransactionMock) Consumed() []common.TransactionInput {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // CurrentTreasuryValue implements common.Transaction.
 func (m *LedgerTransactionMock) CurrentTreasuryValue() int64 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Donation implements common.Transaction.
 func (m *LedgerTransactionMock) Donation() uint64 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Produced implements common.Transaction.
 func (m *LedgerTransactionMock) Produced() []common.Utxo {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // ProposalProcedures implements common.Transaction.
 func (m *LedgerTransactionMock) ProposalProcedures() []common.ProposalProcedure {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // ProtocolParameterUpdates implements common.Transaction.
-func (m *LedgerTransactionMock) ProtocolParameterUpdates() (uint64, map[common.Blake2b224]common.ProtocolParameterUpdate) {
-	panic("unimplemented")
+func (m *LedgerTransactionMock) ProtocolParameterUpdates() (
+	uint64, map[common.Blake2b224]common.ProtocolParameterUpdate,
+) {
+	panic("unimplemented") //nolint
 }
 
 // RequiredSigners implements common.Transaction.
 func (m *LedgerTransactionMock) RequiredSigners() []common.Blake2b224 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // ScriptDataHash implements common.Transaction.
 func (m *LedgerTransactionMock) ScriptDataHash() *common.Blake2b256 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // TotalCollateral implements common.Transaction.
 func (m *LedgerTransactionMock) TotalCollateral() uint64 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Type implements common.Transaction.
 func (m *LedgerTransactionMock) Type() int {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // ValidityIntervalStart implements common.Transaction.
 func (m *LedgerTransactionMock) ValidityIntervalStart() uint64 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // VotingProcedures implements common.Transaction.
 func (m *LedgerTransactionMock) VotingProcedures() common.VotingProcedures {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Withdrawals implements common.Transaction.
 func (m *LedgerTransactionMock) Withdrawals() map[*common.Address]uint64 {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Cbor implements ledger.Transaction.
@@ -505,12 +507,12 @@ type LedgerTransactionOutputMock struct {
 
 // Assets implements common.TransactionOutput.
 func (m *LedgerTransactionOutputMock) Assets() *common.MultiAsset[uint64] {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Cbor implements common.TransactionOutput.
 func (m *LedgerTransactionOutputMock) Cbor() []byte {
-	panic("unimplemented")
+	panic("unimplemented") //nolint
 }
 
 // Datum implements common.TransactionOutput.

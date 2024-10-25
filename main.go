@@ -60,6 +60,7 @@ func startSyncer(ctx context.Context, isVector bool, id int, baseDirectory strin
 
 		for _, tx := range unprocessedTxs {
 			logger.Info("Tx has been processed", "tx", tx)
+
 			for _, ot := range tx.Outputs {
 				logger.Info("output", "addr", ot.Address, "amount", ot.Amount, "slot", ot.Slot)
 			}

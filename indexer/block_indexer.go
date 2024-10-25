@@ -385,6 +385,7 @@ func (bi *BlockIndexer) createTx(
 			if datum := out.Datum(); datum != nil {
 				txOutput.Datum = datum.Cbor()
 			}
+
 			if datumHash := out.DatumHash(); datumHash != nil {
 				txOutput.DatumHash = datumHash.String()
 			}
