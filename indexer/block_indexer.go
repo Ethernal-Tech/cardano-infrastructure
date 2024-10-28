@@ -376,18 +376,26 @@ func (bi *BlockIndexer) createTx(
 
 	if outputs := ledgerTx.Outputs(); len(outputs) > 0 {
 		tx.Outputs = make([]*TxOutput, len(outputs))
-
 		for j, out := range outputs {
-			tx.Outputs[j] = &TxOutput{
+			txOutput := &TxOutput{
 				Slot:    ledgerBlockHeader.SlotNumber(),
 				Address: LedgerAddressToString(out.Address()),
 				Amount:  out.Amount(),
 			}
+			if datum := out.Datum(); datum != nil {
+				txOutput.Datum = datum.Cbor()
+			}
+
+			if datumHash := out.DatumHash(); datumHash != nil {
+				txOutput.DatumHash = datumHash.String()
+			}
+
+			tx.Outputs[j] = txOutput
 		}
 	}
 
-	if ledgerTx.Metadata() != nil && ledgerTx.Metadata().Cbor() != nil {
-		tx.Metadata = ledgerTx.Metadata().Cbor()
+	if metadata := ledgerTx.Metadata(); metadata != nil {
+		tx.Metadata = metadata.Cbor()
 	}
 
 	switch realTx := ledgerTx.(type) {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/blinklabs-io/gouroboros/cbor"
 	"github.com/blinklabs-io/gouroboros/ledger"
+	"github.com/blinklabs-io/gouroboros/ledger/common"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	utxorpc "github.com/utxorpc/go-codegen/utxorpc/v1alpha/cardano"
@@ -264,6 +265,11 @@ type LedgerBlockMock struct {
 	TransactionsVal []ledger.Transaction
 }
 
+// Type implements ledger.Block.
+func (m *LedgerBlockMock) Type() int {
+	panic("unimplemented") //nolint
+}
+
 // BlockBodySize implements ledger.Block.
 func (m *LedgerBlockMock) BlockBodySize() uint64 {
 	panic("unimplemented") //nolint
@@ -315,10 +321,102 @@ type LedgerTransactionMock struct {
 	HashVal            string
 	InputsVal          []ledger.TransactionInput
 	OutputsVal         []ledger.TransactionOutput
-	MetadataVal        *cbor.Value
+	MetadataVal        *cbor.LazyValue
 	TTLVal             uint64
 	IsInvalid          bool
 	ReferenceInputsVal []ledger.TransactionInput
+}
+
+// AssetMint implements common.Transaction.
+func (m *LedgerTransactionMock) AssetMint() *common.MultiAsset[int64] {
+	panic("unimplemented") //nolint
+}
+
+// AuxDataHash implements common.Transaction.
+func (m *LedgerTransactionMock) AuxDataHash() *common.Blake2b256 {
+	panic("unimplemented") //nolint
+}
+
+// Certificates implements common.Transaction.
+func (m *LedgerTransactionMock) Certificates() []common.Certificate {
+	panic("unimplemented") //nolint
+}
+
+// Collateral implements common.Transaction.
+func (m *LedgerTransactionMock) Collateral() []common.TransactionInput {
+	panic("unimplemented") //nolint
+}
+
+// CollateralReturn implements common.Transaction.
+func (m *LedgerTransactionMock) CollateralReturn() common.TransactionOutput {
+	panic("unimplemented") //nolint
+}
+
+// Consumed implements common.Transaction.
+func (m *LedgerTransactionMock) Consumed() []common.TransactionInput {
+	panic("unimplemented") //nolint
+}
+
+// CurrentTreasuryValue implements common.Transaction.
+func (m *LedgerTransactionMock) CurrentTreasuryValue() int64 {
+	panic("unimplemented") //nolint
+}
+
+// Donation implements common.Transaction.
+func (m *LedgerTransactionMock) Donation() uint64 {
+	panic("unimplemented") //nolint
+}
+
+// Produced implements common.Transaction.
+func (m *LedgerTransactionMock) Produced() []common.Utxo {
+	panic("unimplemented") //nolint
+}
+
+// ProposalProcedures implements common.Transaction.
+func (m *LedgerTransactionMock) ProposalProcedures() []common.ProposalProcedure {
+	panic("unimplemented") //nolint
+}
+
+// ProtocolParameterUpdates implements common.Transaction.
+func (m *LedgerTransactionMock) ProtocolParameterUpdates() (
+	uint64, map[common.Blake2b224]common.ProtocolParameterUpdate,
+) {
+	panic("unimplemented") //nolint
+}
+
+// RequiredSigners implements common.Transaction.
+func (m *LedgerTransactionMock) RequiredSigners() []common.Blake2b224 {
+	panic("unimplemented") //nolint
+}
+
+// ScriptDataHash implements common.Transaction.
+func (m *LedgerTransactionMock) ScriptDataHash() *common.Blake2b256 {
+	panic("unimplemented") //nolint
+}
+
+// TotalCollateral implements common.Transaction.
+func (m *LedgerTransactionMock) TotalCollateral() uint64 {
+	panic("unimplemented") //nolint
+}
+
+// Type implements common.Transaction.
+func (m *LedgerTransactionMock) Type() int {
+	panic("unimplemented") //nolint
+}
+
+// ValidityIntervalStart implements common.Transaction.
+func (m *LedgerTransactionMock) ValidityIntervalStart() uint64 {
+	panic("unimplemented") //nolint
+}
+
+// VotingProcedures implements common.Transaction.
+func (m *LedgerTransactionMock) VotingProcedures() common.VotingProcedures {
+	panic("unimplemented") //nolint
+}
+
+// Withdrawals implements common.Transaction.
+func (m *LedgerTransactionMock) Withdrawals() map[*common.Address]uint64 {
+	panic("unimplemented") //nolint
 }
 
 // Cbor implements ledger.Transaction.
@@ -342,7 +440,7 @@ func (m *LedgerTransactionMock) Inputs() []ledger.TransactionInput {
 }
 
 // Metadata implements ledger.Transaction.
-func (m *LedgerTransactionMock) Metadata() *cbor.Value {
+func (m *LedgerTransactionMock) Metadata() *cbor.LazyValue {
 	return m.MetadataVal
 }
 
@@ -401,20 +499,30 @@ func (m *LedgerTransactionInputMock) Utxorpc() *utxorpc.TxInput {
 var _ ledger.TransactionInput = (*LedgerTransactionInputMock)(nil)
 
 type LedgerTransactionOutputMock struct {
-	AddressVal ledger.Address
-	AmountVal  uint64
+	AddressVal   ledger.Address
+	AmountVal    uint64
+	DatumVal     *cbor.LazyValue
+	DatumHashVal *common.Blake2b256
 }
 
-func NewLedgerTransactionOutputMock(t *testing.T, addr string, amount uint64) *LedgerTransactionOutputMock {
-	t.Helper()
+// Assets implements common.TransactionOutput.
+func (m *LedgerTransactionOutputMock) Assets() *common.MultiAsset[uint64] {
+	panic("unimplemented") //nolint
+}
 
-	a, err := ledger.NewAddress(addr)
-	require.NoError(t, err)
+// Cbor implements common.TransactionOutput.
+func (m *LedgerTransactionOutputMock) Cbor() []byte {
+	panic("unimplemented") //nolint
+}
 
-	return &LedgerTransactionOutputMock{
-		AddressVal: a,
-		AmountVal:  amount,
-	}
+// Datum implements common.TransactionOutput.
+func (m *LedgerTransactionOutputMock) Datum() *cbor.LazyValue {
+	return m.DatumVal
+}
+
+// DatumHash implements common.TransactionOutput.
+func (m *LedgerTransactionOutputMock) DatumHash() *common.Blake2b256 {
+	return m.DatumHashVal
 }
 
 // Address implements ledger.TransactionOutput.
@@ -427,28 +535,20 @@ func (m *LedgerTransactionOutputMock) Amount() uint64 {
 	return m.AmountVal
 }
 
-// Assets implements ledger.TransactionOutput.
-func (m *LedgerTransactionOutputMock) Assets() *ledger.MultiAsset[uint64] {
-	panic("unimplemented") //nolint
-}
-
-// Cbor implements ledger.TransactionOutput.
-func (m *LedgerTransactionOutputMock) Cbor() []byte {
-	panic("unimplemented") //nolint
-}
-
-// Datum implements ledger.TransactionOutput.
-func (m *LedgerTransactionOutputMock) Datum() *cbor.LazyValue {
-	panic("unimplemented") //nolint
-}
-
-// DatumHash implements ledger.TransactionOutput.
-func (m *LedgerTransactionOutputMock) DatumHash() *ledger.Blake2b256 {
-	panic("unimplemented") //nolint
-}
-
 func (m *LedgerTransactionOutputMock) Utxorpc() *utxorpc.TxOutput {
 	return nil
+}
+
+func NewLedgerTransactionOutputMock(t *testing.T, addr string, amount uint64) *LedgerTransactionOutputMock {
+	t.Helper()
+
+	a, err := ledger.NewAddress(addr)
+	require.NoError(t, err)
+
+	return &LedgerTransactionOutputMock{
+		AddressVal: a,
+		AmountVal:  amount,
+	}
 }
 
 var _ ledger.TransactionOutput = (*LedgerTransactionOutputMock)(nil)
