@@ -159,7 +159,7 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 		ouroboros.WithNodeToNode(true),
 		ouroboros.WithKeepAlive(bs.config.KeepAlive),
 		ouroboros.WithChainSyncConfig(chainsync.NewConfig(
-			chainsync.WithRollBackwardFunc(bs.blockHandler.RollBackwardFunc),
+			chainsync.WithRollBackwardFunc(bs.rollBackwardCallback),
 			chainsync.WithRollForwardFunc(bs.rollForwardCallback),
 		)),
 	)
@@ -186,6 +186,16 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 	go bs.errorHandler()
 
 	return nil
+}
+
+func (bs *BlockSyncerImpl) rollBackwardCallback(
+	ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip,
+) error {
+	bs.logger.Debug("Roll backward",
+		"hash", hex.EncodeToString(point.Hash), "slot", point.Slot,
+		"tip_slot", tip.Point.Slot, "tip_hash", hex.EncodeToString(tip.Point.Hash))
+
+	return bs.blockHandler.RollBackwardFunc(ctx, point, tip)
 }
 
 func (bs *BlockSyncerImpl) getBlockTransactions(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error) {
