@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/blinklabs-io/gouroboros/ledger"
-	"github.com/blinklabs-io/gouroboros/protocol/chainsync"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
@@ -557,19 +556,11 @@ func TestBlockIndexer_processConfirmedBlockKeepAllTxOutputsInDb(t *testing.T) {
 func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
 	t.Parallel()
 
-	uncomfBlocks := []blockWithLazyTxRetriever{
-		{
-			header: &LedgerBlockHeaderMock{SlotNumberVal: 6, HashVal: bytes2HashString([]byte{0, 2})},
-		},
-		{
-			header: &LedgerBlockHeaderMock{SlotNumberVal: 7, HashVal: bytes2HashString([]byte{0, 3})},
-		},
-		{
-			header: &LedgerBlockHeaderMock{SlotNumberVal: 8, HashVal: bytes2HashString([]byte{0, 4})},
-		},
-		{
-			header: &LedgerBlockHeaderMock{SlotNumberVal: 9, HashVal: bytes2HashString([]byte{0, 5})},
-		},
+	uncomfBlocks := []ledger.BlockHeader{
+		&LedgerBlockHeaderMock{SlotNumberVal: 6, HashVal: bytes2HashString([]byte{0, 2})},
+		&LedgerBlockHeaderMock{SlotNumberVal: 7, HashVal: bytes2HashString([]byte{0, 3})},
+		&LedgerBlockHeaderMock{SlotNumberVal: 8, HashVal: bytes2HashString([]byte{0, 4})},
+		&LedgerBlockHeaderMock{SlotNumberVal: 9, HashVal: bytes2HashString([]byte{0, 5})},
 	}
 	bp := &BlockPoint{
 		BlockSlot:   5,
@@ -599,10 +590,10 @@ func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
 		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
 	}
 
-	err = blockIndexer.RollBackwardFunc(chainsync.CallbackContext{}, common.Point{
+	err = blockIndexer.RollBackwardFunc(common.Point{
 		Slot: 7,
 		Hash: []byte{0, 3},
-	}, chainsync.Tip{})
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uncomfBlocks[0:2], blockIndexer.unconfirmedBlocks.ToList())
@@ -612,13 +603,9 @@ func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
 func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
 	t.Parallel()
 
-	uncomfBlocks := []blockWithLazyTxRetriever{
-		{
-			header: &LedgerBlockHeaderMock{SlotNumberVal: 6, HashVal: bytes2HashString([]byte{0, 2})},
-		},
-		{
-			header: &LedgerBlockHeaderMock{SlotNumberVal: 7, HashVal: bytes2HashString([]byte{0, 3})},
-		},
+	uncomfBlocks := []ledger.BlockHeader{
+		&LedgerBlockHeaderMock{SlotNumberVal: 6, HashVal: bytes2HashString([]byte{0, 2})},
+		&LedgerBlockHeaderMock{SlotNumberVal: 7, HashVal: bytes2HashString([]byte{0, 3})},
 	}
 	bp := &BlockPoint{
 		BlockSlot:   5,
@@ -643,10 +630,10 @@ func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
 		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
 	}
 
-	err := blockIndexer.RollBackwardFunc(chainsync.CallbackContext{}, common.Point{
+	err := blockIndexer.RollBackwardFunc(common.Point{
 		Slot: bp.BlockSlot,
 		Hash: bp.BlockHash[:],
-	}, chainsync.Tip{})
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, 0, blockIndexer.unconfirmedBlocks.Len())
@@ -656,13 +643,9 @@ func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
 func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 	t.Parallel()
 
-	uncomfBlocks := []blockWithLazyTxRetriever{
-		{
-			header: &LedgerBlockHeaderMock{SlotNumberVal: 6, HashVal: bytes2HashString([]byte{0, 2})},
-		},
-		{
-			header: &LedgerBlockHeaderMock{SlotNumberVal: 7, HashVal: bytes2HashString([]byte{0, 3})},
-		},
+	uncomfBlocks := []ledger.BlockHeader{
+		&LedgerBlockHeaderMock{SlotNumberVal: 6, HashVal: bytes2HashString([]byte{0, 2})},
+		&LedgerBlockHeaderMock{SlotNumberVal: 7, HashVal: bytes2HashString([]byte{0, 3})},
 	}
 	bp := &BlockPoint{
 		BlockSlot: 5,
@@ -691,10 +674,10 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, Hash{}, sp.BlockHash) // all zeroes
 
-	err = blockIndexer.RollBackwardFunc(chainsync.CallbackContext{}, common.Point{
+	err = blockIndexer.RollBackwardFunc(common.Point{
 		Slot: bp.BlockSlot + 10003,
 		Hash: bp.BlockHash[:],
-	}, chainsync.Tip{})
+	})
 	require.ErrorIs(t, err, errBlockSyncerFatal)
 
 	dbMock.AssertExpectations(t)
@@ -707,44 +690,41 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 	inputTxIndex := uint32(43)
 	confirmedTxs := ([]*Tx)(nil)
 	addressesOfInterest := []string{addresses[1]}
-	getTxs := []GetTxsFunc{
-		func() ([]ledger.Transaction, error) {
-			return []ledger.Transaction{
-				&LedgerTransactionMock{
-					HashVal: "01",
-					OutputsVal: []ledger.TransactionOutput{
-						NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(50)),
+	getTxsMock := &BlockTxsRetrieverMock{
+		RetrieveFn: func(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error) {
+			switch blockHeader.SlotNumber() {
+			case 1:
+				return []ledger.Transaction{
+					&LedgerTransactionMock{
+						HashVal: "01",
+						OutputsVal: []ledger.TransactionOutput{
+							NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(50)),
+						},
 					},
-				},
-			}, nil
-		},
-		func() ([]ledger.Transaction, error) {
-			return []ledger.Transaction{
-				&LedgerTransactionMock{
-					HashVal: "02",
-					InputsVal: []ledger.TransactionInput{
-						NewLedgerTransactionInputMock(t, inputTxHash[:], inputTxIndex),
+				}, nil
+			case 2:
+				return []ledger.Transaction{
+					&LedgerTransactionMock{
+						HashVal: "02",
+						InputsVal: []ledger.TransactionInput{
+							NewLedgerTransactionInputMock(t, inputTxHash[:], inputTxIndex),
+						},
+						OutputsVal: []ledger.TransactionOutput{
+							NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(100)),
+						},
 					},
-					OutputsVal: []ledger.TransactionOutput{
-						NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(100)),
+					&LedgerTransactionMock{
+						HashVal: "03",
+						OutputsVal: []ledger.TransactionOutput{
+							NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(200)),
+						},
 					},
-				},
-				&LedgerTransactionMock{
-					HashVal: "03",
-					OutputsVal: []ledger.TransactionOutput{
-						NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(200)),
-					},
-				},
-			}, nil
-		},
-		func() ([]ledger.Transaction, error) {
-			return []ledger.Transaction{}, nil
-		},
-		func() ([]ledger.Transaction, error) {
-			return []ledger.Transaction{}, nil
+				}, nil
+			default:
+				return []ledger.Transaction{}, nil
+			}
 		},
 	}
-
 	blockHeaders := []*LedgerBlockHeaderMock{
 		{SlotNumberVal: 1, HashVal: bytes2HashString([]byte{1})},
 		{SlotNumberVal: 2, HashVal: bytes2HashString([]byte{2})},
@@ -768,7 +748,7 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 
 	for i, h := range blockHeaders {
 		if i >= 2 {
-			txsRetrievedWithGetTxs, err := getTxs[i-2]()
+			txsRetrievedWithGetTxs, err := getTxsMock.GetBlockTransactions(blockHeaders[i-2])
 			require.NoError(t, err)
 
 			dbMock.On("OpenTx").Once()
@@ -831,9 +811,7 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 			}).Once()
 		}
 
-		err := blockIndexer.RollForwardFunc(h, getTxs[i], chainsync.Tip{})
-
-		require.NoError(t, err)
+		require.NoError(t, blockIndexer.RollForwardFunc(h, getTxsMock))
 
 		if i < 2 {
 			require.Equal(t, i+1, blockIndexer.unconfirmedBlocks.Len())

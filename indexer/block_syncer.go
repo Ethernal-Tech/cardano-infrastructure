@@ -25,7 +25,9 @@ const (
 	syncStartTriesDefault = 4
 )
 
-type GetTxsFunc func() ([]ledger.Transaction, error)
+type BlockTxsRetriever interface {
+	GetBlockTransactions(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error)
+}
 
 type BlockSyncer interface {
 	Sync() error
@@ -34,8 +36,8 @@ type BlockSyncer interface {
 }
 
 type BlockSyncerHandler interface {
-	RollBackwardFunc(ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip) error
-	RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error
+	RollBackwardFunc(point common.Point) error
+	RollForwardFunc(blockHeader ledger.BlockHeader, txsRetriver BlockTxsRetriever) error
 	Reset() (BlockPoint, error)
 }
 
@@ -85,9 +87,6 @@ func (bs *BlockSyncerImpl) Sync() (err error) {
 		cntTries = syncStartTriesDefault
 	}
 
-	ticker := time.NewTicker(bs.config.RestartDelay)
-	defer ticker.Stop()
-
 	for i := 1; i <= cntTries; i++ {
 		if err = bs.syncExecute(); err == nil {
 			break
@@ -98,7 +97,7 @@ func (bs *BlockSyncerImpl) Sync() (err error) {
 		select {
 		case <-bs.closed:
 			return
-		case <-ticker.C:
+		case <-time.After(bs.config.RestartDelay):
 		}
 	}
 
@@ -125,17 +124,17 @@ func (bs *BlockSyncerImpl) ErrorCh() <-chan error {
 }
 
 func (bs *BlockSyncerImpl) syncExecute() error {
-	// connection should be created inside lock because
-	// BlockSyncerImpl->Close can be called from another routine
-	bs.lock.Lock()
-	defer bs.lock.Unlock()
-
 	// if the syncer is closed in the meantime -> quit
 	select {
 	case <-bs.closed:
 		return nil
 	default:
 	}
+
+	// connection should be created inside lock because
+	// BlockSyncerImpl->Close can be called from another routine
+	bs.lock.Lock()
+	defer bs.lock.Unlock()
 
 	if oldConn := bs.connection; oldConn != nil {
 		if err := oldConn.Close(); err != nil { // close previous connection
@@ -145,13 +144,7 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 		}
 	}
 
-	blockPoint, err := bs.blockHandler.Reset()
-	if err != nil {
-		return err
-	}
-
-	bs.logger.Debug("Start syncing requested",
-		"networkMagic", bs.config.NetworkMagic, "addr", bs.config.NodeAddress, "point", blockPoint)
+	bs.logger.Debug("Start syncing requested", "addr", bs.config.NodeAddress, "magic", bs.config.NetworkMagic)
 
 	// create connection
 	connection, err := ouroboros.NewConnection(
@@ -174,16 +167,23 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 
 	bs.connection = connection
 
-	bs.logger.Debug("Syncing started",
-		"networkMagic", bs.config.NetworkMagic, "addr", bs.config.NodeAddress, "point", blockPoint)
+	bs.logger.Debug("Connection established", "addr", bs.config.NodeAddress, "magic", bs.config.NetworkMagic)
+
+	blockPoint, err := bs.blockHandler.Reset()
+	if err != nil {
+		return err
+	}
 
 	// start syncing
 	if err := connection.ChainSync().Client.Sync([]common.Point{blockPoint.ToCommonPoint()}); err != nil {
 		return err
 	}
 
+	bs.logger.Debug("Syncing started", "addr", bs.config.NodeAddress,
+		"magic", bs.config.NetworkMagic, "point", blockPoint)
+
 	// in separated routine wait for async errors
-	go bs.errorHandler()
+	go bs.errorHandler(connection.ErrorChan())
 
 	return nil
 }
@@ -195,19 +195,23 @@ func (bs *BlockSyncerImpl) rollBackwardCallback(
 		"hash", hex.EncodeToString(point.Hash), "slot", point.Slot,
 		"tip_slot", tip.Point.Slot, "tip_hash", hex.EncodeToString(tip.Point.Hash))
 
-	return bs.blockHandler.RollBackwardFunc(ctx, point, tip)
+	return bs.blockHandler.RollBackwardFunc(point)
 }
 
-func (bs *BlockSyncerImpl) getBlockTransactions(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error) {
-	if bs.connection == nil {
+func (bs *BlockSyncerImpl) GetBlockTransactions(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error) {
+	bs.logger.Debug("Get block transactions", "slot", blockHeader.SlotNumber(), "hash", blockHeader.Hash())
+
+	bs.lock.Lock()
+	connection := bs.connection
+	bs.lock.Unlock()
+
+	if connection == nil {
 		return nil, errors.New("failed to get block transactions: no connection")
 	}
 
-	bs.logger.Debug("Get block transactions", "slot", blockHeader.SlotNumber(), "hash", blockHeader.Hash())
-
 	hash := NewHashFromHexString(blockHeader.Hash())
 
-	block, err := bs.connection.BlockFetch().Client.GetBlock(
+	block, err := connection.BlockFetch().Client.GetBlock(
 		common.NewPoint(blockHeader.SlotNumber(), hash[:]),
 	)
 	if err != nil {
@@ -229,23 +233,22 @@ func (bs *BlockSyncerImpl) rollForwardCallback(
 		"number", blockHeader.BlockNumber(), "hash", blockHeader.Hash(), "slot", blockHeader.SlotNumber(),
 		"tip_slot", tip.Point.Slot, "tip_hash", hex.EncodeToString(tip.Point.Hash))
 
-	getTxsFunc := func() ([]ledger.Transaction, error) {
-		return bs.getBlockTransactions(blockHeader)
-	}
-
-	return bs.blockHandler.RollForwardFunc(blockHeader, getTxsFunc, tip)
+	return bs.blockHandler.RollForwardFunc(blockHeader, bs)
 }
 
-func (bs *BlockSyncerImpl) errorHandler() {
-	if bs.connection == nil {
-		return
-	}
+func (bs *BlockSyncerImpl) errorHandler(errorCh <-chan error) {
+	var (
+		err error
+		ok  bool
+	)
 
-	err, ok := <-bs.connection.ErrorChan()
-	if !ok {
-		close(bs.errorCh)
-
-		return
+	select {
+	case <-bs.closed:
+		return // close routine
+	case err, ok = <-errorCh:
+		if !ok {
+			return
+		}
 	}
 
 	// retry syncing again if not fatal error and if RestartOnError is true (errors.Is does not work in this case)
