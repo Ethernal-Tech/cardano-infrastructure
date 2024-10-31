@@ -16,21 +16,28 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-func startSyncer(ctx context.Context, isVector bool, id int, baseDirectory string) error {
+func startSyncer(ctx context.Context, chainType int, id int, baseDirectory string) error {
 	var (
 		address             string
 		networkMagic        uint32
 		addressesOfInterest []string
 	)
 
-	if isVector {
+	switch chainType {
+	case 0:
 		address = "localhost:5200"
 		networkMagic = uint32(1127)
 		addressesOfInterest = []string{}
-	} else {
+	case 1:
 		address = "localhost:5100"
 		networkMagic = uint32(3311)
 		addressesOfInterest = []string{}
+	case 2:
+		address = "backbone.cardano-mainnet.iohk.io:3001"
+		networkMagic = uint32(764824073)
+	case 3:
+		address = "preprod-node.play.dev.cardano.org:3001"
+		networkMagic = 1
 	}
 
 	logger, err := logger.NewLogger(logger.LoggerConfig{
@@ -59,11 +66,7 @@ func startSyncer(ctx context.Context, isVector bool, id int, baseDirectory strin
 		}
 
 		for _, tx := range unprocessedTxs {
-			logger.Info("Tx has been processed", "tx", tx)
-
-			for _, ot := range tx.Outputs {
-				logger.Info("output", "addr", ot.Address, "amount", ot.Amount, "slot", ot.Slot)
-			}
+			logger.Info("Tx has been processed", "tx", tx.String())
 		}
 
 		return dbs.MarkConfirmedTxsProcessed(unprocessedTxs)
@@ -123,13 +126,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	defer func() {
-		os.RemoveAll(baseDirectory)
-		os.Remove(baseDirectory)
-	}()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer os.RemoveAll(baseDirectory)
 
 	signalChannel := make(chan os.Signal, 1)
 	// Notify the signalChannel when the interrupt signal is received (Ctrl+C)
@@ -138,9 +135,9 @@ func main() {
 	for i := 1; i <= sequenceCount; i++ {
 		fmt.Println("starting syncer ", i, baseDirectory)
 
-		timeOutContext, cancel := context.WithCancel(ctx)
+		timeOutContext, cancel := context.WithTimeout(context.Background(), syncerTimeout)
 
-		if err := startSyncer(timeOutContext, i&1 == 1, i, baseDirectory); err != nil {
+		if err := startSyncer(timeOutContext, 3, i, baseDirectory); err != nil {
 			fmt.Println("syncer error", err)
 		}
 
@@ -149,14 +146,7 @@ func main() {
 			cancel()
 
 			return
-		case <-ctx.Done():
-			cancel()
-
-			return
-		case <-time.After(syncerTimeout):
-			fmt.Println("stopping syncer")
-
-			cancel()
+		case <-timeOutContext.Done():
 		}
 	}
 }

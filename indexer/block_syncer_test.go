@@ -8,16 +8,23 @@ import (
 
 	ouroboros "github.com/blinklabs-io/gouroboros"
 	"github.com/blinklabs-io/gouroboros/ledger"
-	"github.com/blinklabs-io/gouroboros/protocol/chainsync"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 )
 
+type BlockTxsRetrieverMock struct {
+	RetrieveFn func(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error)
+}
+
+func (bt *BlockTxsRetrieverMock) GetBlockTransactions(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error) {
+	return bt.RetrieveFn(blockHeader)
+}
+
 type BlockSyncerHandlerMock struct {
 	BlockPoint         *BlockPoint
-	RollForwardFn      func(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error
-	RollBackwardFuncFn func(ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip) error
+	RollForwardFn      func(ledger.BlockHeader, BlockTxsRetriever) error
+	RollBackwardFuncFn func(common.Point) error
 }
 
 func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock {
@@ -36,19 +43,19 @@ func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock
 	}
 }
 
-func (hMock *BlockSyncerHandlerMock) RollBackwardFunc(
-	ctx chainsync.CallbackContext, point common.Point, tip chainsync.Tip,
-) error {
+func (hMock *BlockSyncerHandlerMock) RollBackwardFunc(point common.Point) error {
 	if hMock.RollBackwardFuncFn != nil {
-		return hMock.RollBackwardFuncFn(ctx, point, tip)
+		return hMock.RollBackwardFuncFn(point)
 	}
 
 	return nil
 }
 
-func (hMock *BlockSyncerHandlerMock) RollForwardFunc(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error {
+func (hMock *BlockSyncerHandlerMock) RollForwardFunc(
+	blockHeader ledger.BlockHeader, txsRetriever BlockTxsRetriever,
+) error {
 	if hMock.RollForwardFn != nil {
-		return hMock.RollForwardFn(blockHeader, getTxsFunc, tip)
+		return hMock.RollForwardFn(blockHeader, txsRetriever)
 	}
 
 	return nil
@@ -271,10 +278,10 @@ func TestSyncRollForwardCalled(t *testing.T) {
 
 	defer syncer.Close()
 
-	mockSyncerBlockHandler.RollForwardFn = func(blockHeader ledger.BlockHeader, getTxsFunc GetTxsFunc, tip chainsync.Tip) error {
+	mockSyncerBlockHandler.RollForwardFn = func(bh ledger.BlockHeader, txsRetriever BlockTxsRetriever) error {
 		t.Helper()
 
-		_, err := getTxsFunc()
+		_, err := txsRetriever.GetBlockTransactions(bh)
 		require.True(t, err == nil || strings.Contains(err.Error(), "protocol is shutting down"))
 
 		called = true
