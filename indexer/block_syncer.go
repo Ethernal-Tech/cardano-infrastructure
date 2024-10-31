@@ -230,7 +230,7 @@ func (bs *BlockSyncerImpl) rollForwardCallback(
 	}
 
 	bs.logger.Debug("Roll forward",
-		"number", blockHeader.BlockNumber(), "hash", blockHeader.Hash(), "slot", blockHeader.SlotNumber(),
+		"hash", blockHeader.Hash(), "slot", blockHeader.SlotNumber(), "number", blockHeader.BlockNumber(),
 		"tip_slot", tip.Point.Slot, "tip_hash", hex.EncodeToString(tip.Point.Hash))
 
 	return bs.blockHandler.RollForwardFunc(blockHeader, bs)
