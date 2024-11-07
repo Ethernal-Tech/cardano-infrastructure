@@ -64,9 +64,10 @@ type BlockSyncerImpl struct {
 	config       *BlockSyncerConfig
 	logger       hclog.Logger
 
-	errorCh chan error
-	lock    sync.Mutex
-	closed  chan struct{}
+	errorCh  chan error
+	closeCh  chan struct{}
+	lock     sync.Mutex
+	isClosed bool
 }
 
 var _ BlockSyncer = (*BlockSyncerImpl)(nil)
@@ -77,7 +78,7 @@ func NewBlockSyncer(config *BlockSyncerConfig, blockHandler BlockSyncerHandler, 
 		config:       config,
 		logger:       logger,
 		errorCh:      make(chan error, 1),
-		closed:       make(chan struct{}),
+		closeCh:      make(chan struct{}),
 	}
 }
 
@@ -95,7 +96,7 @@ func (bs *BlockSyncerImpl) Sync() (err error) {
 		}
 
 		select {
-		case <-bs.closed:
+		case <-bs.closeCh:
 			return
 		case <-time.After(bs.config.RestartDelay):
 		}
@@ -105,18 +106,17 @@ func (bs *BlockSyncerImpl) Sync() (err error) {
 }
 
 func (bs *BlockSyncerImpl) Close() error {
-	close(bs.closed)
-
-	// connection should be closed inside lock
-	// because BlockSyncerImpl->syncExecute can create new one from another routine
 	bs.lock.Lock()
 	defer bs.lock.Unlock()
 
-	if bs.connection == nil {
-		return nil
+	if !bs.isClosed {
+		bs.isClosed = true
+
+		close(bs.closeCh)
+		bs.closeConnectionNoLock()
 	}
 
-	return bs.connection.Close()
+	return nil
 }
 
 func (bs *BlockSyncerImpl) ErrorCh() <-chan error {
@@ -126,23 +126,17 @@ func (bs *BlockSyncerImpl) ErrorCh() <-chan error {
 func (bs *BlockSyncerImpl) syncExecute() error {
 	// if the syncer is closed in the meantime -> quit
 	select {
-	case <-bs.closed:
+	case <-bs.closeCh:
 		return nil
 	default:
 	}
 
-	// connection should be created inside lock because
-	// BlockSyncerImpl->Close can be called from another routine
+	// close the old connection and create a new one within the lock.
+	// two syncExecute calls should not run in parallel
 	bs.lock.Lock()
 	defer bs.lock.Unlock()
 
-	if oldConn := bs.connection; oldConn != nil {
-		if err := oldConn.Close(); err != nil { // close previous connection
-			bs.logger.Warn("Error while closing previous connection", "err", err)
-		} else {
-			<-oldConn.ErrorChan() // error channel will be closed after connection closing is done!
-		}
-	}
+	bs.closeConnectionNoLock()
 
 	bs.logger.Debug("Start syncing requested", "addr", bs.config.NodeAddress, "magic", bs.config.NetworkMagic)
 
@@ -198,29 +192,6 @@ func (bs *BlockSyncerImpl) rollBackwardCallback(
 	return bs.blockHandler.RollBackwardFunc(point)
 }
 
-func (bs *BlockSyncerImpl) GetBlockTransactions(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error) {
-	bs.logger.Debug("Get block transactions", "slot", blockHeader.SlotNumber(), "hash", blockHeader.Hash())
-
-	bs.lock.Lock()
-	connection := bs.connection
-	bs.lock.Unlock()
-
-	if connection == nil {
-		return nil, errors.New("failed to get block transactions: no connection")
-	}
-
-	hash := NewHashFromHexString(blockHeader.Hash())
-
-	block, err := connection.BlockFetch().Client.GetBlock(
-		common.NewPoint(blockHeader.SlotNumber(), hash[:]),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return block.Transactions(), nil
-}
-
 func (bs *BlockSyncerImpl) rollForwardCallback(
 	ctx chainsync.CallbackContext, blockType uint, blockInfo interface{}, tip chainsync.Tip,
 ) error {
@@ -229,11 +200,21 @@ func (bs *BlockSyncerImpl) rollForwardCallback(
 		return errors.Join(errBlockSyncerFatal, errors.New("invalid header"))
 	}
 
+	bs.lock.Lock()
+	if bs.connection == nil {
+		bs.lock.Unlock()
+
+		return errors.New("failed to get block transactions: no connection")
+	}
+
+	txsRetriever := NewBlockTxsRetriever(bs.connection, bs.logger)
+	bs.lock.Unlock()
+
 	bs.logger.Debug("Roll forward",
 		"hash", blockHeader.Hash(), "slot", blockHeader.SlotNumber(), "number", blockHeader.BlockNumber(),
 		"tip_slot", tip.Point.Slot, "tip_hash", hex.EncodeToString(tip.Point.Hash))
 
-	return bs.blockHandler.RollForwardFunc(blockHeader, bs)
+	return bs.blockHandler.RollForwardFunc(blockHeader, txsRetriever)
 }
 
 func (bs *BlockSyncerImpl) errorHandler(errorCh <-chan error) {
@@ -243,7 +224,7 @@ func (bs *BlockSyncerImpl) errorHandler(errorCh <-chan error) {
 	)
 
 	select {
-	case <-bs.closed:
+	case <-bs.closeCh:
 		return // close routine
 	case err, ok = <-errorCh:
 		if !ok {
@@ -256,7 +237,7 @@ func (bs *BlockSyncerImpl) errorHandler(errorCh <-chan error) {
 		bs.logger.Warn("Error happened during synchronization", "err", err)
 
 		select {
-		case <-bs.closed:
+		case <-bs.closeCh:
 			return
 		case <-time.After(bs.config.RestartDelay):
 		}
@@ -269,4 +250,47 @@ func (bs *BlockSyncerImpl) errorHandler(errorCh <-chan error) {
 		bs.logger.Error("Error happened during synchronization. Restart the syncer manually.", "err", err)
 		bs.errorCh <- err // propagate error
 	}
+}
+
+func (bs *BlockSyncerImpl) closeConnectionNoLock() {
+	if oldConn := bs.connection; oldConn != nil {
+		bs.logger.Debug("Closing old connection")
+
+		if err := oldConn.Close(); err != nil { // close previous connection
+			bs.logger.Warn("Error while closing previous connection", "err", err)
+		} else {
+			<-oldConn.ErrorChan() // error channel will be closed after connection closing is done!
+
+			bs.logger.Debug("Old connection has been closed")
+		}
+	}
+}
+
+type BlockTxsRetrieverImpl struct {
+	connection *ouroboros.Connection
+	logger     hclog.Logger
+}
+
+func NewBlockTxsRetriever(conn *ouroboros.Connection, logger hclog.Logger) *BlockTxsRetrieverImpl {
+	return &BlockTxsRetrieverImpl{
+		connection: conn,
+		logger:     logger,
+	}
+}
+
+func (br *BlockTxsRetrieverImpl) GetBlockTransactions(
+	blockHeader ledger.BlockHeader,
+) ([]ledger.Transaction, error) {
+	br.logger.Debug("Get block transactions", "slot", blockHeader.SlotNumber(), "hash", blockHeader.Hash())
+
+	hash := NewHashFromHexString(blockHeader.Hash())
+
+	block, err := br.connection.BlockFetch().Client.GetBlock(
+		common.NewPoint(blockHeader.SlotNumber(), hash[:]),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return block.Transactions(), nil
 }

@@ -3,6 +3,7 @@ package indexer
 import (
 	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -259,6 +260,8 @@ func TestCloseWithConnectionNotNil(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	require.NoError(t, connection.Dial(ProtocolTCP, NodeAddress))
+
 	syncer.connection = connection
 
 	err = syncer.Close()
@@ -268,7 +271,7 @@ func TestCloseWithConnectionNotNil(t *testing.T) {
 func TestSyncRollForwardCalled(t *testing.T) {
 	t.Parallel()
 
-	called := false
+	called := uint64(1)
 	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: NetworkMagic,
@@ -284,7 +287,7 @@ func TestSyncRollForwardCalled(t *testing.T) {
 		_, err := txsRetriever.GetBlockTransactions(bh)
 		require.True(t, err == nil || strings.Contains(err.Error(), "protocol is shutting down"))
 
-		called = true
+		atomic.StoreUint64(&called, 1)
 
 		return nil
 	}
@@ -293,7 +296,7 @@ func TestSyncRollForwardCalled(t *testing.T) {
 	require.Nil(t, err)
 
 	time.Sleep(5 * time.Second)
-	require.True(t, called)
+	require.True(t, atomic.LoadUint64(&called) == uint64(1))
 }
 
 func TestSync_ConnectionIsClosed(t *testing.T) {
