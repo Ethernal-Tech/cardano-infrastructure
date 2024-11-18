@@ -35,6 +35,8 @@ func TestExecuteWithRetry(t *testing.T) {
 		i++
 		if i&1 == 1 {
 			return 0, &net.DNSError{}
+		} else if i&3 == 0 {
+			return 0, ErrRetryTryAgain
 		}
 
 		return 0, errors.New("status code 500")

@@ -16,8 +16,9 @@ const (
 )
 
 var (
-	ErrRetryTimeout = errors.New("timeout")
-	defaultLogger   = hclog.NewNullLogger()
+	ErrRetryTimeout  = errors.New("timeout")
+	ErrRetryTryAgain = errors.New("retry try again")
+	defaultLogger    = hclog.NewNullLogger()
 )
 
 // RetryConfig defines ExecuteWithRetry configuration
@@ -78,7 +79,9 @@ func ExecuteWithRetry[T any](
 				return result, err
 			}
 
-			config.logger.Info("ExecuteWithRetry failed. Retrying...", "time", count+1, "err", err)
+			if !errors.Is(err, ErrRetryTryAgain) { // do not log ErrRetryTryAgain errors
+				config.logger.Info("ExecuteWithRetry failed. Retrying...", "time", count+1, "err", err)
+			}
 		} else {
 			return result, nil
 		}
@@ -107,6 +110,10 @@ func isRetryableErrorDefault(err error) bool {
 
 	var netErr net.Error
 	if errors.As(err, &netErr) {
+		return true
+	}
+
+	if errors.Is(err, ErrRetryTryAgain) {
 		return true
 	}
 
