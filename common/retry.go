@@ -6,6 +6,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-hclog"
 )
 
 const (
@@ -13,13 +15,17 @@ const (
 	defaultRetryWaitTime = time.Second * 2
 )
 
-var ErrRetryTimeout = errors.New("timeout")
+var (
+	ErrRetryTimeout = errors.New("timeout")
+	defaultLogger   = hclog.NewNullLogger()
+)
 
 // RetryConfig defines ExecuteWithRetry configuration
 type RetryConfig struct {
 	retryCount       int
 	retryWaitTime    time.Duration
 	isRetryableError func(err error) bool
+	logger           hclog.Logger
 }
 
 // RetryConfigOption defines ExecuteWithRetry configuration option
@@ -43,15 +49,22 @@ func WithIsRetryableError(fn func(err error) bool) RetryConfigOption {
 	}
 }
 
+func WithLogger(logger hclog.Logger) RetryConfigOption {
+	return func(c *RetryConfig) {
+		c.logger = logger
+	}
+}
+
 // ExecuteWithRetry attempts to execute a provided handler function multiple times
 // with retries in case of failure, respecting a specified wait time between attempts.
 func ExecuteWithRetry[T any](
-	ctx context.Context, handler func(int) (T, error), options ...RetryConfigOption,
+	ctx context.Context, handler func(context.Context) (T, error), options ...RetryConfigOption,
 ) (result T, err error) {
 	config := RetryConfig{
 		retryCount:       defaultRetryCount,
 		retryWaitTime:    defaultRetryWaitTime,
 		isRetryableError: isRetryableErrorDefault,
+		logger:           defaultLogger,
 	}
 
 	for _, opt := range options {
@@ -59,11 +72,13 @@ func ExecuteWithRetry[T any](
 	}
 
 	for count := 0; count < config.retryCount; count++ {
-		result, err = handler(count)
+		result, err = handler(ctx)
 		if err != nil {
 			if !config.isRetryableError(err) {
 				return result, err
 			}
+
+			config.logger.Info("ExecuteWithRetry failed. Retrying...", "time", count+1, "err", err)
 		} else {
 			return result, nil
 		}

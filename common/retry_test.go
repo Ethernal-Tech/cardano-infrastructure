@@ -22,13 +22,13 @@ func TestExecuteWithRetry(t *testing.T) {
 		WithRetryWaitTime(time.Millisecond * 5),
 	}
 
-	_, err := ExecuteWithRetry(ctx, func(_ int) (int, error) {
+	_, err := ExecuteWithRetry(ctx, func(_ context.Context) (int, error) {
 		return 0, errWait
 	}, options...)
 
 	require.ErrorIs(t, err, errWait)
 
-	_, err = ExecuteWithRetry(ctx, func(_ int) (int, error) {
+	_, err = ExecuteWithRetry(ctx, func(_ context.Context) (int, error) {
 		return 0, errors.New("status code 500")
 	}, options...)
 
@@ -37,18 +37,14 @@ func TestExecuteWithRetry(t *testing.T) {
 	ctxWithCancel, cncl := context.WithCancel(ctx)
 	go cncl()
 
-	_, err = ExecuteWithRetry(ctxWithCancel, func(_ int) (int, error) {
+	_, err = ExecuteWithRetry(ctxWithCancel, func(_ context.Context) (int, error) {
 		return 0, errors.New("status code 500")
 	}, options...)
 
 	require.ErrorIs(t, err, ctxWithCancel.Err())
 
-	result, err := ExecuteWithRetry(ctx, func(cnt int) (int, error) {
-		if cnt == 2 {
-			return 8930, nil
-		}
-
-		return 0, errors.New("status code 500")
+	result, err := ExecuteWithRetry(ctx, func(cnt context.Context) (int, error) {
+		return 8930, nil
 	}, options...)
 
 	require.NoError(t, err)
