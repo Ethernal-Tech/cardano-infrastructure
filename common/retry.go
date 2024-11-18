@@ -105,7 +105,8 @@ func isRetryableErrorDefault(err error) bool {
 		return false
 	}
 
-	if _, isNetError := err.(net.Error); isNetError {
+	var netErr net.Error
+	if errors.As(err, &netErr) {
 		return true
 	}
 

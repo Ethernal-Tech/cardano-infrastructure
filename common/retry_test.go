@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 	"time"
 
@@ -28,7 +29,14 @@ func TestExecuteWithRetry(t *testing.T) {
 
 	require.ErrorIs(t, err, errWait)
 
+	i := 0
+
 	_, err = ExecuteWithRetry(ctx, func(_ context.Context) (int, error) {
+		i++
+		if i&1 == 1 {
+			return 0, &net.DNSError{}
+		}
+
 		return 0, errors.New("status code 500")
 	}, options...)
 
