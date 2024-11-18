@@ -10,12 +10,14 @@ import (
 
 var ErrRetryTimeout = errors.New("timeout")
 
+// RetryConfig defines ExecuteWithRetry configuration
 type RetryConfig struct {
 	retryCount       int
 	retryWaitTime    time.Duration
 	isRetryableError func(err error) bool
 }
 
+// RetryConfigOption defines ExecuteWithRetry configuration option
 type RetryConfigOption func(c *RetryConfig)
 
 func WithRetryCount(retryCount int) RetryConfigOption {
@@ -71,9 +73,15 @@ func ExecuteWithRetry[T any](
 	return result, ErrRetryTimeout
 }
 
+// IsContextDoneErr returns true if the error is due to the context being cancelled
+// or expired. This is useful for determining if a function should retry.
+func IsContextDoneErr(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
 func isRetryableErrorDefault(err error) bool {
 	// Context was explicitly canceled or deadline exceeded; not retryable
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if IsContextDoneErr(err) {
 		return false
 	}
 
