@@ -2,9 +2,6 @@ package wallet
 
 import (
 	"context"
-	"errors"
-	"net"
-	"strings"
 )
 
 // GetUtxosSum returns sum of all utxos
@@ -40,21 +37,4 @@ func IsTxInUtxos(ctx context.Context, utxoRetriever IUTxORetriever, addr string,
 	}
 
 	return false, nil
-}
-
-func ShouldRetryTxProviderError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// Context was explicitly canceled or deadline exceeded; not retryable
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return false
-	}
-
-	if _, isNetError := err.(net.Error); isNetError {
-		return true
-	}
-
-	return strings.Contains(err.Error(), "status code 500") // retry if error is ogmios "status code 500"
 }

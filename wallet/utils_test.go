@@ -3,7 +3,6 @@ package wallet
 import (
 	"context"
 	"errors"
-	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -60,17 +59,6 @@ func TestGetOutputsSum(t *testing.T) {
 		{Amount: 100}, {Amount: 200},
 	})
 	require.Equal(t, uint64(300), res)
-}
-
-func TestShouldRetryTxProviderError(t *testing.T) {
-	t.Parallel()
-
-	require.False(t, ShouldRetryTxProviderError(nil))
-	require.False(t, ShouldRetryTxProviderError(context.Canceled))
-	require.False(t, ShouldRetryTxProviderError(context.DeadlineExceeded))
-	require.True(t, ShouldRetryTxProviderError(&net.OpError{}))
-	require.False(t, ShouldRetryTxProviderError(errors.New("false")))
-	require.True(t, ShouldRetryTxProviderError(errors.New("status code 500")))
 }
 
 type txRetrieverMock struct {

@@ -1,8 +1,6 @@
 package common
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -10,31 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
-	"time"
 )
-
-var ErrTimeout = errors.New("timeout")
-
-// ExecuteWithRetry attempts to execute a provided handler function multiple times
-// with retries in case of failure, respecting a specified wait time between attempts.
-func ExecuteWithRetry(
-	ctx context.Context, handler func() (bool, error), numRetries int, waitTime time.Duration,
-) error {
-	for count := 0; count < numRetries; count++ {
-		stop, err := handler()
-		if stop {
-			return err
-		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(waitTime):
-		}
-	}
-
-	return ErrTimeout
-}
 
 // SetupDataDir sets up the data directory and the corresponding sub-directories
 func SetupDataDir(dataDir string, paths []string, perms fs.FileMode) error {
