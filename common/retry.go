@@ -12,7 +12,7 @@ import (
 
 const (
 	defaultRetryCount    = 10
-	defaultRetryWaitTime = time.Second * 2
+	defaultRetryWaitTime = time.Second * 5
 )
 
 var (
@@ -64,7 +64,7 @@ func ExecuteWithRetry[T any](
 	config := RetryConfig{
 		retryCount:       defaultRetryCount,
 		retryWaitTime:    defaultRetryWaitTime,
-		isRetryableError: isRetryableErrorDefault,
+		isRetryableError: IsRetryableError,
 		logger:           defaultLogger,
 	}
 
@@ -102,20 +102,46 @@ func IsContextDoneErr(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
-func isRetryableErrorDefault(err error) bool {
+// IsRetryableErrorDefault returns true if error is retryable
+// handles context errors, net.Errors and ErrRetryTryAgain
+func IsRetryableErrorDefault(err error) bool {
 	// Context was explicitly canceled or deadline exceeded; not retryable
 	if IsContextDoneErr(err) {
 		return false
 	}
 
 	var netErr net.Error
-	if errors.As(err, &netErr) {
+	if errors.As(err, &netErr) && netErr.Timeout() {
 		return true
 	}
 
-	if errors.Is(err, ErrRetryTryAgain) {
-		return true
+	return errors.Is(err, ErrRetryTryAgain)
+}
+
+// IsRetryableError returns true if error is retryable
+// includes ogmios and go-ethereum/blade specific errors
+func IsRetryableError(err error) bool {
+	if err == nil {
+		return false
 	}
 
-	return strings.Contains(err.Error(), "status code 500") // retry if error is ogmios "status code 500"
+	retryableMessages := []string{
+		"replacement transaction underpriced",
+		"replacement tx underpriced",
+		"nonce too low",
+		"intrinsic gas too low",
+		"tx with the same nonce is already present",
+		"rejected future tx due to low slots",
+		"transaction underpriced",
+		"status code 500", // ogmios "status code 500" error
+	}
+	errStr := err.Error()
+
+	for _, msg := range retryableMessages {
+		if strings.Contains(errStr, msg) {
+			return true
+		}
+	}
+
+	return IsRetryableErrorDefault(err)
 }

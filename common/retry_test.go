@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +35,7 @@ func TestExecuteWithRetry(t *testing.T) {
 	_, err = ExecuteWithRetry(ctx, func(_ context.Context) (int, error) {
 		i++
 		if i&1 == 1 {
-			return 0, &net.DNSError{}
+			return 0, &net.DNSError{IsTimeout: true}
 		} else if i&3 == 0 {
 			return 0, ErrRetryTryAgain
 		}
@@ -43,6 +44,7 @@ func TestExecuteWithRetry(t *testing.T) {
 	}, options...)
 
 	require.ErrorIs(t, err, ErrRetryTimeout)
+	require.Equal(t, 10, i)
 
 	ctxWithCancel, cncl := context.WithCancel(ctx)
 	go cncl()
@@ -59,4 +61,14 @@ func TestExecuteWithRetry(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, 8930, result)
+}
+
+func TestIsRetryableError(t *testing.T) {
+	assert.False(t, IsRetryableError(nil))
+	assert.False(t, IsRetryableError(context.Canceled))
+	assert.False(t, IsRetryableError(context.DeadlineExceeded))
+	assert.True(t, IsRetryableError(ErrRetryTryAgain))
+	assert.False(t, IsRetryableError(net.ErrClosed))
+	assert.True(t, IsRetryableError(&net.DNSError{IsTimeout: true}))
+	assert.True(t, IsRetryableError(errors.New("replacement tx underpriced")))
 }
