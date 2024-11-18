@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+const (
+	defaultRetryCount    = 10
+	defaultRetryWaitTime = time.Second * 2
+)
+
 var ErrRetryTimeout = errors.New("timeout")
 
 // RetryConfig defines ExecuteWithRetry configuration
@@ -44,8 +49,8 @@ func ExecuteWithRetry[T any](
 	ctx context.Context, handler func(int) (T, error), options ...RetryConfigOption,
 ) (result T, err error) {
 	config := RetryConfig{
-		retryCount:       10,
-		retryWaitTime:    time.Second * 2,
+		retryCount:       defaultRetryCount,
+		retryWaitTime:    defaultRetryWaitTime,
 		isRetryableError: isRetryableErrorDefault,
 	}
 
