@@ -2,6 +2,11 @@ package wallet
 
 import "context"
 
+const (
+	adaTokenPolicyID = "ada"
+	adaTokenName     = "lovelace"
+)
+
 type TokenAmount struct {
 	PolicyID string `json:"pid"`
 	Name     string `json:"nam"`
@@ -12,7 +17,7 @@ type Utxo struct {
 	Hash   string        `json:"hsh"`
 	Index  uint32        `json:"ind"`
 	Amount uint64        `json:"amount"`
-	Tokens []TokenAmount `json:"tokens"`
+	Tokens []TokenAmount `json:"tokens,omitempty"`
 }
 
 type QueryTipData struct {

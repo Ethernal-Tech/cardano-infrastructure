@@ -147,8 +147,8 @@ func (o *TxProviderOgmios) GetUtxos(ctx context.Context, addr string) ([]Utxo, e
 		}
 
 		for policyID, nameValueMap := range utxo.Value {
-			if policyID == OgmiosAdaTokenPolicy {
-				adaValue = nameValueMap[OgmiosAdaTokenName]
+			if policyID == adaTokenPolicyID {
+				adaValue = nameValueMap[adaTokenName]
 			} else {
 				for name, value := range nameValueMap {
 					tokens = append(tokens, TokenAmount{

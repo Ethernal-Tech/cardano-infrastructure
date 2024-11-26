@@ -143,10 +143,30 @@ func (b *TxProviderGoUroBoros) GetUtxos(ctx context.Context, addr string) ([]Utx
 	res := make([]Utxo, 0, len(result.Results))
 
 	for key, val := range result.Results {
+		var tokens []TokenAmount
+
+		if assets := val.Assets(); assets != nil {
+			policies := assets.Policies()
+			tokens = make([]TokenAmount, 0, len(policies))
+
+			for _, policyIDRaw := range assets.Policies() {
+				policyID := policyIDRaw.String()
+
+				for _, asset := range assets.Assets(policyIDRaw) {
+					tokens = append(tokens, TokenAmount{
+						PolicyID: policyID,
+						Name:     hex.EncodeToString(asset),
+						Amount:   assets.Asset(policyIDRaw, asset),
+					})
+				}
+			}
+		}
+
 		res = append(res, Utxo{
 			Hash:   key.Hash.String(),
 			Index:  uint32(key.Idx),
 			Amount: val.Amount(),
+			Tokens: tokens,
 		})
 	}
 

@@ -1,10 +1,5 @@
 package wallet
 
-const (
-	OgmiosAdaTokenPolicy = "ada"
-	OgmiosAdaTokenName   = "lovelace"
-)
-
 type ogmiosQueryStateRequest struct {
 	Jsonrpc string      `json:"jsonrpc"`
 	Method  string      `json:"method"`

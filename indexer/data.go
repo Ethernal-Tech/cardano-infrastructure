@@ -79,9 +79,9 @@ type TxOutput struct {
 	Slot      uint64        `json:"slot"`
 	Amount    uint64        `json:"amnt"`
 	Datum     []byte        `json:"datum,omitempty"`
-	DatumHash string        `json:"datumHash,omitempty"`
+	DatumHash string        `json:"datumHsh,omitempty"`
 	IsUsed    bool          `json:"used"`
-	Tokens    []TokenAmount `json:"assets"`
+	Tokens    []TokenAmount `json:"assets,omitempty"`
 }
 
 type TxInputOutput struct {
