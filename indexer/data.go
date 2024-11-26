@@ -68,11 +68,19 @@ type TxInput struct {
 	Index uint32 `json:"ind"`
 }
 
+type NativeAsset struct {
+	PolicyId string `json:"polid"`
+	Name     string `json:"name"`
+	Amount   uint64 `json:"amnt"`
+}
+
 type TxOutput struct {
 	Address string `json:"addr"`
 	Slot    uint64 `json:"slot"`
 	Amount  uint64 `json:"amnt"`
 	IsUsed  bool   `json:"used"`
+
+	Assets NativeAsset `json:"assets"`
 }
 
 type TxInputOutput struct {

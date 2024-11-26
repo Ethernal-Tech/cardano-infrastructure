@@ -138,9 +138,22 @@ func (o *TxProviderOgmios) GetUtxos(ctx context.Context, addr string) ([]Utxo, e
 	var retVal = make([]Utxo, len(responseData.Result))
 	for i, utxo := range responseData.Result {
 		retVal[i] = Utxo{
-			Hash:   utxo.Transaction.ID,
-			Index:  utxo.Index,
-			Amount: utxo.Value.Ada.Lovelace,
+			Hash:  utxo.Transaction.ID,
+			Index: utxo.Index,
+			// Amount: utxo.Value.Ada.Lovelace,
+		}
+
+		if len(utxo.Value) > 1 {
+			retVal[i].Tokens = map[string]map[string]uint64{}
+		}
+
+		for key, value := range utxo.Value {
+			// DN_TODO: Move to 143 line. Always there. If ada continue
+			if key == "ada" {
+				retVal[i].Amount = utxo.Value["ada"]["lovelace"]
+			} else {
+				retVal[i].Tokens[key] = value
+			}
 		}
 	}
 

@@ -15,19 +15,11 @@ type queryLedgerStateUtxoResponseResultTransaction struct {
 	ID string `json:"id"`
 }
 
-type queryLedgerStateUtxoResponseResultValueAda struct {
-	Lovelace uint64 `json:"lovelace"`
-}
-
-type queryLedgerStateUtxoResponseResultValue struct {
-	Ada queryLedgerStateUtxoResponseResultValueAda `json:"ada"`
-}
-
 type queryLedgerStateUtxoResponseResult struct {
 	Transaction queryLedgerStateUtxoResponseResultTransaction `json:"transaction"`
 	Index       uint32                                        `json:"index"`
 	Address     string                                        `json:"address"`
-	Value       queryLedgerStateUtxoResponseResultValue       `json:"value"`
+	Value       map[string]map[string]uint64                  `json:"value"`
 }
 
 type queryLedgerStateUtxoResponse struct {

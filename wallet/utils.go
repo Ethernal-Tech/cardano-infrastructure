@@ -19,10 +19,31 @@ func GetUtxosSum(utxos []Utxo) (sum uint64) {
 	return sum
 }
 
+// DN_TODO: FIX return per policy and name sum / or return for specific policy and name
+func GetUtxosTokenSum(utxos []Utxo) (sum uint64) {
+	for _, utxo := range utxos {
+		for _, policy := range utxo.Tokens {
+			for _, token := range policy {
+				sum += token
+			}
+		}
+	}
+
+	return sum
+}
+
 // GetOutputsSum returns sum of tx outputs
 func GetOutputsSum(outputs []TxOutput) (receiversSum uint64) {
 	for _, x := range outputs {
 		receiversSum += x.Amount
+	}
+
+	return receiversSum
+}
+
+func GetNativeTokenOutputsSum(outputs []TxOutput) (receiversSum uint64) {
+	for _, x := range outputs {
+		receiversSum += x.TokenAmount
 	}
 
 	return receiversSum
@@ -37,6 +58,17 @@ func WaitForAmount(ctx context.Context, txRetriever IUTxORetriever,
 		utxos, err := txRetriever.GetUtxos(ctx, addr)
 
 		return err == nil && cmpHandler(GetUtxosSum(utxos)), err
+	}, isRecoverableError...)
+}
+
+func WaitForTokenAmount(ctx context.Context, txRetriever IUTxORetriever,
+	addr string, cmpHandler func(uint64) bool, numRetries int, waitTime time.Duration,
+	isRecoverableError ...IsRecoverableErrorFn,
+) error {
+	return ExecuteWithRetry(ctx, numRetries, waitTime, func() (bool, error) {
+		utxos, err := txRetriever.GetUtxos(ctx, addr)
+
+		return err == nil && cmpHandler(GetUtxosTokenSum(utxos)), err
 	}, isRecoverableError...)
 }
 

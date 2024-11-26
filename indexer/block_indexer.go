@@ -306,6 +306,23 @@ func (bi *BlockIndexer) getTxOutputs(
 ) (res []*TxInputOutput) {
 	for _, tx := range txs {
 		for ind, txOut := range tx.Outputs() {
+			assets := txOut.Assets()
+
+			nativeAsset := NativeAsset{}
+
+			if assets != nil {
+				for _, p := range assets.Policies() {
+					policyID := p
+					for _, as := range assets.Assets(p) {
+						assetAmount := assets.Asset(p, as)
+
+						nativeAsset.Name = string(as)
+						nativeAsset.Amount = assetAmount
+						nativeAsset.PolicyId = policyID.String()
+					}
+				}
+			}
+
 			addr := LedgerAddressToString(txOut.Address())
 			if len(addressesOfInterest) > 0 && !bi.addressesOfInterest[addr] {
 				continue
@@ -320,6 +337,11 @@ func (bi *BlockIndexer) getTxOutputs(
 					Slot:    slot,
 					Address: addr,
 					Amount:  txOut.Amount(),
+					Assets: NativeAsset{
+						Name:     nativeAsset.Name,
+						PolicyId: nativeAsset.PolicyId,
+						Amount:   nativeAsset.Amount,
+					},
 				},
 			})
 		}

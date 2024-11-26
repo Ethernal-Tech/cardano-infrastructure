@@ -6,6 +6,7 @@ type Utxo struct {
 	Hash   string `json:"hsh"`
 	Index  uint32 `json:"ind"`
 	Amount uint64 `json:"amount"`
+	Tokens map[string]map[string]uint64
 }
 
 type QueryTipData struct {
