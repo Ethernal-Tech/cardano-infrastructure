@@ -2,17 +2,17 @@ package wallet
 
 import "context"
 
-type TokenValue struct {
+type TokenAmount struct {
 	PolicyID string `json:"pid"`
 	Name     string `json:"nam"`
-	Value    uint64 `json:"val"`
+	Amount   uint64 `json:"val"`
 }
 
 type Utxo struct {
-	Hash   string       `json:"hsh"`
-	Index  uint32       `json:"ind"`
-	Amount uint64       `json:"amount"`
-	Tokens []TokenValue `json:"tokens"`
+	Hash   string        `json:"hsh"`
+	Index  uint32        `json:"ind"`
+	Amount uint64        `json:"amount"`
+	Tokens []TokenAmount `json:"tokens"`
 }
 
 type QueryTipData struct {

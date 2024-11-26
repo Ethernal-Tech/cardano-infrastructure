@@ -68,13 +68,20 @@ type TxInput struct {
 	Index uint32 `json:"ind"`
 }
 
+type TokenAmount struct {
+	PolicyID string `json:"polid"`
+	Name     string `json:"name"`
+	Amount   uint64 `json:"amnt"`
+}
+
 type TxOutput struct {
-	Address   string `json:"addr"`
-	Slot      uint64 `json:"slot"`
-	Amount    uint64 `json:"amnt"`
-	Datum     []byte `json:"datum,omitempty"`
-	DatumHash string `json:"datumHash,omitempty"`
-	IsUsed    bool   `json:"used"`
+	Address   string        `json:"addr"`
+	Slot      uint64        `json:"slot"`
+	Amount    uint64        `json:"amnt"`
+	Datum     []byte        `json:"datum,omitempty"`
+	DatumHash string        `json:"datumHash,omitempty"`
+	IsUsed    bool          `json:"used"`
+	Tokens    []TokenAmount `json:"assets"`
 }
 
 type TxInputOutput struct {
