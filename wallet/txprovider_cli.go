@@ -82,12 +82,12 @@ func (b *TxProviderCli) GetUtxos(_ context.Context, addr string) ([]Utxo, error)
 			case 1:
 				inputs[i].Hash = partStr
 			case 2:
-				outputIndex, err := strconv.ParseUint(partStr, 10, 64)
+				outputIndex, err := strconv.ParseUint(partStr, 0, 64)
 				if err != nil {
 					return nil, err
 				}
 
-				inputs[i].Index = uint32(outputIndex)
+				inputs[i].Index = uint32(outputIndex) //nolint:gosec
 			default:
 				if partStr == "" || partStr == "+" || strings.Contains(partStr, "Datum") {
 					continue

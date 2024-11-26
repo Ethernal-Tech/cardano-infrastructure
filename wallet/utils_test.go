@@ -61,6 +61,52 @@ func TestGetOutputsSum(t *testing.T) {
 	require.Equal(t, uint64(300), res)
 }
 
+func TestGetUtxosTokensSum(t *testing.T) {
+	t.Parallel()
+
+	result := GetUtxosTokensSum([]Utxo{
+		{
+			Amount: 200,
+		},
+		{
+			Amount: 0,
+			Tokens: []TokenAmount{
+				{
+					PolicyID: "1",
+					Name:     "1",
+					Amount:   100,
+				},
+				{
+					PolicyID: "2",
+					Name:     "1",
+					Amount:   400,
+				},
+			},
+		},
+		{
+			Amount: 300,
+			Tokens: []TokenAmount{
+				{
+					PolicyID: "2",
+					Name:     "3",
+					Amount:   20,
+				},
+				{
+					PolicyID: "2",
+					Name:     "1",
+					Amount:   150,
+				},
+			},
+		},
+	})
+
+	require.Equal(t, 4, len(result))
+	require.Equal(t, uint64(500), result[adaTokenName])
+	require.Equal(t, uint64(20), result["2.3"])
+	require.Equal(t, uint64(550), result["2.1"])
+	require.Equal(t, uint64(100), result["1.1"])
+}
+
 type txRetrieverMock struct {
 	getUtxosFn func(ctx context.Context, addr string) ([]Utxo, error)
 }
