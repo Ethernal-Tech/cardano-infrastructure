@@ -33,15 +33,25 @@ type TxOutput struct {
 	Amount      uint64 `json:"amount"`
 	Token       string `json:"token"`
 	TokenAmount uint64 `json:"tokenamount"`
+	PolicyID    string `json:"policyid,omitempty"`
 }
 
 func (o TxOutput) String() string {
 	return fmt.Sprintf("%s+%d", o.Addr, o.Amount)
 }
 
-func (o TxOutput) StringMint() string {
-	token := fmt.Sprintf("%d ", o.TokenAmount) + o.Token
+func (o TxOutput) StringNativeToken() string {
+	token := fmt.Sprintf("%d %s.%s", o.TokenAmount, o.PolicyID, o.Token)
+
+	fmt.Printf("Mint out: %s+%d+%s\n", o.Addr, o.Amount, token)
+
 	return fmt.Sprintf("%s+%d+%s", o.Addr, o.Amount, token)
+}
+
+func (o TxOutput) StringMint() string {
+	fmt.Printf("Mint token: %d %s.%s\n", o.TokenAmount, o.PolicyID, o.Token)
+
+	return fmt.Sprintf("%d %s.%s", o.TokenAmount, o.PolicyID, o.Token)
 }
 
 type TxBuilder struct {
@@ -224,7 +234,7 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 	return strconv.ParseUint(strings.Split(feeOutput, " ")[0], 10, 64)
 }
 
-func (b *TxBuilder) CalculateFeeMint(witnessCount int) (uint64, error) {
+func (b *TxBuilder) CalculateFeeMint(witnessCount int, policyScript PolicyScript) (uint64, error) {
 	if b.protocolParameters == nil {
 		return 0, errors.New("protocol parameters not set")
 	}
@@ -234,7 +244,7 @@ func (b *TxBuilder) CalculateFeeMint(witnessCount int) (uint64, error) {
 		return 0, err
 	}
 
-	if err := b.buildRawTxMint(protocolParamsFilePath, 0); err != nil {
+	if err := b.buildRawTxMint(protocolParamsFilePath, 0, policyScript); err != nil {
 		return 0, err
 	}
 
@@ -378,7 +388,7 @@ func (b *TxBuilder) BuildNativeToken() ([]byte, string, error) {
 	return txRaw, txHash, nil
 }
 
-func (b *TxBuilder) BuildMint() ([]byte, string, error) {
+func (b *TxBuilder) BuildMint(policyScript PolicyScript) ([]byte, string, error) {
 	if b.protocolParameters == nil {
 		return nil, "", errors.New("protocol parameters not set")
 	}
@@ -392,7 +402,7 @@ func (b *TxBuilder) BuildMint() ([]byte, string, error) {
 		return nil, "", err
 	}
 
-	if err := b.buildRawTxMint(protocolParamsFilePath, b.fee); err != nil {
+	if err := b.buildRawTxMint(protocolParamsFilePath, b.fee, policyScript); err != nil {
 		return nil, "", err
 	}
 
@@ -482,33 +492,6 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 }
 
 func (b *TxBuilder) buildRawNativeTokenTx(protocolParamsFilePath string, fee uint64) error {
-	// tokenName := "54657374746F6B656E"
-
-	// a := []string{
-	// 	"transaction", "policyid",
-	// 	"--script-file", "/home/dejan/dev/sandbox/test/policy" + "prime" + ".script",
-	// }
-	// policyId, err := runCommand("cardano-cli", a)
-	// if err != nil {
-	// 	fmt.Printf("DN_LOG_TAG ERROR creating PolicyID %+v\n", err)
-	// }
-
-	// a := []string{
-	// 	"transaction", "policyid",
-	// 	"--script-file", b.baseDirectory + "/policyprime.script",
-	// }
-	// policyId, err := runCommand("cardano-cli", a)
-	// if err != nil {
-	// 	fmt.Printf("DN_LOG_TAG ERROR creating PolicyID %+v\n", err)
-
-	// 	return err
-	// }
-
-	policyId, err := b.GetPolicyID("prime")
-	if err != nil {
-		return err
-	}
-
 	args := []string{
 		"transaction", "build-raw",
 		"--protocol-params-file", protocolParamsFilePath,
@@ -544,46 +527,21 @@ func (b *TxBuilder) buildRawNativeTokenTx(protocolParamsFilePath string, fee uin
 		}
 	}
 
-	fmt.Printf("\n\nDN_LOG_TAG b.baseDirectory: %s\n\n", b.baseDirectory)
-
 	for _, out := range b.outputs {
+		// DN_TODO: Can be one out.String() that checks if there is Native token and adds it to output
 		if out.TokenAmount > 0 {
-			token := policyId[:len(policyId)-1] + "." + out.Token
-
-			outToken := fmt.Sprintf("%d ", out.TokenAmount) + token
-			outStr := fmt.Sprintf("%s+%d+%s", out.Addr, out.Amount, outToken)
-			args = append(args, "--tx-out", outStr)
-
+			args = append(args, "--tx-out", out.StringNativeToken())
 		} else {
 			args = append(args, "--tx-out", out.String())
 		}
 	}
 
-	_, err = runCommand(b.cardanoCliBinary, args)
+	_, err := runCommand(b.cardanoCliBinary, args)
 
 	return err
 }
 
-func (b *TxBuilder) buildRawTxMint(protocolParamsFilePath string, fee uint64) error {
-	// tokenName := "54657374746F6B656E"
-
-	// DN_TODO: Pass policyID with the name
-	// a := []string{
-	// 	"transaction", "policyid",
-	// 	"--script-file", b.baseDirectory + "/policyprime.script",
-	// }
-	// policyId, err := runCommand("cardano-cli", a)
-	// if err != nil {
-	// 	fmt.Printf("DN_LOG_TAG ERROR creating PolicyID %+v\n", err)
-
-	// 	return err
-	// }
-
-	policyId, err := b.GetPolicyID("prime")
-	if err != nil {
-		return err
-	}
-
+func (b *TxBuilder) buildRawTxMint(protocolParamsFilePath string, fee uint64, mintPolicyScript PolicyScript) error {
 	args := []string{
 		"transaction", "build-raw",
 		"--protocol-params-file", protocolParamsFilePath,
@@ -619,27 +577,31 @@ func (b *TxBuilder) buildRawTxMint(protocolParamsFilePath string, fee uint64) er
 		}
 	}
 
+	mintPolicyJSON, err := mintPolicyScript.GetPolicyScriptJSON()
+	if err != nil {
+		return err
+	}
+	mintPolicyFilePath := filepath.Join(b.baseDirectory, "mintPolicy.json")
+	if err := os.WriteFile(mintPolicyFilePath, mintPolicyJSON, FilePermission); err != nil {
+		return err
+	}
+
+	policyId, err := b.GetPolicyID()
+	if err != nil {
+		return err
+	}
+
+	args = append(args, "--minting-script-file", mintPolicyFilePath)
+
 	for _, out := range b.outputs {
 		if out.TokenAmount > 0 {
-			token := policyId[:len(policyId)-1] + "." + out.Token
-			fmt.Printf("DN_LOG_TAG mint token: %+v\n", token)
+			out.PolicyID = policyId[:len(policyId)-1]
 
-			mintToken := fmt.Sprintf("%d ", out.TokenAmount) + token
-			args = append(args, "--mint", mintToken)
-			// DN_TODO: FIX policy path
-			// args = append(args, "--minting-script-file", b.baseDirectory+"/policy_prime.script")
-			args = append(args, "--minting-script-file", "/home/dejan/dev/sandbox/test/policy_prime.script")
-
-			// tokenOut := out.StringMint()
-
-			fmt.Printf("tokenOut MINT: %s\n", mintToken)
-
-			args = append(args, "--tx-out", fmt.Sprintf("%s+%d+%s", out.Addr, out.Amount, mintToken))
+			args = append(args, "--mint", out.StringMint())
+			args = append(args, "--tx-out", out.StringNativeToken())
 
 		} else if out.Amount > 0 {
 			args = append(args, "--tx-out", out.String())
-		} else {
-			fmt.Println("ERROR: output with 0 amount")
 		}
 	}
 
@@ -697,16 +659,13 @@ func (b *TxBuilder) AssembleTxWitnesses(txRaw []byte, witnesses [][]byte) ([]byt
 	return NewTransactionWitnessedRawFromJSON(bytes)
 }
 
-func (b *TxBuilder) GetPolicyID(chainID string) (string, error) {
+func (b *TxBuilder) GetPolicyID() (string, error) {
 	a := []string{
 		"transaction", "policyid",
-		// "--script-file", b.baseDirectory + "/policy_" + chainID + ".script",
-		"--script-file", "/home/dejan/dev/sandbox/test/policy_" + chainID + ".script",
+		"--script-file", filepath.Join(b.baseDirectory, "mintPolicy.json"),
 	}
 	policyId, err := runCommand("cardano-cli", a)
 	if err != nil {
-		fmt.Printf("DN_LOG_TAG ERROR getting PolicyID %+v\n", err)
-
 		return "", err
 	}
 
