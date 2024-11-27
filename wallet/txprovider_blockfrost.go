@@ -3,6 +3,7 @@ package wallet
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -118,9 +119,16 @@ func (b *TxProviderBlockFrost) GetUtxos(ctx context.Context, addr string) ([]Utx
 			if x.Unit == AdaTokenName {
 				amount = tmpAmount
 			} else {
+				policyID, name := x.Unit[0:KeyHashSize*2], x.Unit[KeyHashSize*2:]
+
+				realName, err := hex.DecodeString(name)
+				if err == nil {
+					name = string(realName)
+				}
+
 				tokens = append(tokens, TokenAmount{
-					PolicyID: x.Unit[0 : KeyHashSize*2],
-					Name:     x.Unit[KeyHashSize*2:],
+					PolicyID: policyID,
+					Name:     name,
 					Amount:   tmpAmount,
 				})
 			}

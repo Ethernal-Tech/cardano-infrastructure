@@ -2,6 +2,7 @@ package wallet
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"strings"
 )
@@ -25,25 +26,36 @@ func NewTokenAmount(policyID string, name string, amount uint64) TokenAmount {
 	}
 }
 
-func NewTokenAmountWithFullName(name string, amount uint64) (TokenAmount, error) {
+func NewTokenAmountWithFullName(name string, amount uint64, isNameEncoded bool) (TokenAmount, error) {
 	parts := strings.Split(name, ".")
 	if len(parts) != 2 {
-		return TokenAmount{}, fmt.Errorf("name should have two parts but instead has: %d", len(parts))
+		return TokenAmount{}, fmt.Errorf("invalid full token name: %s", name)
+	}
+
+	if !isNameEncoded {
+		name = parts[1]
+	} else {
+		decodedName, err := hex.DecodeString(parts[1])
+		if err != nil {
+			return TokenAmount{}, fmt.Errorf("invalid full token name: %s", name)
+		}
+
+		name = string(decodedName)
 	}
 
 	return TokenAmount{
 		PolicyID: parts[0],
-		Name:     parts[1],
+		Name:     name,
 		Amount:   amount,
 	}, nil
 }
 
 func (tt TokenAmount) TokenName() string {
-	return fmt.Sprintf("%s.%s", tt.PolicyID, tt.Name)
+	return fmt.Sprintf("%s.%s", tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
 }
 
 func (tt TokenAmount) String() string {
-	return fmt.Sprintf("%d %s.%s", tt.Amount, tt.PolicyID, tt.Name)
+	return fmt.Sprintf("%d %s.%s", tt.Amount, tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
 }
 
 type Utxo struct {

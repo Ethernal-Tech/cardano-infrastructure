@@ -151,6 +151,11 @@ func (o *TxProviderOgmios) GetUtxos(ctx context.Context, addr string) ([]Utxo, e
 				adaValue = nameValueMap[AdaTokenName]
 			} else {
 				for name, value := range nameValueMap {
+					realName, err := hex.DecodeString(name)
+					if err == nil {
+						name = string(realName)
+					}
+
 					tokens = append(tokens, TokenAmount{
 						PolicyID: policyID,
 						Name:     name,

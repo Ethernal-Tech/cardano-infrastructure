@@ -2,6 +2,7 @@ package wallet
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -104,6 +105,11 @@ func (b *TxProviderCli) GetUtxos(_ context.Context, addr string) ([]Utxo, error)
 
 						j++
 					} else if tokenData := strings.Split(parts[j], "."); len(tokenData) == 2 {
+						realName, err := hex.DecodeString(tokenData[1])
+						if err == nil {
+							tokenData[1] = string(realName)
+						}
+
 						inputs[i].Tokens = append(inputs[i].Tokens, TokenAmount{
 							PolicyID: tokenData[0],
 							Name:     tokenData[1],

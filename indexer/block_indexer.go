@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -411,7 +410,7 @@ func createTxOutput(
 			for _, asset := range assets.Assets(policyIDRaw) {
 				tokens = append(tokens, TokenAmount{
 					PolicyID: policyID,
-					Name:     hex.EncodeToString(asset),
+					Name:     string(asset),
 					Amount:   assets.Asset(policyIDRaw, asset),
 				})
 			}
