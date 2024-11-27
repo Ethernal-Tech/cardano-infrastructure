@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -410,27 +411,32 @@ func createTxOutput(
 			for _, asset := range assets.Assets(policyIDRaw) {
 				tokens = append(tokens, TokenAmount{
 					PolicyID: policyID,
-					Name:     string(asset),
+					Name:     hex.EncodeToString(asset),
 					Amount:   assets.Asset(policyIDRaw, asset),
 				})
 			}
 		}
 	}
 
-	finalTxOutput := TxOutput{
-		Slot:    slot,
-		Address: addr,
-		Amount:  txOut.Amount(),
-		Tokens:  tokens,
+	var (
+		datum     []byte
+		datumHash Hash
+	)
+
+	if tmp := txOut.Datum(); tmp != nil {
+		datum = tmp.Cbor()
 	}
 
-	if datum := txOut.Datum(); datum != nil {
-		finalTxOutput.Datum = datum.Cbor()
+	if tmp := txOut.DatumHash(); tmp != nil {
+		datumHash = Hash(tmp.Bytes())
 	}
 
-	if datumHash := txOut.DatumHash(); datumHash != nil {
-		finalTxOutput.DatumHash = datumHash.String()
+	return TxOutput{
+		Slot:      slot,
+		Address:   addr,
+		Amount:    txOut.Amount(),
+		Tokens:    tokens,
+		Datum:     datum,
+		DatumHash: datumHash,
 	}
-
-	return finalTxOutput
 }

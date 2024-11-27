@@ -79,7 +79,7 @@ type TxOutput struct {
 	Slot      uint64        `json:"slot"`
 	Amount    uint64        `json:"amnt"`
 	Datum     []byte        `json:"datum,omitempty"`
-	DatumHash string        `json:"datumHsh,omitempty"`
+	DatumHash Hash          `json:"datumHsh,omitempty"`
 	IsUsed    bool          `json:"used"`
 	Tokens    []TokenAmount `json:"assets,omitempty"`
 }
@@ -178,7 +178,7 @@ func (tx Tx) String() string {
 		}
 
 		sbOut.WriteString("[")
-		sbInp.WriteString(x.String())
+		sbOut.WriteString(x.String())
 		sbOut.WriteString("]")
 	}
 
@@ -268,6 +268,10 @@ func (t TxOutput) String() string {
 }
 
 func (t TxInputOutput) String() string {
+	if t.Output.Address == "" {
+		return t.Input.String()
+	}
+
 	return fmt.Sprintf("[%s %s]", t.Input, t.Output)
 }
 
