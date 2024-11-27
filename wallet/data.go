@@ -14,7 +14,7 @@ const (
 
 type TokenAmount struct {
 	PolicyID string `json:"pid"`
-	Name     string `json:"nam"`
+	Name     string `json:"nam"` // name must not be hex encoded
 	Amount   uint64 `json:"val"`
 }
 

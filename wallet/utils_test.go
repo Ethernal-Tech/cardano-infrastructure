@@ -54,40 +54,24 @@ func TestGetUtxosSum(t *testing.T) {
 		{
 			Amount: 0,
 			Tokens: []TokenAmount{
-				{
-					PolicyID: "1",
-					Name:     "1",
-					Amount:   100,
-				},
-				{
-					PolicyID: "2",
-					Name:     "1",
-					Amount:   400,
-				},
+				NewTokenAmount("1", "1", 100),
+				NewTokenAmount("2", "1", 400),
 			},
 		},
 		{
 			Amount: 300,
 			Tokens: []TokenAmount{
-				{
-					PolicyID: "2",
-					Name:     "3",
-					Amount:   20,
-				},
-				{
-					PolicyID: "2",
-					Name:     "1",
-					Amount:   150,
-				},
+				NewTokenAmount("3", "3", 20),
+				NewTokenAmount("2", "1", 150),
 			},
 		},
 	})
 
 	require.Equal(t, 4, len(result))
 	require.Equal(t, uint64(500), result[AdaTokenName])
-	require.Equal(t, uint64(20), result["2.3"])
-	require.Equal(t, uint64(550), result["2.1"])
-	require.Equal(t, uint64(100), result["1.1"])
+	require.Equal(t, uint64(20), result["3.33"])
+	require.Equal(t, uint64(550), result["2.31"])
+	require.Equal(t, uint64(100), result["1.31"])
 }
 
 func TestGetOutputsSum(t *testing.T) {

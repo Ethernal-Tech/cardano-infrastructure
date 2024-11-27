@@ -2,7 +2,6 @@ package wallet
 
 import (
 	"context"
-	"fmt"
 )
 
 // GetUtxosSum returns sum for tokens in utxos (including lovelace)
@@ -13,7 +12,7 @@ func GetUtxosSum(utxos []Utxo) map[string]uint64 {
 		result[AdaTokenName] += utxo.Amount
 
 		for _, token := range utxo.Tokens {
-			result[fmt.Sprintf("%s.%s", token.PolicyID, token.Name)] += token.Amount
+			result[token.TokenName()] += token.Amount
 		}
 	}
 
