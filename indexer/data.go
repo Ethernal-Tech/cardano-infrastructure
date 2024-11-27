@@ -252,7 +252,7 @@ func bytes2HashString(bytes []byte) string {
 }
 
 func (t TxInput) String() string {
-	return fmt.Sprintf("%s:%d", t.Hash, t.Index)
+	return fmt.Sprintf("%s#%d", t.Hash, t.Index)
 }
 
 func (t TxOutput) String() string {
@@ -272,7 +272,7 @@ func (t TxInputOutput) String() string {
 		return t.Input.String()
 	}
 
-	return fmt.Sprintf("[%s %s]", t.Input, t.Output)
+	return fmt.Sprintf("%s::%s", t.Input, t.Output)
 }
 
 // LedgerAddressToString translates string representation of address to our wallet representation
