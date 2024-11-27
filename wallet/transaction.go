@@ -42,12 +42,12 @@ func NewTxInputWithPolicyScript(hash string, index uint32, ps IPolicyScript) TxI
 }
 
 type TxOutput struct {
-	Addr   string         `json:"addr"`
-	Amount uint64         `json:"amount"`
-	Tokens []ITokenAmount `json:"token,omitempty"`
+	Addr   string        `json:"addr"`
+	Amount uint64        `json:"amount"`
+	Tokens []TokenAmount `json:"token,omitempty"`
 }
 
-func NewTxOutput(addr string, amount uint64, tokens ...ITokenAmount) TxOutput {
+func NewTxOutput(addr string, amount uint64, tokens ...TokenAmount) TxOutput {
 	return TxOutput{
 		Addr:   addr,
 		Amount: amount,
@@ -61,79 +61,28 @@ func (o TxOutput) String() string {
 	sb.WriteString(fmt.Sprintf("%s+%d", o.Addr, o.Amount))
 
 	for _, token := range o.Tokens {
-		sb.WriteString(fmt.Sprintf("+%d %s", token.TokenAmount(), token.TokenName()))
+		sb.WriteString(token.String())
 	}
 
 	return sb.String()
 }
 
-type TxTokenAmount struct {
-	PolicyID string `json:"pid"`
-	Name     string `json:"name"`
-	Amount   uint64 `json:"amount"`
-}
-
-func NewTxTokenAmount(policyID string, name string, amount uint64) *TxTokenAmount {
-	return &TxTokenAmount{
-		PolicyID: policyID,
-		Name:     name,
-		Amount:   amount,
-	}
-}
-
-func NewTxTokenAmountWithFullName(name string, amount uint64) (*TxTokenAmount, error) {
-	parts := strings.Split(name, ".")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("name should have two parts but instead has: %d", len(parts))
-	}
-
-	return &TxTokenAmount{
-		PolicyID: parts[0],
-		Name:     parts[1],
-		Amount:   amount,
-	}, nil
-}
-
-func (tt TxTokenAmount) TokenName() string {
-	return fmt.Sprintf("%s.%s", tt.PolicyID, tt.Name)
-}
-
-func (tt TxTokenAmount) TokenAmount() uint64 {
-	return tt.Amount
-}
-
-func (tt *TxTokenAmount) UpdateAmount(amount uint64) {
-	tt.Amount = amount
-}
-
-func (tt TxTokenAmount) String() string {
-	return fmt.Sprintf("%d %s.%s", tt.Amount, tt.PolicyID, tt.Name)
-}
-
-type TxTokenAmountWithPolicyScript struct {
-	tokenAmount  ITokenAmount
-	policyScript IPolicyScript
-}
-
-func (tt TxTokenAmountWithPolicyScript) Token() ITokenAmount {
-	return tt.tokenAmount
-}
-
-func (tt TxTokenAmountWithPolicyScript) PolicyScript() IPolicyScript {
-	return tt.policyScript
+type TokenAmountWithPolicyScript struct {
+	TokenAmount  TokenAmount
+	PolicyScript IPolicyScript
 }
 
 func NewTxTokenAmountWithPolicyScript(
 	cardanoCliBinary string, name string, amount uint64, policyScript IPolicyScript,
-) (*TxTokenAmountWithPolicyScript, error) {
+) (*TokenAmountWithPolicyScript, error) {
 	pid, err := NewCliUtils(cardanoCliBinary).GetPolicyID(policyScript)
 	if err != nil {
 		return nil, err
 	}
 
-	return &TxTokenAmountWithPolicyScript{
-		tokenAmount:  NewTxTokenAmount(pid, name, amount),
-		policyScript: policyScript,
+	return &TokenAmountWithPolicyScript{
+		TokenAmount:  NewTokenAmount(pid, name, amount),
+		PolicyScript: policyScript,
 	}, nil
 }
 
@@ -141,7 +90,7 @@ type TxBuilder struct {
 	baseDirectory      string
 	inputs             []TxInputWithPolicyScript
 	outputs            []TxOutput
-	tokenMints         []ITokenAmountWithPolicyScript
+	tokenMints         []TokenAmountWithPolicyScript
 	metadata           []byte
 	protocolParameters []byte
 	timeToLive         uint64
@@ -230,7 +179,7 @@ func (b *TxBuilder) UpdateOutputAmount(index int, amount uint64, tokenAmounts ..
 
 	for i, amount := range tokenAmounts {
 		if len(b.outputs[index].Tokens) > i {
-			b.outputs[index].Tokens[i].UpdateAmount(amount)
+			b.outputs[index].Tokens[i].Amount = amount
 		}
 	}
 
@@ -248,12 +197,12 @@ func (b *TxBuilder) RemoveOutput(index int) *TxBuilder {
 	return b
 }
 
-func (b *TxBuilder) AddTokenMints(addr string, amount uint64, tokenMints ...ITokenAmountWithPolicyScript) *TxBuilder {
+func (b *TxBuilder) AddTokenMints(addr string, amount uint64, tokenMints ...TokenAmountWithPolicyScript) *TxBuilder {
 	b.tokenMints = append(b.tokenMints, tokenMints...)
 	// outputs should be updated too
-	tokens := make([]ITokenAmount, len(tokenMints))
+	tokens := make([]TokenAmount, len(tokenMints))
 	for i, tokenMint := range tokenMints {
-		tokens[i] = tokenMint.Token()
+		tokens[i] = tokenMint.TokenAmount
 	}
 
 	b.outputs = append(b.outputs, TxOutput{
@@ -394,7 +343,7 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 		args = append(args, "--mint", getTokensStrings(b.tokenMints))
 
 		for i, tokenMint := range b.tokenMints {
-			policyScriptJSON, err := tokenMint.PolicyScript().GetPolicyScriptJSON()
+			policyScriptJSON, err := tokenMint.PolicyScript.GetPolicyScriptJSON()
 			if err != nil {
 				return err
 			}
@@ -484,7 +433,7 @@ func (b *TxBuilder) AssembleTxWitnesses(txRaw []byte, witnesses [][]byte) ([]byt
 	return NewTransactionWitnessedRawFromJSON(bytes)
 }
 
-func getTokensStrings(tokens []ITokenAmountWithPolicyScript) string {
+func getTokensStrings(tokens []TokenAmountWithPolicyScript) string {
 	var sb strings.Builder
 
 	for _, token := range tokens {
@@ -492,7 +441,7 @@ func getTokensStrings(tokens []ITokenAmountWithPolicyScript) string {
 			sb.WriteRune('+')
 		}
 
-		sb.WriteString(token.Token().String())
+		sb.WriteString(token.TokenAmount.String())
 	}
 
 	return sb.String()

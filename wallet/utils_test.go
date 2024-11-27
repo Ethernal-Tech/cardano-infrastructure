@@ -94,9 +94,9 @@ func TestGetOutputsSum(t *testing.T) {
 
 	result := GetOutputsSum([]TxOutput{
 		NewTxOutput("", 200),
-		NewTxOutput("", 300, NewTxTokenAmount("1", "2", 10), NewTxTokenAmount("4", "2", 190)),
-		NewTxOutput("", 100, NewTxTokenAmount("2", "1", 20)),
-		NewTxOutput("", 50, NewTxTokenAmount("1", "2", 30)),
+		NewTxOutput("", 300, NewTokenAmount("1", "2", 10), NewTokenAmount("4", "2", 190)),
+		NewTxOutput("", 100, NewTokenAmount("2", "1", 20)),
+		NewTxOutput("", 50, NewTokenAmount("1", "2", 30)),
 	})
 
 	require.Equal(t, 4, len(result))

@@ -1,6 +1,10 @@
 package wallet
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"strings"
+)
 
 const (
 	adaTokenPolicyID = "ada"
@@ -11,6 +15,35 @@ type TokenAmount struct {
 	PolicyID string `json:"pid"`
 	Name     string `json:"nam"`
 	Amount   uint64 `json:"val"`
+}
+
+func NewTokenAmount(policyID string, name string, amount uint64) TokenAmount {
+	return TokenAmount{
+		PolicyID: policyID,
+		Name:     name,
+		Amount:   amount,
+	}
+}
+
+func NewTokenAmountWithFullName(name string, amount uint64) (TokenAmount, error) {
+	parts := strings.Split(name, ".")
+	if len(parts) != 2 {
+		return TokenAmount{}, fmt.Errorf("name should have two parts but instead has: %d", len(parts))
+	}
+
+	return TokenAmount{
+		PolicyID: parts[0],
+		Name:     parts[1],
+		Amount:   amount,
+	}, nil
+}
+
+func (tt TokenAmount) TokenName() string {
+	return fmt.Sprintf("%s.%s", tt.PolicyID, tt.Name)
+}
+
+func (tt TokenAmount) String() string {
+	return fmt.Sprintf("%d %s.%s", tt.Amount, tt.PolicyID, tt.Name)
 }
 
 type Utxo struct {
@@ -70,16 +103,4 @@ type IWallet interface {
 type IPolicyScript interface {
 	GetPolicyScriptJSON() ([]byte, error)
 	GetCount() int
-}
-
-type ITokenAmount interface {
-	TokenName() string
-	TokenAmount() uint64
-	UpdateAmount(uint64)
-	String() string
-}
-
-type ITokenAmountWithPolicyScript interface {
-	Token() ITokenAmount
-	PolicyScript() IPolicyScript
 }

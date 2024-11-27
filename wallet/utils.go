@@ -28,7 +28,7 @@ func GetOutputsSum(outputs []TxOutput) map[string]uint64 {
 		result[adaTokenName] += output.Amount
 
 		for _, token := range output.Tokens {
-			result[token.TokenName()] += token.TokenAmount()
+			result[token.TokenName()] += token.Amount
 		}
 	}
 
