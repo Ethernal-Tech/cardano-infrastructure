@@ -61,6 +61,7 @@ func (o TxOutput) String() string {
 	sb.WriteString(fmt.Sprintf("%s+%d", o.Addr, o.Amount))
 
 	for _, token := range o.Tokens {
+		sb.WriteRune('+')
 		sb.WriteString(token.String())
 	}
 
