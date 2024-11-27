@@ -221,22 +221,14 @@ func (b *TxBuilder) AddOutputs(outputs ...TxOutput) *TxBuilder {
 	return b
 }
 
-func (b *TxBuilder) UpdateOutputAmount(index int, amount uint64) *TxBuilder {
+func (b *TxBuilder) UpdateOutputAmount(index int, amount uint64, tokenAmounts ...uint64) *TxBuilder {
 	if index < 0 {
 		index = len(b.outputs) + index
 	}
 
 	b.outputs[index].Amount = amount
 
-	return b
-}
-
-func (b *TxBuilder) UpdateOutputTokensAmounts(index int, amounts ...uint64) *TxBuilder {
-	if index < 0 {
-		index = len(b.outputs) + index
-	}
-
-	for i, amount := range amounts {
+	for i, amount := range tokenAmounts {
 		if len(b.outputs[index].Tokens) > i {
 			b.outputs[index].Tokens[i].UpdateAmount(amount)
 		}
