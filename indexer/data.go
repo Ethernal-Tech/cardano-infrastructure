@@ -275,6 +275,14 @@ func (t TxInputOutput) String() string {
 	return fmt.Sprintf("%s::%s", t.Input, t.Output)
 }
 
+func (tt TokenAmount) TokenName() string {
+	return fmt.Sprintf("%s.%s", tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
+}
+
+func (tt TokenAmount) String() string {
+	return fmt.Sprintf("%d %s.%s", tt.Amount, tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
+}
+
 // LedgerAddressToString translates string representation of address to our wallet representation
 // this will handle vector and other specific cases
 func LedgerAddressToString(addr ledger.Address) string {
