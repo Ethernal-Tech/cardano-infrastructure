@@ -102,7 +102,9 @@ func Test_TransactionBuilder(t *testing.T) {
 				Index: 2,
 			},
 		},
-		Sum: uint64(1_000_000)*3 - 10,
+		Sum: map[string]uint64{
+			AdaTokenName: uint64(1_000_000)*3 - 10,
+		},
 	}
 
 	multiSigFeeInputs := TxInputs{
@@ -112,7 +114,9 @@ func Test_TransactionBuilder(t *testing.T) {
 				Index: 0,
 			},
 		},
-		Sum: uint64(1_000_000) * 2,
+		Sum: map[string]uint64{
+			AdaTokenName: uint64(1_000_000) * 2,
+		},
 	}
 
 	builder.SetTimeToLive(ttl).SetProtocolParameters(protocolParameters)
@@ -130,8 +134,8 @@ func Test_TransactionBuilder(t *testing.T) {
 
 	builder.SetFee(fee)
 
-	builder.UpdateOutputAmount(-2, multiSigInputs.Sum-outputsSum[AdaTokenName])
-	builder.UpdateOutputAmount(-1, multiSigFeeInputs.Sum-fee)
+	builder.UpdateOutputAmount(-2, multiSigInputs.Sum[AdaTokenName]-outputsSum[AdaTokenName])
+	builder.UpdateOutputAmount(-1, multiSigFeeInputs.Sum[AdaTokenName]-fee)
 
 	txRaw, txHash, err := builder.Build()
 	require.NoError(t, err)

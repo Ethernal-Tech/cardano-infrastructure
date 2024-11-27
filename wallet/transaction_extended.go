@@ -31,11 +31,11 @@ func (b *TxBuilder) SetProtocolParametersAndTTL(
 
 type TxInputs struct {
 	Inputs []TxInput
-	Sum    uint64
+	Sum    map[string]uint64
 }
 
 func GetUTXOsForAmount(
-	ctx context.Context, retriever IUTxORetriever, addr string, exactSum uint64, atLeastSum uint64,
+	ctx context.Context, retriever IUTxORetriever, addr string, tokenName string, exactSum uint64, atLeastSum uint64,
 ) (TxInputs, error) {
 	utxos, err := retriever.GetUtxos(ctx, addr)
 	if err != nil {
@@ -46,25 +46,30 @@ func GetUTXOsForAmount(
 	// If we don't have this UTXO we need to use more of them
 	//nolint:prealloc
 	var (
-		amountSum   = uint64(0)
+		currentSum  = map[string]uint64{}
 		chosenUTXOs []TxInput
 	)
 
 	for _, utxo := range utxos {
-		amountSum += utxo.Amount
+		currentSum[AdaTokenName] += utxo.Amount
+
+		for _, token := range utxo.Tokens {
+			currentSum[token.TokenName()] += token.Amount
+		}
+
 		chosenUTXOs = append(chosenUTXOs, TxInput{
 			Hash:  utxo.Hash,
 			Index: utxo.Index,
 		})
 
-		if amountSum == exactSum || amountSum >= atLeastSum {
+		if currentSum[tokenName] == exactSum || currentSum[tokenName] >= atLeastSum {
 			return TxInputs{
 				Inputs: chosenUTXOs,
-				Sum:    amountSum,
+				Sum:    currentSum,
 			}, nil
 		}
 	}
 
 	return TxInputs{}, fmt.Errorf("not enough funds for the transaction: (available, exact, at least) = (%d, %d, %d)",
-		amountSum, exactSum, atLeastSum)
+		currentSum[tokenName], exactSum, atLeastSum)
 }
