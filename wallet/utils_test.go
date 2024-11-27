@@ -83,7 +83,7 @@ func TestGetUtxosSum(t *testing.T) {
 	})
 
 	require.Equal(t, 4, len(result))
-	require.Equal(t, uint64(500), result[adaTokenName])
+	require.Equal(t, uint64(500), result[AdaTokenName])
 	require.Equal(t, uint64(20), result["2.3"])
 	require.Equal(t, uint64(550), result["2.1"])
 	require.Equal(t, uint64(100), result["1.1"])
@@ -100,7 +100,7 @@ func TestGetOutputsSum(t *testing.T) {
 	})
 
 	require.Equal(t, 4, len(result))
-	require.Equal(t, uint64(650), result[adaTokenName])
+	require.Equal(t, uint64(650), result[AdaTokenName])
 	require.Equal(t, uint64(40), result["1.2"])
 	require.Equal(t, uint64(20), result["2.1"])
 	require.Equal(t, uint64(190), result["4.2"])

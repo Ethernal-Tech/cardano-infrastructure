@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	adaTokenPolicyID = "ada"
-	adaTokenName     = "lovelace"
+	AdaTokenPolicyID = "ada"
+	AdaTokenName     = "lovelace"
 )
 
 type TokenAmount struct {

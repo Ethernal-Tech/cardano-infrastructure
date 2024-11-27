@@ -115,7 +115,7 @@ func (b *TxProviderBlockFrost) GetUtxos(ctx context.Context, addr string) ([]Utx
 				return nil, err
 			}
 
-			if x.Unit == adaTokenName {
+			if x.Unit == AdaTokenName {
 				amount = tmpAmount
 			} else {
 				tokens = append(tokens, TokenAmount{

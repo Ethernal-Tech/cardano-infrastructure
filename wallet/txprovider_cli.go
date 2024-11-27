@@ -99,7 +99,7 @@ func (b *TxProviderCli) GetUtxos(_ context.Context, addr string) ([]Utxo, error)
 				}
 
 				if j < len(parts) {
-					if parts[j] == adaTokenName {
+					if parts[j] == AdaTokenName {
 						inputs[i].Amount = amount
 
 						j++
