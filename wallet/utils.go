@@ -50,3 +50,35 @@ func IsTxInUtxos(ctx context.Context, utxoRetriever IUTxORetriever, addr string,
 
 	return false, nil
 }
+
+// GetTokensFromSumMap processes a map of token names to their quantities and returns a slice of TokenAmount objects
+func GetTokensFromSumMap(sum map[string]uint64, skipTokenNames ...string) (result []TokenAmount, err error) {
+	result = make([]TokenAmount, 0, len(sum)-1)
+
+	for tokenName, amount := range sum {
+		shouldSkip := tokenName == AdaTokenName // lovelace should be skipped always
+
+		if !shouldSkip {
+			for _, name := range skipTokenNames {
+				if name == tokenName {
+					shouldSkip = true
+
+					break
+				}
+			}
+		}
+
+		if shouldSkip {
+			continue
+		}
+
+		token, err := NewTokenAmountWithFullName(tokenName, amount, true)
+		if err != nil {
+			return result, err
+		}
+
+		result = append(result, token)
+	}
+
+	return result, nil
+}
