@@ -93,27 +93,17 @@ func TestGetOutputsSum(t *testing.T) {
 	t.Parallel()
 
 	result := GetOutputsSum([]TxOutput{
-		{
-			Amount: 200,
-		},
-		{
-			Amount: 300,
-			Token:  NewTxTokenAmount("1", "2", 10),
-		},
-		{
-			Amount: 100,
-			Token:  NewTxTokenAmount("2", "1", 20),
-		},
-		{
-			Amount: 50,
-			Token:  NewTxTokenAmount("1", "2", 30),
-		},
+		NewTxOutput("", 200),
+		NewTxOutput("", 300, NewTxTokenAmount("1", "2", 10), NewTxTokenAmount("4", "2", 190)),
+		NewTxOutput("", 100, NewTxTokenAmount("2", "1", 20)),
+		NewTxOutput("", 50, NewTxTokenAmount("1", "2", 30)),
 	})
 
-	require.Equal(t, 3, len(result))
+	require.Equal(t, 4, len(result))
 	require.Equal(t, uint64(650), result[adaTokenName])
 	require.Equal(t, uint64(40), result["1.2"])
 	require.Equal(t, uint64(20), result["2.1"])
+	require.Equal(t, uint64(190), result["4.2"])
 }
 
 type txRetrieverMock struct {

@@ -80,6 +80,6 @@ type ITokenAmount interface {
 }
 
 type ITokenAmountWithPolicyScript interface {
-	ITokenAmount
+	Token() ITokenAmount
 	PolicyScript() IPolicyScript
 }
