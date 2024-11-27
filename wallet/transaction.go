@@ -29,18 +29,6 @@ func (i TxInput) String() string {
 	return fmt.Sprintf("%s#%d", i.Hash, i.Index)
 }
 
-type TxInputWithPolicyScript struct {
-	TxInput
-	PolicyScript IPolicyScript
-}
-
-func NewTxInputWithPolicyScript(hash string, index uint32, ps IPolicyScript) TxInputWithPolicyScript {
-	return TxInputWithPolicyScript{
-		TxInput:      NewTxInput(hash, index),
-		PolicyScript: ps,
-	}
-}
-
 type TxOutput struct {
 	Addr   string        `json:"addr"`
 	Amount uint64        `json:"amount"`
@@ -68,30 +56,11 @@ func (o TxOutput) String() string {
 	return sb.String()
 }
 
-type TokenAmountWithPolicyScript struct {
-	TokenAmount  TokenAmount
-	PolicyScript IPolicyScript
-}
-
-func NewTxTokenAmountWithPolicyScript(
-	cardanoCliBinary string, name string, amount uint64, policyScript IPolicyScript,
-) (*TokenAmountWithPolicyScript, error) {
-	pid, err := NewCliUtils(cardanoCliBinary).GetPolicyID(policyScript)
-	if err != nil {
-		return nil, err
-	}
-
-	return &TokenAmountWithPolicyScript{
-		TokenAmount:  NewTokenAmount(pid, name, amount),
-		PolicyScript: policyScript,
-	}, nil
-}
-
 type TxBuilder struct {
 	baseDirectory      string
-	inputs             []TxInputWithPolicyScript
+	inputs             []txInputWithPolicyScript
 	outputs            []TxOutput
-	tokenMints         []TokenAmountWithPolicyScript
+	tokenMints         []txTokenAmountWithPolicyScript
 	metadata           []byte
 	protocolParameters []byte
 	timeToLive         uint64
@@ -130,9 +99,9 @@ func (b *TxBuilder) SetFee(fee uint64) *TxBuilder {
 
 func (b *TxBuilder) AddInputsWithScript(script IPolicyScript, inputs ...TxInput) *TxBuilder {
 	for _, inp := range inputs {
-		b.inputs = append(b.inputs, TxInputWithPolicyScript{
-			TxInput:      inp,
-			PolicyScript: script,
+		b.inputs = append(b.inputs, txInputWithPolicyScript{
+			txInput:      inp,
+			policyScript: script,
 		})
 	}
 
@@ -146,9 +115,9 @@ func (b *TxBuilder) AddInputsWithScripts(inputs []TxInput, scripts []IPolicyScri
 	}
 
 	for i, inp := range inputs[:cnt] {
-		b.inputs = append(b.inputs, TxInputWithPolicyScript{
-			TxInput:      inp,
-			PolicyScript: scripts[i],
+		b.inputs = append(b.inputs, txInputWithPolicyScript{
+			txInput:      inp,
+			policyScript: scripts[i],
 		})
 	}
 
@@ -157,8 +126,8 @@ func (b *TxBuilder) AddInputsWithScripts(inputs []TxInput, scripts []IPolicyScri
 
 func (b *TxBuilder) AddInputs(inputs ...TxInput) *TxBuilder {
 	for _, inp := range inputs {
-		b.inputs = append(b.inputs, TxInputWithPolicyScript{
-			TxInput: inp,
+		b.inputs = append(b.inputs, txInputWithPolicyScript{
+			txInput: inp,
 		})
 	}
 
@@ -198,14 +167,14 @@ func (b *TxBuilder) RemoveOutput(index int) *TxBuilder {
 	return b
 }
 
-func (b *TxBuilder) AddTokenMints(addr string, amount uint64, tokenMints ...TokenAmountWithPolicyScript) *TxBuilder {
-	b.tokenMints = append(b.tokenMints, tokenMints...)
+func (b *TxBuilder) AddTokenMints(
+	addr string, amount uint64, policyScript IPolicyScript, tokens []TokenAmount,
+) *TxBuilder {
+	b.tokenMints = append(b.tokenMints, txTokenAmountWithPolicyScript{
+		tokens:       tokens,
+		policyScript: policyScript,
+	})
 	// outputs should be updated too
-	tokens := make([]TokenAmount, len(tokenMints))
-	for i, tokenMint := range tokenMints {
-		tokens[i] = tokenMint.TokenAmount
-	}
-
 	b.outputs = append(b.outputs, TxOutput{
 		Addr:   addr,
 		Amount: amount,
@@ -249,14 +218,10 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 
 	if witnessCount == 0 {
 		for _, inp := range b.inputs {
-			if inp.PolicyScript != nil {
-				witnessCount += inp.PolicyScript.GetCount()
-			}
+			witnessCount += inp.GetWitnessCount()
 		}
 
-		if witnessCount == 0 {
-			witnessCount = 1
-		}
+		witnessCount = max(witnessCount, 1)
 	}
 
 	feeOutput, err := runCommand(b.cardanoCliBinary, append([]string{
@@ -340,39 +305,15 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 		args = append(args, "--metadata-json-file", metaDataFilePath)
 	}
 
-	if len(b.tokenMints) > 0 {
-		args = append(args, "--mint", getTokensStrings(b.tokenMints))
-
-		for i, tokenMint := range b.tokenMints {
-			policyScriptJSON, err := tokenMint.PolicyScript.GetPolicyScriptJSON()
-			if err != nil {
-				return err
-			}
-
-			policyFilePath := filepath.Join(b.baseDirectory, fmt.Sprintf("policy_mint_%d.json", i))
-			if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
-				return err
-			}
-
-			args = append(args, "--minting-script-file", policyFilePath)
+	for i, tokenMint := range b.tokenMints {
+		if err := tokenMint.Apply(&args, b.baseDirectory, i); err != nil {
+			return err
 		}
 	}
 
 	for i, inp := range b.inputs {
-		args = append(args, "--tx-in", inp.String())
-
-		if inp.PolicyScript != nil {
-			policyScriptJSON, err := inp.PolicyScript.GetPolicyScriptJSON()
-			if err != nil {
-				return err
-			}
-
-			policyFilePath := filepath.Join(b.baseDirectory, fmt.Sprintf("policy_%d.json", i))
-			if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
-				return err
-			}
-
-			args = append(args, "--tx-in-script-file", policyFilePath)
+		if err := inp.Apply(&args, b.baseDirectory, i); err != nil {
+			return err
 		}
 	}
 
@@ -434,16 +375,78 @@ func (b *TxBuilder) AssembleTxWitnesses(txRaw []byte, witnesses [][]byte) ([]byt
 	return NewTransactionWitnessedRawFromJSON(bytes)
 }
 
-func getTokensStrings(tokens []TokenAmountWithPolicyScript) string {
+type txInputWithPolicyScript struct {
+	txInput      TxInput
+	policyScript IPolicyScript
+}
+
+func (txInputPS txInputWithPolicyScript) Apply(
+	args *[]string, basePath string, indx int,
+) error {
+	*args = append(*args, "--tx-in", txInputPS.txInput.String())
+
+	if txInputPS.policyScript == nil {
+		return nil
+	}
+
+	policyScriptJSON, err := txInputPS.policyScript.GetPolicyScriptJSON()
+	if err != nil {
+		return err
+	}
+
+	policyFilePath := filepath.Join(basePath, fmt.Sprintf("policy_%d.json", indx))
+	if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
+		return err
+	}
+
+	*args = append(*args, "--tx-in-script-file", policyFilePath)
+
+	return nil
+}
+
+func (txInputPS txInputWithPolicyScript) GetWitnessCount() int {
+	if txInputPS.policyScript != nil {
+		return txInputPS.policyScript.GetCount()
+	}
+
+	return 0
+}
+
+type txTokenAmountWithPolicyScript struct {
+	tokens       []TokenAmount
+	policyScript IPolicyScript
+}
+
+func (tokenMint txTokenAmountWithPolicyScript) Apply(
+	args *[]string, basePath string, indx int,
+) error {
+	if tokenMint.policyScript == nil {
+		return fmt.Errorf("policy script not set for token: %d", indx)
+	}
+
 	var sb strings.Builder
 
-	for _, token := range tokens {
+	for _, token := range tokenMint.tokens {
 		if sb.Len() > 0 {
 			sb.WriteRune('+')
 		}
 
-		sb.WriteString(token.TokenAmount.String())
+		sb.WriteString(token.String())
 	}
 
-	return sb.String()
+	*args = append(*args, "--mint", sb.String())
+
+	policyScriptJSON, err := tokenMint.policyScript.GetPolicyScriptJSON()
+	if err != nil {
+		return err
+	}
+
+	policyFilePath := filepath.Join(basePath, fmt.Sprintf("policy_mint_%d.json", indx))
+	if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
+		return err
+	}
+
+	*args = append(*args, "--minting-script-file", policyFilePath)
+
+	return nil
 }
