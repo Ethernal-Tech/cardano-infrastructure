@@ -60,7 +60,7 @@ type TxBuilder struct {
 	baseDirectory      string
 	inputs             []txInputWithPolicyScript
 	outputs            []TxOutput
-	tokenMints         []txTokenAmountWithPolicyScript
+	tokenMints         txTokenAmountWithPolicyScripts
 	metadata           []byte
 	protocolParameters []byte
 	timeToLive         uint64
@@ -305,10 +305,8 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 		args = append(args, "--metadata-json-file", metaDataFilePath)
 	}
 
-	for i, tokenMint := range b.tokenMints {
-		if err := tokenMint.Apply(&args, b.baseDirectory, i); err != nil {
-			return err
-		}
+	if err := b.tokenMints.Apply(&args, b.baseDirectory); err != nil {
+		return err
 	}
 
 	for i, inp := range b.inputs {
@@ -417,24 +415,12 @@ type txTokenAmountWithPolicyScript struct {
 	policyScript IPolicyScript
 }
 
-func (tokenMint txTokenAmountWithPolicyScript) Apply(
+func (tokenMint txTokenAmountWithPolicyScript) ApplyPolicyScript(
 	args *[]string, basePath string, indx int,
 ) error {
 	if tokenMint.policyScript == nil {
 		return fmt.Errorf("policy script not set for token: %d", indx)
 	}
-
-	var sb strings.Builder
-
-	for _, token := range tokenMint.tokens {
-		if sb.Len() > 0 {
-			sb.WriteRune('+')
-		}
-
-		sb.WriteString(token.String())
-	}
-
-	*args = append(*args, "--mint", sb.String())
 
 	policyScriptJSON, err := tokenMint.policyScript.GetPolicyScriptJSON()
 	if err != nil {
@@ -447,6 +433,38 @@ func (tokenMint txTokenAmountWithPolicyScript) Apply(
 	}
 
 	*args = append(*args, "--minting-script-file", policyFilePath)
+
+	return nil
+}
+
+type txTokenAmountWithPolicyScripts []txTokenAmountWithPolicyScript
+
+func (tokenMints txTokenAmountWithPolicyScripts) Apply(
+	args *[]string, basePath string,
+) error {
+	if len(tokenMints) == 0 {
+		return nil
+	}
+
+	var sb strings.Builder
+
+	for _, tokenMint := range tokenMints {
+		for _, token := range tokenMint.tokens {
+			if sb.Len() > 0 {
+				sb.WriteRune('+')
+			}
+
+			sb.WriteString(token.String())
+		}
+	}
+
+	*args = append(*args, "--mint", sb.String())
+
+	for i, tokenMint := range tokenMints {
+		if err := tokenMint.ApplyPolicyScript(args, basePath, i); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
