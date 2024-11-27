@@ -38,6 +38,21 @@ func GetOutputsSum(outputs []TxOutput) (receiversSum uint64) {
 	return receiversSum
 }
 
+// GetOutputsTokensSum returns sum or tokens in outputs (including lovelace)
+func GetOutputsTokensSum(outputs []TxOutput) map[string]uint64 {
+	result := map[string]uint64{}
+
+	for _, output := range outputs {
+		result[adaTokenName] += output.Amount
+
+		if output.IsToken() {
+			result[output.Token.TokenName()] += output.Token.TokenAmount()
+		}
+	}
+
+	return result
+}
+
 // IsTxInUtxos checks whether a specified transaction hash (txHash)
 // exists within the UTXOs associated with the given address (addr).
 func IsTxInUtxos(ctx context.Context, utxoRetriever IUTxORetriever, addr string, txHash string) (bool, error) {

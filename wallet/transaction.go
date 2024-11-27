@@ -28,18 +28,94 @@ type TxInputWithPolicyScript struct {
 }
 
 type TxOutput struct {
-	Addr   string `json:"addr"`
-	Amount uint64 `json:"amount"`
+	Addr   string       `json:"addr"`
+	Amount uint64       `json:"amount"`
+	Token  ITokenAmount `json:"token,omitempty"`
+}
+
+func (o TxOutput) IsToken() bool {
+	return o.Token != nil
 }
 
 func (o TxOutput) String() string {
+	if o.IsToken() {
+		return fmt.Sprintf("%s+%d+%d %s", o.Addr, o.Amount, o.Token.TokenAmount(), o.Token.TokenName())
+	}
+
 	return fmt.Sprintf("%s+%d", o.Addr, o.Amount)
+}
+
+type TxTokenAmount struct {
+	PolicyID string `json:"pid"`
+	Name     string `json:"name"`
+	Amount   uint64 `json:"amount"`
+}
+
+func NewTxTokenAmount(policyID string, name string, amount uint64) *TxTokenAmount {
+	return &TxTokenAmount{
+		PolicyID: policyID,
+		Name:     name,
+		Amount:   amount,
+	}
+}
+
+func NewTxTokenAmountWithFullName(name string, amount uint64) (*TxTokenAmount, error) {
+	parts := strings.Split(name, ".")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("name should have two parts but instead has: %d", len(parts))
+	}
+
+	return &TxTokenAmount{
+		PolicyID: parts[0],
+		Name:     parts[1],
+		Amount:   amount,
+	}, nil
+}
+
+func (tt TxTokenAmount) TokenName() string {
+	return fmt.Sprintf("%s.%s", tt.PolicyID, tt.Name)
+}
+
+func (tt TxTokenAmount) TokenAmount() uint64 {
+	return tt.Amount
+}
+
+func (tt *TxTokenAmount) UpdateAmount(amount uint64) {
+	tt.Amount = amount
+}
+
+func (tt TxTokenAmount) String() string {
+	return fmt.Sprintf("%d %s.%s", tt.Amount, tt.PolicyID, tt.Name)
+}
+
+type TxTokenAmountWithPolicyScript struct {
+	*TxTokenAmount
+	policyScript IPolicyScript
+}
+
+func (tt TxTokenAmountWithPolicyScript) PolicyScript() IPolicyScript {
+	return tt.policyScript
+}
+
+func NewTxTokenAmountWithPolicyScript(
+	cardanoCliBinary string, name string, amount uint64, policyScript IPolicyScript,
+) (*TxTokenAmountWithPolicyScript, error) {
+	pid, err := NewCliUtils(cardanoCliBinary).GetPolicyID(policyScript)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TxTokenAmountWithPolicyScript{
+		TxTokenAmount: NewTxTokenAmount(pid, name, amount),
+		policyScript:  policyScript,
+	}, nil
 }
 
 type TxBuilder struct {
 	baseDirectory      string
 	inputs             []TxInputWithPolicyScript
 	outputs            []TxOutput
+	tokenMints         []ITokenAmountWithPolicyScript
 	metadata           []byte
 	protocolParameters []byte
 	timeToLive         uint64
@@ -129,6 +205,18 @@ func (b *TxBuilder) UpdateOutputAmount(index int, amount uint64) *TxBuilder {
 	return b
 }
 
+func (b *TxBuilder) UpdateOutputTokenAmount(index int, amount uint64) *TxBuilder {
+	if index < 0 {
+		index = len(b.outputs) + index
+	}
+
+	if b.outputs[index].IsToken() {
+		b.outputs[index].Token.UpdateAmount(amount)
+	}
+
+	return b
+}
+
 func (b *TxBuilder) RemoveOutput(index int) *TxBuilder {
 	if index < 0 {
 		index = len(b.outputs) + index
@@ -136,6 +224,17 @@ func (b *TxBuilder) RemoveOutput(index int) *TxBuilder {
 
 	copy(b.outputs[index:], b.outputs[index+1:])
 	b.outputs = b.outputs[:len(b.outputs)-1]
+
+	return b
+}
+
+func (b *TxBuilder) AddTokenMint(addr string, amount uint64, tokenMint ITokenAmountWithPolicyScript) *TxBuilder {
+	b.tokenMints = append(b.tokenMints, tokenMint)
+	b.outputs = append(b.outputs, TxOutput{ // outputs should be updated too
+		Addr:   addr,
+		Amount: amount,
+		Token:  tokenMint,
+	})
 
 	return b
 }
@@ -263,6 +362,22 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 		}
 
 		args = append(args, "--metadata-json-file", metaDataFilePath)
+	}
+
+	for i, tokenMint := range b.tokenMints {
+		policyScriptJSON, err := tokenMint.PolicyScript().GetPolicyScriptJSON()
+		if err != nil {
+			return err
+		}
+
+		policyFilePath := filepath.Join(b.baseDirectory, fmt.Sprintf("policy_mint_%d.json", i))
+		if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
+			return err
+		}
+
+		args = append(args,
+			"--mint", tokenMint.String(),
+			"--minting-script-file", policyFilePath)
 	}
 
 	for i, inp := range b.inputs {

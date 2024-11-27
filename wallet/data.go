@@ -71,3 +71,15 @@ type IPolicyScript interface {
 	GetPolicyScriptJSON() ([]byte, error)
 	GetCount() int
 }
+
+type ITokenAmount interface {
+	TokenName() string
+	TokenAmount() uint64
+	UpdateAmount(uint64)
+	String() string
+}
+
+type ITokenAmountWithPolicyScript interface {
+	ITokenAmount
+	PolicyScript() IPolicyScript
+}
