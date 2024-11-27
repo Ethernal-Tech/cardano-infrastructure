@@ -130,7 +130,7 @@ func Test_TransactionBuilder(t *testing.T) {
 
 	builder.SetFee(fee)
 
-	builder.UpdateOutputAmount(-2, multiSigInputs.Sum-outputsSum)
+	builder.UpdateOutputAmount(-2, multiSigInputs.Sum-outputsSum[adaTokenName])
 	builder.UpdateOutputAmount(-1, multiSigFeeInputs.Sum-fee)
 
 	txRaw, txHash, err := builder.Build()

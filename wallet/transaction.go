@@ -18,19 +18,41 @@ type TxInput struct {
 	Index uint32 `json:"ind"`
 }
 
+func NewTxInput(hash string, index uint32) TxInput {
+	return TxInput{
+		Hash:  hash,
+		Index: index,
+	}
+}
+
 func (i TxInput) String() string {
 	return fmt.Sprintf("%s#%d", i.Hash, i.Index)
 }
 
 type TxInputWithPolicyScript struct {
-	Input        TxInput
+	TxInput
 	PolicyScript IPolicyScript
+}
+
+func NewTxInputWithPolicyScript(hash string, index uint32, ps IPolicyScript) TxInputWithPolicyScript {
+	return TxInputWithPolicyScript{
+		TxInput:      NewTxInput(hash, index),
+		PolicyScript: ps,
+	}
 }
 
 type TxOutput struct {
 	Addr   string       `json:"addr"`
 	Amount uint64       `json:"amount"`
 	Token  ITokenAmount `json:"token,omitempty"`
+}
+
+func NewTxOutput(addr string, amount uint64, token ITokenAmount) TxOutput {
+	return TxOutput{
+		Addr:   addr,
+		Amount: amount,
+		Token:  token,
+	}
 }
 
 func (o TxOutput) IsToken() bool {
@@ -155,7 +177,7 @@ func (b *TxBuilder) SetFee(fee uint64) *TxBuilder {
 func (b *TxBuilder) AddInputsWithScript(script IPolicyScript, inputs ...TxInput) *TxBuilder {
 	for _, inp := range inputs {
 		b.inputs = append(b.inputs, TxInputWithPolicyScript{
-			Input:        inp,
+			TxInput:      inp,
 			PolicyScript: script,
 		})
 	}
@@ -171,7 +193,7 @@ func (b *TxBuilder) AddInputsWithScripts(inputs []TxInput, scripts []IPolicyScri
 
 	for i, inp := range inputs[:cnt] {
 		b.inputs = append(b.inputs, TxInputWithPolicyScript{
-			Input:        inp,
+			TxInput:      inp,
 			PolicyScript: scripts[i],
 		})
 	}
@@ -182,7 +204,7 @@ func (b *TxBuilder) AddInputsWithScripts(inputs []TxInput, scripts []IPolicyScri
 func (b *TxBuilder) AddInputs(inputs ...TxInput) *TxBuilder {
 	for _, inp := range inputs {
 		b.inputs = append(b.inputs, TxInputWithPolicyScript{
-			Input: inp,
+			TxInput: inp,
 		})
 	}
 
@@ -381,7 +403,7 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 	}
 
 	for i, inp := range b.inputs {
-		args = append(args, "--tx-in", inp.Input.String())
+		args = append(args, "--tx-in", inp.String())
 
 		if inp.PolicyScript != nil {
 			policyScriptJSON, err := inp.PolicyScript.GetPolicyScriptJSON()

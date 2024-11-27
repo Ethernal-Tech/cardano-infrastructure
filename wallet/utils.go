@@ -5,17 +5,8 @@ import (
 	"fmt"
 )
 
-// GetUtxosSum returns sum of all utxos
-func GetUtxosSum(utxos []Utxo) (sum uint64) {
-	for _, utxo := range utxos {
-		sum += utxo.Amount
-	}
-
-	return sum
-}
-
-// GetUtxosTokensSum returns sum for tokens in utxos (including lovelace)
-func GetUtxosTokensSum(utxos []Utxo) map[string]uint64 {
+// GetUtxosSum returns sum for tokens in utxos (including lovelace)
+func GetUtxosSum(utxos []Utxo) map[string]uint64 {
 	result := map[string]uint64{}
 
 	for _, utxo := range utxos {
@@ -29,17 +20,8 @@ func GetUtxosTokensSum(utxos []Utxo) map[string]uint64 {
 	return result
 }
 
-// GetOutputsSum returns sum of tx outputs
-func GetOutputsSum(outputs []TxOutput) (receiversSum uint64) {
-	for _, x := range outputs {
-		receiversSum += x.Amount
-	}
-
-	return receiversSum
-}
-
-// GetOutputsTokensSum returns sum or tokens in outputs (including lovelace)
-func GetOutputsTokensSum(outputs []TxOutput) map[string]uint64 {
+// GetOutputsSum returns sum or tokens in outputs (including lovelace)
+func GetOutputsSum(outputs []TxOutput) map[string]uint64 {
 	result := map[string]uint64{}
 
 	for _, output := range outputs {

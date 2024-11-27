@@ -46,25 +46,7 @@ func TestIsTxInUtxos(t *testing.T) {
 func TestGetUtxosSum(t *testing.T) {
 	t.Parallel()
 
-	res := GetUtxosSum([]Utxo{
-		{Amount: 100}, {Amount: 200},
-	})
-	require.Equal(t, uint64(300), res)
-}
-
-func TestGetOutputsSum(t *testing.T) {
-	t.Parallel()
-
-	res := GetOutputsSum([]TxOutput{
-		{Amount: 100}, {Amount: 200},
-	})
-	require.Equal(t, uint64(300), res)
-}
-
-func TestGetUtxosTokensSum(t *testing.T) {
-	t.Parallel()
-
-	result := GetUtxosTokensSum([]Utxo{
+	result := GetUtxosSum([]Utxo{
 		{
 			Amount: 200,
 		},
@@ -107,10 +89,10 @@ func TestGetUtxosTokensSum(t *testing.T) {
 	require.Equal(t, uint64(100), result["1.1"])
 }
 
-func TestGetOutputsTokensSum(t *testing.T) {
+func TestGetOutputsSum(t *testing.T) {
 	t.Parallel()
 
-	result := GetOutputsTokensSum([]TxOutput{
+	result := GetOutputsSum([]TxOutput{
 		{
 			Amount: 200,
 		},
