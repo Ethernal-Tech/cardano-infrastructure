@@ -13,7 +13,7 @@ func TestPolicyScript(t *testing.T) {
 
 	var (
 		err       error
-		wallets   = [6]IWallet{}
+		wallets   = [6]*Wallet{}
 		keyHashes = [6]string{}
 	)
 
@@ -21,7 +21,7 @@ func TestPolicyScript(t *testing.T) {
 		wallets[i], err = GenerateWallet(true)
 		require.NoError(t, err)
 
-		keyHashes[i], err = GetKeyHash(wallets[i].GetVerificationKey())
+		keyHashes[i], err = GetKeyHash(wallets[i].VerificationKey)
 		require.NoError(t, err)
 	}
 

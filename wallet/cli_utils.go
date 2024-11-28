@@ -3,9 +3,12 @@ package wallet
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Ethernal-Tech/cardano-infrastructure/wallet/bech32"
 )
 
 var (
@@ -126,51 +129,33 @@ func (cu CliUtils) GetAddressInfo(address string) (AddressInfo, error) {
 }
 
 // GetWalletAddress returns address and stake address for wallet (if wallet is stake wallet)
-func (cu CliUtils) GetWalletAddress(wallet IWallet, testNetMagic uint) (addr string, stakeAddr string, err error) {
-	baseDirectory, err := os.MkdirTemp("", "get-address")
+func (cu CliUtils) GetWalletAddress(
+	verificationKey, stakeVerificationKey []byte, testNetMagic uint,
+) (addr string, stakeAddr string, err error) {
+	bech32String, err := getBech32Key(verificationKey, "addr_vk")
 	if err != nil {
 		return "", "", err
 	}
 
-	defer os.RemoveAll(baseDirectory)
-
-	key, err := NewKeyFromBytes(
-		PaymentVerificationKeyShelley, PaymentVerificationKeyShelleyDesc, wallet.GetVerificationKey())
-	if err != nil {
-		return "", "", nil
-	}
-
-	verificationFilePath := filepath.Join(baseDirectory, "ver.key")
-	stakeVerificationFilePath := filepath.Join(baseDirectory, "stake.key")
-
-	if err = key.WriteToFile(verificationFilePath); err != nil {
-		return "", "", nil
-	}
-
 	// enterprise address
-	if len(wallet.GetStakeVerificationKey()) == 0 {
+	if len(stakeVerificationKey) == 0 {
 		addr, err = runCommand(cu.cardanoCliBinary, append([]string{
 			"address", "build",
-			"--payment-verification-key-file", verificationFilePath,
+			"--payment-verification-key", bech32String,
 		}, getTestNetMagicArgs(testNetMagic)...))
 
 		return strings.Trim(addr, "\n"), strings.Trim(stakeAddr, "\n"), err
 	}
 
-	stakeKey, err := NewKeyFromBytes(
-		StakeVerificationKeyShelley, StakeVerificationKeyShelleyDesc, wallet.GetStakeVerificationKey())
+	bech32StakeString, err := getBech32Key(stakeVerificationKey, "stake_vk")
 	if err != nil {
-		return "", "", nil
-	}
-
-	if err = stakeKey.WriteToFile(stakeVerificationFilePath); err != nil {
-		return "", "", nil
+		return "", "", err
 	}
 
 	addr, err = runCommand(cu.cardanoCliBinary, append([]string{
 		"address", "build",
-		"--payment-verification-key-file", verificationFilePath,
-		"--stake-verification-key-file", stakeVerificationFilePath,
+		"--payment-verification-key", bech32String,
+		"--stake-verification-key", bech32StakeString,
 	}, getTestNetMagicArgs(testNetMagic)...))
 	if err != nil {
 		return "", "", err
@@ -178,16 +163,21 @@ func (cu CliUtils) GetWalletAddress(wallet IWallet, testNetMagic uint) (addr str
 
 	stakeAddr, err = runCommand(cu.cardanoCliBinary, append([]string{
 		"stake-address", "build",
-		"--stake-verification-key-file", stakeVerificationFilePath,
+		"--stake-verification-key", bech32StakeString,
 	}, getTestNetMagicArgs(testNetMagic)...))
 
 	return strings.Trim(addr, "\n"), strings.Trim(stakeAddr, "\n"), err
 }
 
-func (cu CliUtils) GetKeyHash(verificationKeyPath string) (string, error) {
+func (cu CliUtils) GetKeyHash(key []byte) (string, error) {
+	bech32String, err := getBech32Key(key, "addr_vk")
+	if err != nil {
+		return "", err
+	}
+
 	resultKeyHash, err := runCommand(cu.cardanoCliBinary, []string{
 		"address", "key-hash",
-		"--payment-verification-key-file", verificationKeyPath,
+		"--payment-verification-key", bech32String,
 	})
 	if err != nil {
 		return "", err
@@ -211,7 +201,7 @@ func (cu CliUtils) GetTxHash(txRaw []byte) (string, error) {
 func (cu CliUtils) getTxHash(txRaw []byte, baseDirectory string) (string, error) {
 	txFilePath := filepath.Join(baseDirectory, "tx.tmp")
 
-	txBytes, err := TransactionUnwitnessedRaw(txRaw).ToJSON()
+	txBytes, err := transactionUnwitnessedRaw(txRaw).ToJSON()
 	if err != nil {
 		return "", err
 	}
@@ -230,4 +220,18 @@ func (cu CliUtils) getTxHash(txRaw []byte, baseDirectory string) (string, error)
 	}
 
 	return strings.Trim(res, "\n"), err
+}
+
+func getBech32Key(key []byte, prefix string) (string, error) {
+	converted, err := bech32.ConvertBits(key, 8, 5, true)
+	if err != nil {
+		return "", fmt.Errorf("error converting bits: %w", err)
+	}
+
+	bech32String, err := bech32.Encode(prefix, converted)
+	if err != nil {
+		return "", fmt.Errorf("error encoding to Bech32: %w", err)
+	}
+
+	return bech32String, nil
 }
