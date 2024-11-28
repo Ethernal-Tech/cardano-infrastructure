@@ -503,11 +503,12 @@ type LedgerTransactionOutputMock struct {
 	AmountVal    uint64
 	DatumVal     *cbor.LazyValue
 	DatumHashVal *common.Blake2b256
+	AssetsVal    *common.MultiAsset[uint64]
 }
 
 // Assets implements common.TransactionOutput.
 func (m *LedgerTransactionOutputMock) Assets() *common.MultiAsset[uint64] {
-	panic("unimplemented") //nolint
+	return m.AssetsVal
 }
 
 // Cbor implements common.TransactionOutput.

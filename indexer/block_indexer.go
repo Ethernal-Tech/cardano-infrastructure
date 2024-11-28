@@ -7,6 +7,7 @@ import (
 
 	infraCommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 	"github.com/blinklabs-io/gouroboros/ledger"
+	ledgerCommon "github.com/blinklabs-io/gouroboros/ledger/common"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 	"github.com/hashicorp/go-hclog"
 )
@@ -294,11 +295,7 @@ func (bi *BlockIndexer) getTxOutputs(
 					Hash:  NewHashFromHexString(tx.Hash()),
 					Index: uint32(ind),
 				},
-				Output: TxOutput{
-					Slot:    slot,
-					Address: addr,
-					Amount:  txOut.Amount(),
-				},
+				Output: createTxOutput(slot, addr, txOut),
 			})
 		}
 	}
@@ -352,28 +349,17 @@ func (bi *BlockIndexer) createTx(
 		}
 	}
 
+	if metadata := ledgerTx.Metadata(); metadata != nil {
+		tx.Metadata = metadata.Cbor()
+	}
+
 	if outputs := ledgerTx.Outputs(); len(outputs) > 0 {
 		tx.Outputs = make([]*TxOutput, len(outputs))
 		for j, out := range outputs {
-			txOutput := &TxOutput{
-				Slot:    ledgerBlockHeader.SlotNumber(),
-				Address: LedgerAddressToString(out.Address()),
-				Amount:  out.Amount(),
-			}
-			if datum := out.Datum(); datum != nil {
-				txOutput.Datum = datum.Cbor()
-			}
-
-			if datumHash := out.DatumHash(); datumHash != nil {
-				txOutput.DatumHash = datumHash.String()
-			}
-
-			tx.Outputs[j] = txOutput
+			txOutput := createTxOutput(
+				ledgerBlockHeader.SlotNumber(), LedgerAddressToString(out.Address()), out)
+			tx.Outputs[j] = &txOutput
 		}
-	}
-
-	if metadata := ledgerTx.Metadata(); metadata != nil {
-		tx.Metadata = metadata.Cbor()
 	}
 
 	switch realTx := ledgerTx.(type) {
@@ -407,4 +393,49 @@ func getTxHashes(txs []ledger.Transaction) []Hash {
 	}
 
 	return res
+}
+
+func createTxOutput(
+	slot uint64, addr string, txOut ledgerCommon.TransactionOutput,
+) TxOutput {
+	var tokens []TokenAmount
+
+	if assets := txOut.Assets(); assets != nil {
+		policies := assets.Policies()
+		tokens = make([]TokenAmount, 0, len(policies))
+
+		for _, policyIDRaw := range policies {
+			policyID := policyIDRaw.String()
+
+			for _, asset := range assets.Assets(policyIDRaw) {
+				tokens = append(tokens, TokenAmount{
+					PolicyID: policyID,
+					Name:     string(asset),
+					Amount:   assets.Asset(policyIDRaw, asset),
+				})
+			}
+		}
+	}
+
+	var (
+		datum     []byte
+		datumHash Hash
+	)
+
+	if tmp := txOut.Datum(); tmp != nil {
+		datum = tmp.Cbor()
+	}
+
+	if tmp := txOut.DatumHash(); tmp != nil {
+		datumHash = Hash(tmp.Bytes())
+	}
+
+	return TxOutput{
+		Slot:      slot,
+		Address:   addr,
+		Amount:    txOut.Amount(),
+		Tokens:    tokens,
+		Datum:     datum,
+		DatumHash: datumHash,
+	}
 }

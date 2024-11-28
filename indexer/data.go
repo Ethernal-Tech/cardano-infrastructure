@@ -68,13 +68,20 @@ type TxInput struct {
 	Index uint32 `json:"ind"`
 }
 
+type TokenAmount struct {
+	PolicyID string `json:"polid"`
+	Name     string `json:"name"`
+	Amount   uint64 `json:"amnt"`
+}
+
 type TxOutput struct {
-	Address   string `json:"addr"`
-	Slot      uint64 `json:"slot"`
-	Amount    uint64 `json:"amnt"`
-	Datum     []byte `json:"datum,omitempty"`
-	DatumHash string `json:"datumHash,omitempty"`
-	IsUsed    bool   `json:"used"`
+	Address   string        `json:"addr"`
+	Slot      uint64        `json:"slot"`
+	Amount    uint64        `json:"amnt"`
+	Datum     []byte        `json:"datum,omitempty"`
+	DatumHash Hash          `json:"datumHsh,omitempty"`
+	IsUsed    bool          `json:"used"`
+	Tokens    []TokenAmount `json:"assets,omitempty"`
 }
 
 type TxInputOutput struct {
@@ -161,27 +168,17 @@ func (tx Tx) String() string {
 		}
 
 		sbInp.WriteString("[")
-		sbInp.WriteString(x.Input.Hash.String())
-		sbInp.WriteString(", ")
-		sbInp.WriteString(strconv.FormatUint(uint64(x.Input.Index), 10))
-		sbInp.WriteString(", ")
-		sbInp.WriteString(x.Output.Address)
-		sbInp.WriteString(", ")
-		sbInp.WriteString(strconv.FormatUint(x.Output.Amount, 10))
+		sbInp.WriteString(x.String())
 		sbInp.WriteString("]")
 	}
 
-	for i, x := range tx.Outputs {
+	for _, x := range tx.Outputs {
 		if sbOut.Len() > 0 {
 			sbOut.WriteString(", ")
 		}
 
 		sbOut.WriteString("[")
-		sbOut.WriteString(strconv.Itoa(i))
-		sbOut.WriteString(", ")
-		sbOut.WriteString(x.Address)
-		sbOut.WriteString(", ")
-		sbOut.WriteString(strconv.FormatUint(x.Amount, 10))
+		sbOut.WriteString(x.String())
 		sbOut.WriteString("]")
 	}
 
@@ -255,11 +252,36 @@ func bytes2HashString(bytes []byte) string {
 }
 
 func (t TxInput) String() string {
-	return fmt.Sprintf("%s:%d", t.Hash, t.Index)
+	return fmt.Sprintf("%s#%d", t.Hash, t.Index)
+}
+
+func (t TxOutput) String() string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("%s+%d", t.Address, t.Amount))
+
+	for _, token := range t.Tokens {
+		sb.WriteRune('+')
+		sb.WriteString(token.String())
+	}
+
+	return sb.String()
 }
 
 func (t TxInputOutput) String() string {
-	return fmt.Sprintf("%s:%d:%s:%d", t.Input.Hash, t.Input.Index, t.Output.Address, t.Output.Amount)
+	if t.Output.Address == "" {
+		return t.Input.String()
+	}
+
+	return fmt.Sprintf("%s::%s", t.Input, t.Output)
+}
+
+func (tt TokenAmount) TokenName() string {
+	return fmt.Sprintf("%s.%s", tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
+}
+
+func (tt TokenAmount) String() string {
+	return fmt.Sprintf("%d %s.%s", tt.Amount, tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
 }
 
 // LedgerAddressToString translates string representation of address to our wallet representation
