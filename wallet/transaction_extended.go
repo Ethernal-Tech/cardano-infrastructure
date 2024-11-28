@@ -3,6 +3,8 @@ package wallet
 import (
 	"context"
 	"fmt"
+
+	"github.com/Ethernal-Tech/cardano-infrastructure/common"
 )
 
 const defaultTimeToLiveInc = 200
@@ -35,9 +37,16 @@ type TxInputs struct {
 }
 
 func GetUTXOsForAmount(
-	ctx context.Context, retriever IUTxORetriever, addr string, tokenName string, exactSum uint64, atLeastSum uint64,
+	ctx context.Context,
+	retriever IUTxORetriever,
+	addr string,
+	tokenNames []string,
+	exactSum map[string]uint64,
+	atLeastSum map[string]uint64,
 ) (TxInputs, error) {
-	utxos, err := retriever.GetUtxos(ctx, addr)
+	utxos, err := common.ExecuteWithRetry(ctx, func(ctx context.Context) ([]Utxo, error) {
+		return retriever.GetUtxos(ctx, addr)
+	})
 	if err != nil {
 		return TxInputs{}, err
 	}
@@ -46,8 +55,9 @@ func GetUTXOsForAmount(
 	// If we don't have this UTXO we need to use more of them
 	//nolint:prealloc
 	var (
-		currentSum  = map[string]uint64{}
-		chosenUTXOs []TxInput
+		currentSum       = map[string]uint64{}
+		chosenUTXOs      []TxInput
+		notGoodTokenName string
 	)
 
 	for _, utxo := range utxos {
@@ -62,7 +72,18 @@ func GetUTXOsForAmount(
 			Index: utxo.Index,
 		})
 
-		if currentSum[tokenName] == exactSum || currentSum[tokenName] >= atLeastSum {
+		isOk := true
+
+		for _, tokenName := range tokenNames {
+			if currentSum[tokenName] != exactSum[tokenName] && currentSum[tokenName] < atLeastSum[tokenName] {
+				isOk = false
+				notGoodTokenName = tokenName
+
+				break
+			}
+		}
+
+		if isOk {
 			return TxInputs{
 				Inputs: chosenUTXOs,
 				Sum:    currentSum,
@@ -71,5 +92,5 @@ func GetUTXOsForAmount(
 	}
 
 	return TxInputs{}, fmt.Errorf("not enough funds for the transaction: (available, exact, at least) = (%d, %d, %d)",
-		currentSum[tokenName], exactSum, atLeastSum)
+		currentSum[notGoodTokenName], exactSum[notGoodTokenName], atLeastSum[notGoodTokenName])
 }

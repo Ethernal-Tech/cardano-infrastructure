@@ -404,7 +404,7 @@ func createTxOutput(
 		policies := assets.Policies()
 		tokens = make([]TokenAmount, 0, len(policies))
 
-		for _, policyIDRaw := range assets.Policies() {
+		for _, policyIDRaw := range policies {
 			policyID := policyIDRaw.String()
 
 			for _, asset := range assets.Assets(policyIDRaw) {
