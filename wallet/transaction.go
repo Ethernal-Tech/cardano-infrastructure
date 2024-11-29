@@ -1,17 +1,35 @@
 package wallet
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/fxamacker/cbor/v2"
 )
 
 const (
 	draftTxFile = "tx.draft"
 )
+
+// CreateTxWitness signs transaction hash and creates witness cbor
+func CreateTxWitness(txHash string, signer ITxSigner) ([]byte, error) {
+	txHashBytes, err := hex.DecodeString(txHash)
+	if err != nil {
+		return nil, err
+	}
+
+	sign, err := signer.SignTransaction(txHashBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return cbor.Marshal([][]byte{signer.GetTransactionVerificationKey(), sign})
+}
 
 type TxInput struct {
 	Hash  string `json:"hsh"`
@@ -254,7 +272,7 @@ func (b *TxBuilder) Build() ([]byte, string, error) {
 		return nil, "", err
 	}
 
-	txRaw, err := NewTransactionUnwitnessedRawFromJSON(bytes)
+	txRaw, err := newTransactionUnwitnessedRawFromJSON(bytes)
 	if err != nil {
 		return nil, "", err
 	}
@@ -316,6 +334,25 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 	return err
 }
 
+// SignTx signs tx and assembles all signatures in final tx
+func (b *TxBuilder) SignTx(txRaw []byte, signers []ITxSigner) ([]byte, error) {
+	txHash, err := NewCliUtils(b.cardanoCliBinary).getTxHash(txRaw, b.baseDirectory)
+	if err != nil {
+		return nil, err
+	}
+
+	witnesses := make([][]byte, len(signers))
+
+	for i, signer := range signers {
+		witnesses[i], err = CreateTxWitness(txHash, signer)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return b.AssembleTxWitnesses(txRaw, witnesses)
+}
+
 // AssembleTxWitnesses assembles final signed transaction
 func (b *TxBuilder) AssembleTxWitnesses(txRaw []byte, witnesses [][]byte) ([]byte, error) {
 	outFilePath := filepath.Join(b.baseDirectory, "tx.sig")
@@ -335,7 +372,7 @@ func (b *TxBuilder) AssembleTxWitnesses(txRaw []byte, witnesses [][]byte) ([]byt
 		}
 	}
 
-	txBytes, err := TransactionUnwitnessedRaw(txRaw).ToJSON()
+	txBytes, err := transactionUnwitnessedRaw(txRaw).ToJSON()
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +399,7 @@ func (b *TxBuilder) AssembleTxWitnesses(txRaw []byte, witnesses [][]byte) ([]byt
 		return nil, err
 	}
 
-	return NewTransactionWitnessedRawFromJSON(bytes)
+	return newTransactionWitnessedRawFromJSON(bytes)
 }
 
 type txInputWithPolicyScript struct {

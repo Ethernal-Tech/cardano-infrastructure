@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/Ethernal-Tech/cardano-infrastructure/wallet/bech32"
 	"github.com/fxamacker/cbor/v2"
 	"golang.org/x/crypto/blake2b"
 )
@@ -101,53 +102,31 @@ func GetKeyHash(bytes []byte) (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// GenerateWallet generates wallet
-func GenerateWallet(isStake bool) (*Wallet, error) {
-	signingKey, verificationKey, err := GenerateKeyPair()
-	if err != nil {
-		return nil, err
+// PadKeyToSize pads key to 32 bytes
+func PadKeyToSize(key []byte) []byte {
+	// If the key is already 32 bytes long, return it as is
+	if len(key) == KeySize {
+		return key
 	}
 
-	if !isStake {
-		return NewWallet(verificationKey, signingKey), nil
+	// If the key is shorter than 32 bytes, pad with leading zeroes
+	if len(key) < KeySize {
+		return append(make([]byte, KeySize-len(key)), key...)
 	}
 
-	stakeSigningKey, stakeVerificationKey, err := GenerateKeyPair()
-	if err != nil {
-		return nil, err
-	}
-
-	return NewStakeWallet(verificationKey, signingKey, stakeVerificationKey, stakeSigningKey), nil
+	// If the key is longer than 32 bytes, truncate it to 32 bytes
+	return key[:KeySize]
 }
 
-// CreateTxWitness signs transaction hash and creates witness cbor
-func CreateTxWitness(txHash string, wallet ISigner) ([]byte, error) {
-	txHashBytes, err := hex.DecodeString(txHash)
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := SignMessage(wallet.GetSigningKey(), wallet.GetVerificationKey(), txHashBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return cbor.Marshal([][]byte{
-		wallet.GetVerificationKey(),
-		result,
-	})
-}
-
-// GetKeyBytes extracts original key slice from a hex+cbor encoded string
-func GetKeyBytes(key string) ([]byte, error) {
-	bytes, err := hex.DecodeString(key)
-	if err != nil {
-		return nil, err
-	}
-
-	var result []byte
-
-	if err := cbor.Unmarshal(bytes, &result); err != nil {
+// GetKeyBytes extracts the original key bytes from a given string. Supported formats:
+// - Hex + CBOR encoded string: Attempts to decode the key assuming it is hex-encoded,
+// - Bech32 encoded keys: Handles formats like addr_vk, addr_sk, stake_vk, stake_sk
+func GetKeyBytes(key string) (result []byte, err error) {
+	if bytes, err := hex.DecodeString(key); err == nil {
+		if err := cbor.Unmarshal(bytes, &result); err != nil {
+			return nil, err
+		}
+	} else if _, result, err = bech32.DecodeToBase256(key); err != nil {
 		return nil, err
 	}
 
