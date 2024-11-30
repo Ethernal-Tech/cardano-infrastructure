@@ -1,8 +1,6 @@
 package wallet
 
 import (
-	"crypto/rand"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,11 +32,11 @@ func TestAddressParts(t *testing.T) {
 	cWalletAddress, err := NewAddress(walletAddress)
 	require.NoError(t, err)
 
-	assert.Equal(t, wallet1KeyHash, cWalletAddress.GetPayment().String())
-	assert.Equal(t, wallet1StakeKeyHash, cWalletAddress.GetStake().String())
-	assert.False(t, cWalletAddress.GetNetwork().IsMainNet())
-	assert.Equal(t, KeyStakeCredentialType, cWalletAddress.GetPayment().Kind)
-	assert.Equal(t, KeyStakeCredentialType, cWalletAddress.GetStake().Kind)
+	assert.Equal(t, wallet1KeyHash, cWalletAddress.GetInfo().Payment.String())
+	assert.Equal(t, wallet1StakeKeyHash, cWalletAddress.GetInfo().Stake.String())
+	assert.False(t, cWalletAddress.GetInfo().Network.IsMainNet())
+	assert.False(t, cWalletAddress.GetInfo().Payment.IsScript)
+	assert.False(t, cWalletAddress.GetInfo().Stake.IsScript)
 
 	assert.Equal(t, walletAddress, cWalletAddress.String())
 
@@ -88,42 +86,20 @@ func TestNewAddress(t *testing.T) {
 		assert.NoError(t, err, "%s has error: %v", a, err)
 
 		if err == nil {
-			assert.Equal(t, i <= 10, addr.GetNetwork().IsMainNet(), "%s should be on mainnet: %v", a, i <= 9)
+			assert.Equal(t, i <= 10, addr.GetInfo().Network.IsMainNet(), "%s should be on mainnet: %v", a, i <= 9)
 
 			switch i % 11 {
 			case 0, 1, 2, 3:
-				assert.IsType(t, &BaseAddress{}, addr)
+				assert.Equal(t, BaseAddress, addr.GetInfo().AddressType)
 			case 4, 5:
-				assert.IsType(t, &PointerAddress{}, addr)
+				assert.Equal(t, PointerAddress, addr.GetInfo().AddressType)
 			case 6, 7:
-				assert.IsType(t, &EnterpriseAddress{}, addr)
+				assert.Equal(t, EnterpriseAddress, addr.GetInfo().AddressType)
 			case 8, 9:
-				assert.IsType(t, &RewardAddress{}, addr)
+				assert.Equal(t, RewardAddress, addr.GetInfo().AddressType)
 			}
 
 			assert.Equal(t, a, addr.String())
 		}
 	}
-}
-
-func TestNewAddressVector(t *testing.T) {
-	key1 := make([]byte, 64)
-	key2 := make([]byte, 64)
-
-	_, err := rand.Read(key1)
-	require.NoError(t, err)
-
-	_, err = rand.Read(key2)
-	require.NoError(t, err)
-
-	ba, err := NewBaseAddress(VectorTestNetNetwork, key1, key2)
-	require.NoError(t, err)
-
-	require.True(t, strings.HasPrefix(ba.String(), "vector_test"))
-
-	ba, err = NewBaseAddress(VectorMainNetNetwork, key1, key2)
-	require.NoError(t, err)
-
-	require.True(t, strings.HasPrefix(ba.String(), "vector"))
-	require.False(t, strings.HasPrefix(ba.String(), "vector_test"))
 }

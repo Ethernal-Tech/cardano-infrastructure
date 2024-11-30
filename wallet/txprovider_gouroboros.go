@@ -310,7 +310,7 @@ func getLedgerAddress(raw string) (addr ledger.Address, err error) {
 		return addr, err
 	}
 
-	cborBytes, err := cbor.Marshal(addrBase.Bytes())
+	cborBytes, err := cbor.Marshal(addrBase.GetBytes())
 	if err != nil {
 		return addr, err
 	}

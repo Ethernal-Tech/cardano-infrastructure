@@ -287,7 +287,7 @@ func (tt TokenAmount) String() string {
 // LedgerAddressToString translates string representation of address to our wallet representation
 // this will handle vector and other specific cases
 func LedgerAddressToString(addr ledger.Address) string {
-	ourAddr, err := wallet.NewAddressFromBytes(addr.Bytes())
+	ourAddr, err := wallet.NewCardanoAddress(addr.Bytes())
 	if err != nil {
 		return addr.String()
 	}
