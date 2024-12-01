@@ -1,7 +1,9 @@
 package indexer
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
@@ -590,11 +592,18 @@ func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
 		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
+
+	go blockIndexer.Start(ctx)
+
 	err = blockIndexer.RollBackwardFunc(common.Point{
 		Slot: 7,
 		Hash: []byte{0, 3},
 	})
 	require.NoError(t, err)
+
+	time.Sleep(time.Millisecond * 200)
 
 	require.Equal(t, uncomfBlocks[0:2], blockIndexer.unconfirmedBlocks.ToList())
 	dbMock.AssertExpectations(t)
@@ -630,7 +639,7 @@ func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
 		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
 	}
 
-	err := blockIndexer.RollBackwardFunc(common.Point{
+	err := blockIndexer.executeRollBackward(common.Point{
 		Slot: bp.BlockSlot,
 		Hash: bp.BlockHash[:],
 	})
@@ -674,7 +683,7 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, Hash{}, sp.BlockHash) // all zeroes
 
-	err = blockIndexer.RollBackwardFunc(common.Point{
+	err = blockIndexer.executeRollBackward(common.Point{
 		Slot: bp.BlockSlot + 10003,
 		Hash: bp.BlockHash[:],
 	})
@@ -746,6 +755,17 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 	}
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
+
+	go func() {
+		<-ctx.Done()
+
+		blockIndexer.Close()
+	}()
+
+	go blockIndexer.Start(ctx)
+
 	for i, h := range blockHeaders {
 		if i >= 2 {
 			txsRetrievedWithGetTxs, err := getTxsMock.GetBlockTransactions(blockHeaders[i-2])
@@ -812,6 +832,8 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 		}
 
 		require.NoError(t, blockIndexer.RollForwardFunc(h, getTxsMock))
+
+		time.Sleep(time.Millisecond * 200)
 
 		if i < 2 {
 			require.Equal(t, i+1, blockIndexer.unconfirmedBlocks.Len())

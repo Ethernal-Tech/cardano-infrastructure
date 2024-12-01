@@ -1,6 +1,8 @@
 package indexer
 
 import (
+	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -16,7 +18,9 @@ const (
 	AddressCheckNone    = 0               // No flags
 	AddressCheckInputs  = 1 << (iota - 1) // 1 << 0 = 0x00...0001 = 1
 	AddressCheckOutputs                   // 1 << 1 = 0x00...0010 = 2
-	AddressCheckAll     = AddressCheckInputs | AddressCheckOutputs
+	AddressCheckAll                       = AddressCheckInputs | AddressCheckOutputs
+
+	queueCapacity int = 512
 )
 
 type BlockIndexerConfig struct {
@@ -32,6 +36,19 @@ type BlockIndexerConfig struct {
 
 type NewConfirmedBlockHandler func(*CardanoBlock, []*Tx) error
 
+type queueItem struct {
+	blockHeader ledger.BlockHeader
+	point       common.Point
+}
+
+func (qi *queueItem) String() string {
+	if qi.blockHeader != nil {
+		return fmt.Sprintf("block: %d, %s", qi.blockHeader.SlotNumber(), qi.blockHeader.Hash())
+	}
+
+	return fmt.Sprintf("point: %d, %s", qi.point.Slot, hex.EncodeToString(qi.point.Hash))
+}
+
 type BlockIndexer struct {
 	config *BlockIndexerConfig
 
@@ -43,7 +60,10 @@ type BlockIndexer struct {
 
 	db BlockIndexerDB
 
-	mutex  sync.Mutex
+	mutex        sync.Mutex
+	queue        *infraCommon.SafeCircularQueue[queueItem]
+	txsRetriever BlockTxsRetriever
+
 	logger hclog.Logger
 }
 
@@ -68,14 +88,86 @@ func NewBlockIndexer(
 		unconfirmedBlocks:     infraCommon.NewCircularQueue[ledger.BlockHeader](int(config.ConfirmationBlockCount)), //nolint
 		db:                    db,
 		addressesOfInterest:   addressesOfInterest,
+		queue:                 infraCommon.NewSafeCircularQueue[queueItem](queueCapacity),
 		logger:                logger,
 	}
 }
 
-func (bi *BlockIndexer) RollBackwardFunc(point common.Point) error {
-	bi.mutex.Lock()
-	defer bi.mutex.Unlock()
+func (bi *BlockIndexer) Start(ctx context.Context) {
+	defer bi.Close()
 
+	bi.logger.Info("Starting block indexer loop")
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			if !bi.ProcessNext() {
+				return
+			}
+		}
+	}
+}
+
+func (bi *BlockIndexer) ProcessNext() bool {
+	item, active := bi.queue.Pop()
+	if !active {
+		return false
+	}
+
+	bi.mutex.Lock()
+
+	var err error
+
+	if item.blockHeader != nil {
+		err = bi.executeRollForward(item.blockHeader, bi.txsRetriever)
+	} else {
+		err = bi.executeRollBackward(item.point)
+	}
+
+	bi.mutex.Unlock()
+
+	if err != nil {
+		isFatal := errors.Is(err, errBlockSyncerFatal)
+
+		bi.logger.Error("Error while executing queue", "err", err, "fatal", isFatal, "item", item)
+
+		return !isFatal
+	}
+
+	return true
+}
+
+func (bi *BlockIndexer) Close() error {
+	bi.logger.Info("Closing block indexer loop")
+
+	bi.queue.Close()
+
+	return nil
+}
+
+func (bi *BlockIndexer) RollBackwardFunc(point common.Point) error {
+	bi.queue.Push(queueItem{
+		point: point,
+	})
+
+	return nil
+}
+
+func (bi *BlockIndexer) RollForwardFunc(blockHeader ledger.BlockHeader, txsRetriever BlockTxsRetriever) error {
+	bi.mutex.Lock()
+	bi.txsRetriever = txsRetriever
+	bi.mutex.Unlock()
+
+	bi.queue.Push(queueItem{
+		blockHeader: blockHeader,
+	})
+
+	return nil
+}
+
+func (bi *BlockIndexer) executeRollBackward(point common.Point) error {
 	pointHash := bytes2HashString(point.Hash)
 
 	// linear is ok, there will be smaller number of unconfirmed blocks in memory
@@ -107,10 +199,9 @@ func (bi *BlockIndexer) RollBackwardFunc(point common.Point) error {
 			bi.latestBlockPoint.BlockSlot, bi.latestBlockPoint.BlockHash))
 }
 
-func (bi *BlockIndexer) RollForwardFunc(blockHeader ledger.BlockHeader, txsRetriever BlockTxsRetriever) error {
-	bi.mutex.Lock()
-	defer bi.mutex.Unlock()
-
+func (bi *BlockIndexer) executeRollForward(
+	blockHeader ledger.BlockHeader, txsRetriever BlockTxsRetriever,
+) error {
 	if !bi.unconfirmedBlocks.IsFull() {
 		// If there are not enough children blocks to promote the first one to the confirmed state,
 		// a new block header is added, and the function returns
@@ -162,6 +253,7 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 
 	bi.latestBlockPoint = latestPoint
 	bi.unconfirmedBlocks.SetCount(0) // clear all unconfirmed from the memory
+	bi.queue.Clear()
 
 	return *latestPoint, nil
 }
