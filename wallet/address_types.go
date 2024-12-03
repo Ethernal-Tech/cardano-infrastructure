@@ -3,11 +3,13 @@ package wallet
 import (
 	"encoding/hex"
 	"fmt"
+
+	"github.com/Ethernal-Tech/cardano-infrastructure/wallet/bech32"
 )
 
 type CardanoAddressPayload struct {
-	Payload  [KeyHashSize]byte `cbor:"1,keyasint,omitempty"`
-	IsScript bool              `cbor:"0,keyasint,omitempty"`
+	Payload  [KeyHashSize]byte
+	IsScript bool
 }
 
 func (sc CardanoAddressPayload) String() string {
@@ -23,14 +25,16 @@ type StakePointer struct {
 type cardanoAddressParser interface {
 	GetAddressType() CardanoAddressType
 	IsValid(bytes []byte) error
-	GetPrefix(network CardanoNetworkType) string
+	ToString(bytes []byte) string
 	ToCardanoAddressInfo(bytes []byte) CardanoAddressInfo
 	FromCardanoAddressInfo(a CardanoAddressInfo) []byte
 }
 
 var addressParsers = []cardanoAddressParser{
-	&cardanoBaseAddressParser{}, &cardanoPointerAddressParser{},
-	&cardanoEnterpriseAddressParser{}, &cardanoRewardAddressParser{},
+	&cardanoBaseAddressParser{},
+	&cardanoPointerAddressParser{},
+	&cardanoEnterpriseAddressParser{},
+	&cardanoRewardAddressParser{},
 }
 
 // cardanoBaseAddressParser BaseAddress
@@ -40,11 +44,11 @@ var addressParsers = []cardanoAddressParser{
 // 0011: scripthash28,scripthash28
 type cardanoBaseAddressParser struct{}
 
-func (cap cardanoBaseAddressParser) GetAddressType() CardanoAddressType {
+func (addrParser cardanoBaseAddressParser) GetAddressType() CardanoAddressType {
 	return BaseAddress
 }
 
-func (cap cardanoBaseAddressParser) IsValid(bytes []byte) error {
+func (addrParser cardanoBaseAddressParser) IsValid(bytes []byte) error {
 	if len(bytes) < 1+KeyHashSize*2 {
 		return fmt.Errorf("%w: expect %d got %d", ErrInvalidData, 1+KeyHashSize*2, len(bytes))
 	}
@@ -52,11 +56,13 @@ func (cap cardanoBaseAddressParser) IsValid(bytes []byte) error {
 	return nil
 }
 
-func (cap cardanoBaseAddressParser) GetPrefix(network CardanoNetworkType) string {
-	return network.GetPrefix()
+func (addrParser cardanoBaseAddressParser) ToString(bytes []byte) string {
+	str, _ := bech32.EncodeFromBase256(CardanoNetworkType(bytes[0]&0x0F).GetPrefix(), bytes)
+
+	return str
 }
 
-func (cap cardanoBaseAddressParser) ToCardanoAddressInfo(bytes []byte) CardanoAddressInfo {
+func (addrParser cardanoBaseAddressParser) ToCardanoAddressInfo(bytes []byte) CardanoAddressInfo {
 	header, data := (bytes[0]&0xF0)>>4, bytes[1:]
 
 	return CardanoAddressInfo{
@@ -74,7 +80,7 @@ func (cap cardanoBaseAddressParser) ToCardanoAddressInfo(bytes []byte) CardanoAd
 	}
 }
 
-func (cap cardanoBaseAddressParser) FromCardanoAddressInfo(a CardanoAddressInfo) []byte {
+func (addrParser cardanoBaseAddressParser) FromCardanoAddressInfo(a CardanoAddressInfo) []byte {
 	bytes := make([]byte, KeyHashSize*2+1+len(a.Extra))
 	bytes[0] = (toByte(a.Payment.IsScript) << 4) | (toByte(a.Stake.IsScript) << 5) | (byte(a.Network) & 0xf)
 
@@ -90,27 +96,29 @@ func (cap cardanoBaseAddressParser) FromCardanoAddressInfo(a CardanoAddressInfo)
 // 0101: scripthash28, 3 variable length uint
 type cardanoPointerAddressParser struct{}
 
-func (cap cardanoPointerAddressParser) GetAddressType() CardanoAddressType {
+func (addrParser cardanoPointerAddressParser) GetAddressType() CardanoAddressType {
 	return PointerAddress
 }
 
-func (cap cardanoPointerAddressParser) IsValid(bytes []byte) error {
+func (addrParser cardanoPointerAddressParser) IsValid(bytes []byte) error {
 	if len(bytes) < 1+KeyHashSize+1+1+1 { // header + payment + at least one byte for all three pointer parts
 		return fmt.Errorf("%w: expect at least %d got %d", ErrInvalidData, 1+KeyHashSize+1+1+1, len(bytes))
 	}
 
-	_, err := getStakePointer(bytes[1+KeyHashSize:])
+	_, err := addrParser.getStakePointer(bytes[1+KeyHashSize:])
 
 	return err
 }
 
-func (cap cardanoPointerAddressParser) GetPrefix(network CardanoNetworkType) string {
-	return network.GetPrefix()
+func (addrParser cardanoPointerAddressParser) ToString(bytes []byte) string {
+	str, _ := bech32.EncodeFromBase256(CardanoNetworkType(bytes[0]&0x0F).GetPrefix(), bytes)
+
+	return str
 }
 
-func (cap cardanoPointerAddressParser) ToCardanoAddressInfo(bytes []byte) CardanoAddressInfo {
+func (addrParser cardanoPointerAddressParser) ToCardanoAddressInfo(bytes []byte) CardanoAddressInfo {
 	header, data := (bytes[0]&0xF0)>>4, bytes[1:]
-	pointer, _ := getStakePointer(data[KeyHashSize:])
+	pointer, _ := addrParser.getStakePointer(data[KeyHashSize:])
 
 	return CardanoAddressInfo{
 		AddressType: PointerAddress,
@@ -123,7 +131,7 @@ func (cap cardanoPointerAddressParser) ToCardanoAddressInfo(bytes []byte) Cardan
 	}
 }
 
-func (cap cardanoPointerAddressParser) FromCardanoAddressInfo(a CardanoAddressInfo) []byte {
+func (addrParser cardanoPointerAddressParser) FromCardanoAddressInfo(a CardanoAddressInfo) []byte {
 	variableEncode := func(num uint64) []byte {
 		var output []byte
 
@@ -153,97 +161,7 @@ func (cap cardanoPointerAddressParser) FromCardanoAddressInfo(a CardanoAddressIn
 	return append(append(buf, variableEncode(a.StakePointer.CertIndex)...), a.Extra...)
 }
 
-// cardanoEnterpriseAddressParser EnterpriseAddress
-// 0110: keyhash28
-// 0111: scripthash28
-type cardanoEnterpriseAddressParser struct{}
-
-func (cap cardanoEnterpriseAddressParser) GetAddressType() CardanoAddressType {
-	return EnterpriseAddress
-}
-
-func (cap cardanoEnterpriseAddressParser) IsValid(bytes []byte) error {
-	if len(bytes) != KeyHashSize+1 {
-		return fmt.Errorf("%w: expect %d got %d", ErrInvalidData, 1+KeyHashSize, len(bytes))
-	}
-
-	return nil
-}
-
-func (cap cardanoEnterpriseAddressParser) GetPrefix(network CardanoNetworkType) string {
-	return network.GetPrefix()
-}
-
-func (cap cardanoEnterpriseAddressParser) ToCardanoAddressInfo(bytes []byte) CardanoAddressInfo {
-	header, data := (bytes[0]&0xF0)>>4, bytes[1:]
-
-	return CardanoAddressInfo{
-		AddressType: EnterpriseAddress,
-		Network:     CardanoNetworkType(bytes[0] & 0x0F),
-		Payment: &CardanoAddressPayload{
-			Payload:  [KeyHashSize]byte(data[:KeyHashSize]),
-			IsScript: header&1 > 0,
-		},
-		Extra: bytes[KeyHashSize:],
-	}
-}
-
-func (cap cardanoEnterpriseAddressParser) FromCardanoAddressInfo(a CardanoAddressInfo) []byte {
-	bytes := make([]byte, KeyHashSize+1+len(a.Extra))
-	bytes[0] = 0b01100000 | (toByte(a.Payment.IsScript) << 4) | (byte(a.Network) & 0xf)
-
-	copy(bytes[1:], a.Payment.Payload[:])
-	copy(bytes[1+KeyHashSize:], a.Extra)
-
-	return bytes
-}
-
-// cardanoRewardAddressParser RewardAddress
-// 0110: keyhash28
-// 0111: scripthash28
-type cardanoRewardAddressParser struct{}
-
-func (cap cardanoRewardAddressParser) GetAddressType() CardanoAddressType {
-	return RewardAddress
-}
-
-func (cap cardanoRewardAddressParser) IsValid(bytes []byte) error {
-	if len(bytes) != KeyHashSize+1 {
-		return fmt.Errorf("%w: expect %d got %d", ErrInvalidData, 1+KeyHashSize, len(bytes))
-	}
-
-	return nil
-}
-
-func (cap cardanoRewardAddressParser) GetPrefix(network CardanoNetworkType) string {
-	return network.GetStakePrefix()
-}
-
-func (cap cardanoRewardAddressParser) ToCardanoAddressInfo(bytes []byte) CardanoAddressInfo {
-	header, data := (bytes[0]&0xF0)>>4, bytes[1:]
-
-	return CardanoAddressInfo{
-		AddressType: RewardAddress,
-		Network:     CardanoNetworkType(bytes[0] & 0x0F),
-		Payment: &CardanoAddressPayload{
-			Payload:  [KeyHashSize]byte(data[:KeyHashSize]),
-			IsScript: header&1 > 0,
-		},
-		Extra: bytes[KeyHashSize:],
-	}
-}
-
-func (cap cardanoRewardAddressParser) FromCardanoAddressInfo(a CardanoAddressInfo) []byte {
-	bytes := make([]byte, KeyHashSize+1+len(a.Extra))
-	bytes[0] = 0b1110_0000 | (toByte(a.Stake.IsScript) << 4) | (byte(a.Network) & 0xf)
-
-	copy(bytes[1:], a.Stake.Payload[:])
-	copy(bytes[1+KeyHashSize:], a.Extra)
-
-	return bytes
-}
-
-func getStakePointer(raw []byte) (*StakePointer, error) {
+func (addrParser cardanoPointerAddressParser) getStakePointer(raw []byte) (*StakePointer, error) {
 	readOne := func(raw []byte) (result uint64, bytesReadCnt int, err error) {
 		for _, rbyte := range raw {
 			result = (result << 7) | uint64(rbyte&0x7F)
@@ -281,6 +199,100 @@ func getStakePointer(raw []byte) (*StakePointer, error) {
 		TxIndex:   txIndex,
 		CertIndex: certIndex,
 	}, nil
+}
+
+// cardanoEnterpriseAddressParser EnterpriseAddress
+// 0110: keyhash28
+// 0111: scripthash28
+type cardanoEnterpriseAddressParser struct{}
+
+func (addrParser cardanoEnterpriseAddressParser) GetAddressType() CardanoAddressType {
+	return EnterpriseAddress
+}
+
+func (addrParser cardanoEnterpriseAddressParser) IsValid(bytes []byte) error {
+	if len(bytes) != KeyHashSize+1 {
+		return fmt.Errorf("%w: expect %d got %d", ErrInvalidData, 1+KeyHashSize, len(bytes))
+	}
+
+	return nil
+}
+
+func (addrParser cardanoEnterpriseAddressParser) ToString(bytes []byte) string {
+	str, _ := bech32.EncodeFromBase256(CardanoNetworkType(bytes[0]&0x0F).GetPrefix(), bytes)
+
+	return str
+}
+
+func (addrParser cardanoEnterpriseAddressParser) ToCardanoAddressInfo(bytes []byte) CardanoAddressInfo {
+	header, data := (bytes[0]&0xF0)>>4, bytes[1:]
+
+	return CardanoAddressInfo{
+		AddressType: EnterpriseAddress,
+		Network:     CardanoNetworkType(bytes[0] & 0x0F),
+		Payment: &CardanoAddressPayload{
+			Payload:  [KeyHashSize]byte(data[:KeyHashSize]),
+			IsScript: header&1 > 0,
+		},
+		Extra: bytes[KeyHashSize:],
+	}
+}
+
+func (addrParser cardanoEnterpriseAddressParser) FromCardanoAddressInfo(a CardanoAddressInfo) []byte {
+	bytes := make([]byte, KeyHashSize+1+len(a.Extra))
+	bytes[0] = 0b01100000 | (toByte(a.Payment.IsScript) << 4) | (byte(a.Network) & 0xf)
+
+	copy(bytes[1:], a.Payment.Payload[:])
+	copy(bytes[1+KeyHashSize:], a.Extra)
+
+	return bytes
+}
+
+// cardanoRewardAddressParser RewardAddress
+// 0110: keyhash28
+// 0111: scripthash28
+type cardanoRewardAddressParser struct{}
+
+func (addrParser cardanoRewardAddressParser) GetAddressType() CardanoAddressType {
+	return RewardAddress
+}
+
+func (addrParser cardanoRewardAddressParser) IsValid(bytes []byte) error {
+	if len(bytes) != KeyHashSize+1 {
+		return fmt.Errorf("%w: expect %d got %d", ErrInvalidData, 1+KeyHashSize, len(bytes))
+	}
+
+	return nil
+}
+
+func (addrParser cardanoRewardAddressParser) ToString(bytes []byte) string {
+	str, _ := bech32.EncodeFromBase256(CardanoNetworkType(bytes[0]&0x0F).GetStakePrefix(), bytes)
+
+	return str
+}
+
+func (addrParser cardanoRewardAddressParser) ToCardanoAddressInfo(bytes []byte) CardanoAddressInfo {
+	header, data := (bytes[0]&0xF0)>>4, bytes[1:]
+
+	return CardanoAddressInfo{
+		AddressType: RewardAddress,
+		Network:     CardanoNetworkType(bytes[0] & 0x0F),
+		Payment: &CardanoAddressPayload{
+			Payload:  [KeyHashSize]byte(data[:KeyHashSize]),
+			IsScript: header&1 > 0,
+		},
+		Extra: bytes[KeyHashSize:],
+	}
+}
+
+func (addrParser cardanoRewardAddressParser) FromCardanoAddressInfo(a CardanoAddressInfo) []byte {
+	bytes := make([]byte, KeyHashSize+1+len(a.Extra))
+	bytes[0] = 0b1110_0000 | (toByte(a.Stake.IsScript) << 4) | (byte(a.Network) & 0xf)
+
+	copy(bytes[1:], a.Stake.Payload[:])
+	copy(bytes[1+KeyHashSize:], a.Extra)
+
+	return bytes
 }
 
 func toByte(b bool) byte {

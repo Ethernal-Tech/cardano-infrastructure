@@ -23,6 +23,8 @@ const (
 
 func GetAddressTypeFromHeader(header byte) CardanoAddressType {
 	switch (header & 0xF0) >> 4 {
+	case 0b1000: // byron
+		return UnsupportedAddress
 	case 0b0000, 0b0001, 0b0010, 0b0011:
 		return BaseAddress
 	case 0b0100, 0b0101:
@@ -41,6 +43,7 @@ type CardanoAddress struct {
 
 	addressParser     cardanoAddressParser
 	cachedAddressInfo CardanoAddressInfo
+	cachedStr         string
 }
 
 func NewCardanoAddress(raw []byte) (*CardanoAddress, error) {
@@ -79,11 +82,9 @@ func NewAddress(raw string) (addr *CardanoAddress, err error) {
 }
 
 func (a *CardanoAddress) GetInfo() CardanoAddressInfo {
-	if a.cachedAddressInfo.AddressType != UnsupportedAddress {
-		return a.cachedAddressInfo
+	if a.cachedAddressInfo.AddressType == UnsupportedAddress {
+		a.cachedAddressInfo = a.addressParser.ToCardanoAddressInfo(a.raw)
 	}
-
-	a.cachedAddressInfo = a.addressParser.ToCardanoAddressInfo(a.raw)
 
 	return a.cachedAddressInfo
 }
@@ -92,10 +93,12 @@ func (a *CardanoAddress) GetBytes() []byte {
 	return a.raw
 }
 
-func (a CardanoAddress) String() string {
-	str, _ := bech32.EncodeFromBase256(a.addressParser.GetPrefix(CardanoNetworkType(a.raw[0]&0x0F)), a.raw)
+func (a *CardanoAddress) String() string {
+	if a.cachedStr == "" {
+		a.cachedStr = a.addressParser.ToString(a.raw)
+	}
 
-	return str
+	return a.cachedStr
 }
 
 type CardanoAddressInfo struct {
