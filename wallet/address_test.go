@@ -115,6 +115,9 @@ func TestByronAddress(t *testing.T) {
 	// currently not supported
 	addrs := []string{
 		"Ae2tdPwUPEYwFx4dmJheyNPPYXtvHbJLeCaA96o6Y2iiUL18cAt7AizN2zG",
+		"37btjrVyb4KDXBNC4haBVPCrro8AQPHwvCMp3RFhhSVWwfFmZ6wwzSK6JK1hY6wHNmtrpTf1kdbva8TCneM2YsiXT7mrzT21EacHnPpz5YyUdj64na",
+		"DdzFFzCqrhsqK88a5yyYh9uUbLPJZMYHD9P93kD5SDDJ4h4BDCmW6cr4ohHnkC7DpiLXLZ5smx6fMgU6LYNptPgcM9q28Vk8LE8LDPWi",
+		"Ae2tdPwUPEZ5Rf68DzKdSgWGVFr9N1dt1xV8zU2zVWmgxVvDrnQts8eb4i1",
 	}
 
 	for _, x := range addrs {
