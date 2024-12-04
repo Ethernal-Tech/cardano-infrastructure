@@ -305,12 +305,12 @@ func createGoUroBorosConnection(
 }
 
 func getLedgerAddress(raw string) (addr ledger.Address, err error) {
-	addrBase, err := NewAddress(raw)
+	addrBase, err := NewCardanoAddressFromString(raw)
 	if err != nil {
 		return addr, err
 	}
 
-	cborBytes, err := cbor.Marshal(addrBase.Bytes())
+	cborBytes, err := cbor.Marshal(addrBase.GetBytes())
 	if err != nil {
 		return addr, err
 	}
@@ -321,53 +321,46 @@ func getLedgerAddress(raw string) (addr ledger.Address, err error) {
 }
 
 func convertUroBorosProtocolParameters(ps localstatequery.CurrentProtocolParamsResult) ([]byte, error) {
-	switch v := ps.(type) {
+	switch gupp := ps.(type) {
 	case ledger.BabbageProtocolParameters:
-		priceMem, _ := v.ExecutionCosts.MemPrice.Float64()
-		priceSteps, _ := v.ExecutionCosts.StepPrice.Float64()
-		a0, _ := v.A0.Float64()
-		rho, _ := v.Rho.Float64()
-		tau, _ := v.Tau.Float64()
-		resultJSON := map[string]interface{}{
-			"extraPraosEntropy": nil,
-			"decentralization":  nil,
-			"protocolVersion": map[string]interface{}{
-				"major": v.ProtocolMajor,
-				"minor": v.ProtocolMinor,
-			},
-			"maxBlockHeaderSize":   v.MaxBlockHeaderSize,
-			"maxBlockBodySize":     v.MaxBlockBodySize,
-			"maxTxSize":            v.MaxTxSize,
-			"txFeeFixed":           v.MinFeeB,
-			"txFeePerByte":         v.MinFeeA,
-			"stakeAddressDeposit":  v.KeyDeposit,
-			"stakePoolDeposit":     v.PoolDeposit,
-			"minPoolCost":          v.MinPoolCost,
-			"poolRetireMaxEpoch":   v.MaxEpoch,
-			"stakePoolTargetNum":   v.NOpt,
-			"poolPledgeInfluence":  a0,
-			"monetaryExpansion":    rho,
-			"treasuryCut":          tau,
-			"collateralPercentage": v.CollateralPercentage,
-			"executionUnitPrices": map[string]interface{}{
-				"priceMemory": priceMem,
-				"priceSteps":  priceSteps,
-			},
-			"utxoCostPerByte": v.AdaPerUtxoByte,
-			"minUTxOValue":    nil, // min_utxo? this was nil with cardano-cli
-			"maxTxExecutionUnits": map[string]interface{}{
-				"memory": v.MaxTxExUnits.Mem,
-				"steps":  v.MaxTxExUnits.Steps,
-			},
-			"maxBlockExecutionUnits": map[string]interface{}{
-				"memory": v.MaxBlockExUnits.Mem,
-				"steps":  v.MaxBlockExUnits.Steps,
-			},
-			"maxCollateralInputs": v.MaxCollateralInputs,
-			"maxValueSize":        v.MaxValueSize,
+		priceMem, _ := gupp.ExecutionCosts.MemPrice.Float64()
+		priceSteps, _ := gupp.ExecutionCosts.StepPrice.Float64()
+		a0, _ := gupp.A0.Float64()
+		rho, _ := gupp.Rho.Float64()
+		tau, _ := gupp.Tau.Float64()
+
+		pp := ProtocolParameters{
+			ProtocolVersion:      NewProtocolParametersVersion(uint64(gupp.ProtocolMajor), uint64(gupp.ProtocolMinor)),
+			MaxBlockHeaderSize:   uint64(gupp.MaxBlockHeaderSize),
+			MaxBlockBodySize:     uint64(gupp.MaxBlockBodySize),
+			MaxTxSize:            uint64(gupp.MaxTxSize),
+			TxFeeFixed:           uint64(gupp.MinFeeB),
+			TxFeePerByte:         uint64(gupp.MinFeeA),
+			StakeAddressDeposit:  uint64(gupp.KeyDeposit),
+			StakePoolDeposit:     uint64(gupp.PoolDeposit),
+			MinPoolCost:          gupp.MinPoolCost,
+			PoolRetireMaxEpoch:   uint64(gupp.MaxEpoch),
+			StakePoolTargetNum:   uint64(gupp.NOpt),
+			PoolPledgeInfluence:  a0,
+			MonetaryExpansion:    rho,
+			TreasuryCut:          tau,
+			CollateralPercentage: uint64(gupp.CollateralPercentage),
+			ExecutionUnitPrices:  NewProtocolParametersPriceMemorySteps(priceMem, priceSteps),
+			UtxoCostPerByte:      gupp.AdaPerUtxoByte,
+			MaxTxExecutionUnits: NewProtocolParametersMemorySteps(
+				uint64(gupp.MaxTxExUnits.Mem), uint64(gupp.MaxTxExUnits.Steps)),
+			MaxBlockExecutionUnits: NewProtocolParametersMemorySteps(
+				uint64(gupp.MaxBlockExUnits.Mem), uint64(gupp.MaxBlockExUnits.Steps)),
+			MaxCollateralInputs: uint64(gupp.MaxCollateralInputs),
+			MaxValueSize:        uint64(gupp.MaxValueSize),
+			CostModels:          map[string][]int64{},
 		}
 
-		return json.Marshal(resultJSON)
+		for scriptIndx, values := range gupp.CostModels {
+			pp.CostModels[fmt.Sprintf("PlutusV%d", scriptIndx+1)] = values
+		}
+
+		return json.Marshal(pp)
 	default:
 		return nil, errors.New("invalid current protocol parameters")
 	}
