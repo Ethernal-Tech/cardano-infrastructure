@@ -51,7 +51,7 @@ func NewCardanoAddress(raw []byte) (*CardanoAddress, error) {
 
 	addressParser, err := getAddressParser(GetAddressTypeFromHeader(raw[0]))
 	if err != nil {
-		return nil, errors.Join(ErrUnsupportedAddress, err)
+		return nil, err
 	}
 
 	if err := addressParser.IsValid(raw); err != nil {
