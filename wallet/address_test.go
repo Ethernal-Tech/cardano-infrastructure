@@ -29,7 +29,7 @@ func TestAddressParts(t *testing.T) {
 		wallet3.VerificationKey, wallet3.StakeVerificationKey, 0)
 	require.NoError(t, err)
 
-	cWalletAddress, err := NewAddress(walletAddress)
+	cWalletAddress, err := NewCardanoAddressFromString(walletAddress)
 	require.NoError(t, err)
 
 	assert.Equal(t, wallet1KeyHash, cWalletAddress.GetInfo().Payment.String())
@@ -82,7 +82,7 @@ func TestNewAddress(t *testing.T) {
 	}
 
 	for i, a := range addresses {
-		addr, err := NewAddress(a)
+		addr, err := NewCardanoAddressFromString(a)
 		assert.NoError(t, err, "%s has error: %v", a, err)
 
 		if err == nil {
@@ -119,7 +119,7 @@ func TestByronAddress(t *testing.T) {
 	}
 
 	for _, x := range addrs {
-		_, err := NewAddress(x)
+		_, err := NewCardanoAddressFromString(x)
 
 		require.Error(t, err, ErrUnsupportedAddress)
 	}

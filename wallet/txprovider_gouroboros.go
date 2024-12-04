@@ -305,7 +305,7 @@ func createGoUroBorosConnection(
 }
 
 func getLedgerAddress(raw string) (addr ledger.Address, err error) {
-	addrBase, err := NewAddress(raw)
+	addrBase, err := NewCardanoAddressFromString(raw)
 	if err != nil {
 		return addr, err
 	}

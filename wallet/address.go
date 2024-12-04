@@ -64,7 +64,7 @@ func NewCardanoAddress(raw []byte) (*CardanoAddress, error) {
 	}, nil
 }
 
-func NewAddress(raw string) (*CardanoAddress, error) {
+func NewCardanoAddressFromString(raw string) (*CardanoAddress, error) {
 	if !IsAddressWithValidPrefix(raw) {
 		return nil, ErrUnsupportedAddress // byron not supported data = base58.Decode(raw)
 	}
