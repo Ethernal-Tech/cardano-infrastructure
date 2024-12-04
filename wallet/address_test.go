@@ -100,6 +100,26 @@ func TestNewAddress(t *testing.T) {
 			}
 
 			assert.Equal(t, a, addr.String())
+
+			newAddr, err := addr.GetInfo().ToCardanoAddress()
+			assert.NoError(t, err)
+
+			if err == nil {
+				assert.Equal(t, a, newAddr.String())
+			}
 		}
+	}
+}
+
+func TestByronAddress(t *testing.T) {
+	// currently not supported
+	addrs := []string{
+		"Ae2tdPwUPEYwFx4dmJheyNPPYXtvHbJLeCaA96o6Y2iiUL18cAt7AizN2zG",
+	}
+
+	for _, x := range addrs {
+		_, err := NewAddress(x)
+
+		require.Error(t, err, ErrUnsupportedAddress)
 	}
 }

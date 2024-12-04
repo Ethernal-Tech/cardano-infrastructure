@@ -8,7 +8,7 @@ import (
 
 var (
 	ErrUnsupportedAddress = errors.New("invalid/unsupported address type")
-	ErrInvalidData        = errors.New("invalid data")
+	ErrInvalidAddressData = errors.New("invalid address data")
 )
 
 type CardanoAddressType byte
@@ -23,8 +23,6 @@ const (
 
 func GetAddressTypeFromHeader(header byte) CardanoAddressType {
 	switch (header & 0xF0) >> 4 {
-	case 0b1000: // byron
-		return UnsupportedAddress
 	case 0b0000, 0b0001, 0b0010, 0b0011:
 		return BaseAddress
 	case 0b0100, 0b0101:
@@ -48,7 +46,7 @@ type CardanoAddress struct {
 
 func NewCardanoAddress(raw []byte) (*CardanoAddress, error) {
 	if len(raw) == 0 {
-		return nil, ErrInvalidAddressInfo
+		return nil, ErrInvalidAddressData
 	}
 
 	addressParser, err := getAddressParser(GetAddressTypeFromHeader(raw[0]))
@@ -66,19 +64,24 @@ func NewCardanoAddress(raw []byte) (*CardanoAddress, error) {
 	}, nil
 }
 
-func NewAddress(raw string) (addr *CardanoAddress, err error) {
-	var data []byte
-
+func NewAddress(raw string) (*CardanoAddress, error) {
 	if !IsAddressWithValidPrefix(raw) {
 		return nil, ErrUnsupportedAddress // byron not supported data = base58.Decode(raw)
 	}
 
-	_, data, err = bech32.DecodeToBase256(raw)
+	_, data, err := bech32.DecodeToBase256(raw)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewCardanoAddress(data)
+	addr, err := NewCardanoAddress(data)
+	if err != nil {
+		return nil, err
+	}
+
+	addr.cachedStr = raw // string representation should not be recalculated
+
+	return addr, nil
 }
 
 func (a *CardanoAddress) GetInfo() CardanoAddressInfo {

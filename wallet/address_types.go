@@ -50,7 +50,7 @@ func (addrParser cardanoBaseAddressParser) GetAddressType() CardanoAddressType {
 
 func (addrParser cardanoBaseAddressParser) IsValid(bytes []byte) error {
 	if len(bytes) < 1+KeyHashSize*2 {
-		return fmt.Errorf("%w: expect %d got %d", ErrInvalidData, 1+KeyHashSize*2, len(bytes))
+		return fmt.Errorf("%w: expect %d got %d", ErrInvalidAddressData, 1+KeyHashSize*2, len(bytes))
 	}
 
 	return nil
@@ -76,7 +76,7 @@ func (addrParser cardanoBaseAddressParser) ToCardanoAddressInfo(bytes []byte) Ca
 			Payload:  [KeyHashSize]byte(data[KeyHashSize : KeyHashSize*2]),
 			IsScript: header&2 > 0,
 		},
-		Extra: bytes[2*KeyHashSize:],
+		Extra: data[2*KeyHashSize:],
 	}
 }
 
@@ -102,7 +102,7 @@ func (addrParser cardanoPointerAddressParser) GetAddressType() CardanoAddressTyp
 
 func (addrParser cardanoPointerAddressParser) IsValid(bytes []byte) error {
 	if len(bytes) < 1+KeyHashSize+1+1+1 { // header + payment + at least one byte for all three pointer parts
-		return fmt.Errorf("%w: expect at least %d got %d", ErrInvalidData, 1+KeyHashSize+1+1+1, len(bytes))
+		return fmt.Errorf("%w: expect at least %d got %d", ErrInvalidAddressData, 1+KeyHashSize+1+1+1, len(bytes))
 	}
 
 	_, err := addrParser.getStakePointer(bytes[1+KeyHashSize:])
@@ -172,7 +172,7 @@ func (addrParser cardanoPointerAddressParser) getStakePointer(raw []byte) (*Stak
 			}
 		}
 
-		return 0, 0, ErrInvalidData
+		return 0, 0, ErrInvalidAddressData
 	}
 
 	slot, bytesReadCnt, err := readOne(raw)
@@ -191,7 +191,7 @@ func (addrParser cardanoPointerAddressParser) getStakePointer(raw []byte) (*Stak
 	}
 
 	if bytesReadCnt+bytesReadCnt2+bytesReadCnt3 != len(raw) {
-		return nil, ErrInvalidData
+		return nil, ErrInvalidAddressData
 	}
 
 	return &StakePointer{
@@ -212,7 +212,7 @@ func (addrParser cardanoEnterpriseAddressParser) GetAddressType() CardanoAddress
 
 func (addrParser cardanoEnterpriseAddressParser) IsValid(bytes []byte) error {
 	if len(bytes) != KeyHashSize+1 {
-		return fmt.Errorf("%w: expect %d got %d", ErrInvalidData, 1+KeyHashSize, len(bytes))
+		return fmt.Errorf("%w: expect %d got %d", ErrInvalidAddressData, 1+KeyHashSize, len(bytes))
 	}
 
 	return nil
@@ -234,7 +234,7 @@ func (addrParser cardanoEnterpriseAddressParser) ToCardanoAddressInfo(bytes []by
 			Payload:  [KeyHashSize]byte(data[:KeyHashSize]),
 			IsScript: header&1 > 0,
 		},
-		Extra: bytes[KeyHashSize:],
+		Extra: data[KeyHashSize:],
 	}
 }
 
@@ -259,7 +259,7 @@ func (addrParser cardanoRewardAddressParser) GetAddressType() CardanoAddressType
 
 func (addrParser cardanoRewardAddressParser) IsValid(bytes []byte) error {
 	if len(bytes) != KeyHashSize+1 {
-		return fmt.Errorf("%w: expect %d got %d", ErrInvalidData, 1+KeyHashSize, len(bytes))
+		return fmt.Errorf("%w: expect %d got %d", ErrInvalidAddressData, 1+KeyHashSize, len(bytes))
 	}
 
 	return nil
@@ -277,11 +277,11 @@ func (addrParser cardanoRewardAddressParser) ToCardanoAddressInfo(bytes []byte) 
 	return CardanoAddressInfo{
 		AddressType: RewardAddress,
 		Network:     CardanoNetworkType(bytes[0] & 0x0F),
-		Payment: &CardanoAddressPayload{
+		Stake: &CardanoAddressPayload{
 			Payload:  [KeyHashSize]byte(data[:KeyHashSize]),
 			IsScript: header&1 > 0,
 		},
-		Extra: bytes[KeyHashSize:],
+		Extra: data[KeyHashSize:],
 	}
 }
 
