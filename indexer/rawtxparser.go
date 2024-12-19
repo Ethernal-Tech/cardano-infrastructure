@@ -46,27 +46,30 @@ func ParseTxFull(rawTx []byte) (TxInfoFull, error) {
 		return TxInfoFull{}, err
 	}
 
-	var metadata []byte
+	var (
+		metadata  []byte
+		txOutputs []TxOutput
+		txInputs  []TxInput
+	)
+
 	if gtx.Metadata() != nil && gtx.Metadata().Cbor() != nil {
 		metadata = gtx.Metadata().Cbor()
 	}
 
-	outputs := gtx.Outputs()
-	outputsFull := make([]TxOutput, len(outputs))
-	inputs := gtx.Inputs()
-	inputsFull := make([]TxInput, len(inputs))
-
-	for i, out := range outputs {
-		outputsFull[i] = TxOutput{
-			Address: out.Address().String(),
-			Amount:  out.Amount(),
+	if outputs := gtx.Outputs(); len(outputs) > 0 {
+		txOutputs = make([]TxOutput, len(outputs))
+		for j, out := range outputs {
+			txOutputs[j] = createTxOutput(0, LedgerAddressToString(out.Address()), out)
 		}
 	}
 
-	for i, inp := range inputs {
-		inputsFull[i] = TxInput{
-			Hash:  Hash(inp.Id()),
-			Index: inp.Index(),
+	if inputs := gtx.Inputs(); len(inputs) > 0 {
+		txInputs = make([]TxInput, len(inputs))
+		for i, inp := range inputs {
+			txInputs[i] = TxInput{
+				Hash:  Hash(inp.Id()),
+				Index: inp.Index(),
+			}
 		}
 	}
 
@@ -78,8 +81,8 @@ func ParseTxFull(rawTx []byte) (TxInfoFull, error) {
 			Fee:      gtx.Fee(),
 			IsValid:  gtx.IsValid(),
 		},
-		Outputs: outputsFull,
-		Inputs:  inputsFull,
+		Outputs: txOutputs,
+		Inputs:  txInputs,
 	}, nil
 }
 
