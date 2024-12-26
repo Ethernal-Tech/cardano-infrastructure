@@ -72,6 +72,122 @@ func (bts *BridgingTxSender) CreateTx(
 	senderAddr string,
 	receivers []BridgingTxReceiver,
 ) ([]byte, string, error) {
+	// first try with exact sum
+	raw, hash, err := bts.createTx(ctx, srcChainID, dstChainID, bridgingType, senderAddr, receivers, false)
+	if err == nil {
+		return raw, hash, nil
+	}
+
+	return bts.createTx(ctx, srcChainID, dstChainID, bridgingType, senderAddr, receivers, true)
+}
+
+func (bts *BridgingTxSender) SendTx(
+	ctx context.Context, txRaw []byte, cardanoWallet cardanowallet.ITxSigner,
+) error {
+	builder, err := cardanowallet.NewTxBuilder(bts.cardanoCliBinary)
+	if err != nil {
+		return err
+	}
+
+	defer builder.Dispose()
+
+	txSigned, err := builder.SignTx(txRaw, []cardanowallet.ITxSigner{cardanoWallet})
+	if err != nil {
+		return err
+	}
+
+	_, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (bool, error) {
+		return true, bts.txProviderSrc.SubmitTx(ctx, txSigned)
+	})
+
+	return err
+}
+
+func (bts *BridgingTxSender) WaitForTx(
+	ctx context.Context, receivers []cardanowallet.TxOutput, tokenName string,
+) error {
+	errs := make([]error, len(receivers))
+	wg := sync.WaitGroup{}
+
+	for i, x := range receivers {
+		wg.Add(1)
+
+		go func(idx int, recv cardanowallet.TxOutput) {
+			defer wg.Done()
+
+			_, errs[idx] = infracommon.WaitForAmount(
+				ctx, new(big.Int).SetUint64(recv.Amount), func(ctx context.Context) (*big.Int, error) {
+					utxos, err := bts.txUtxoRetrieverDst.GetUtxos(ctx, recv.Addr)
+					if err != nil {
+						return nil, err
+					}
+
+					sum := cardanowallet.GetUtxosSum(utxos)
+
+					return new(big.Int).SetUint64(sum[tokenName]), nil
+				})
+		}(i, x)
+	}
+
+	wg.Wait()
+
+	return errors.Join(errs...)
+}
+
+func (bts *BridgingTxSender) createMetadata(
+	dstChainID, senderAddr string, bridgingType BridgingType,
+	srcConfig, dstConfig BridgingTxChainConfig,
+	receivers []BridgingTxReceiver, bridgingFeeAmount BridgingRequestMetadataCurrencyInfo,
+) ([]byte, error) {
+	metadataObj := BridgingRequestMetadata{
+		BridgingTxType:     bridgingMetaDataType,
+		DestinationChainID: dstChainID,
+		SenderAddr:         infracommon.SplitString(senderAddr, splitStringLength),
+		Transactions:       make([]BridgingRequestMetadataTransaction, len(receivers)),
+		FeeAmount:          bridgingFeeAmount,
+	}
+
+	for i, x := range receivers {
+		switch bridgingType {
+		case BridgingTypeNativeTokenOnSource:
+			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
+				Address:            infracommon.SplitString(x.Addr, splitStringLength),
+				Amount:             x.Amount,
+				IsNativeTokenOnSrc: true,
+				Additional: &BridgingRequestMetadataCurrencyInfo{
+					DestAmount: mul(srcConfig.MinUtxoValue, dstConfig.ExchangeRate),
+					SrcAmount:  srcConfig.MinUtxoValue,
+				},
+			}
+		case BridgingTypeCurrencyOnSource:
+			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
+				Address: infracommon.SplitString(x.Addr, splitStringLength),
+				Amount:  x.Amount,
+				Additional: &BridgingRequestMetadataCurrencyInfo{
+					DestAmount: dstConfig.MinUtxoValue,
+					SrcAmount:  mul(dstConfig.MinUtxoValue, srcConfig.ExchangeRate),
+				},
+			}
+		default:
+			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
+				Address: infracommon.SplitString(x.Addr, splitStringLength),
+				Amount:  x.Amount,
+			}
+		}
+	}
+
+	return metadataObj.Marshal()
+}
+
+func (bts *BridgingTxSender) createTx(
+	ctx context.Context,
+	srcChainID string,
+	dstChainID string,
+	bridgingType BridgingType,
+	senderAddr string,
+	receivers []BridgingTxReceiver,
+	exactSumNotAllowed bool,
+) ([]byte, string, error) {
 	srcConfig, existsSrc := bts.chainConfigMap[srcChainID]
 	dstConfig, existsDst := bts.chainConfigMap[dstChainID]
 
@@ -79,14 +195,18 @@ func (bts *BridgingTxSender) CreateTx(
 		return nil, "", fmt.Errorf("src %s or dst %s chain config not found", srcChainID, dstChainID)
 	}
 
-	qtd, err := bts.txProviderSrc.GetTip(ctx)
+	qtd, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (cardanowallet.QueryTipData, error) {
+		return bts.txProviderSrc.GetTip(ctx)
+	})
 	if err != nil {
 		return nil, "", err
 	}
 
 	protocolParams := srcConfig.ProtocolParameters
 	if protocolParams == nil {
-		protocolParams, err = bts.txProviderSrc.GetProtocolParameters(ctx)
+		protocolParams, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]byte, error) {
+			return bts.txProviderSrc.GetProtocolParameters(ctx)
+		})
 		if err != nil {
 			return nil, "", err
 		}
@@ -125,9 +245,13 @@ func (bts *BridgingTxSender) CreateTx(
 
 	if neededSumNativeToken != 0 {
 		tokenNames = append(tokenNames, srcConfig.NativeTokenFullName)
-		exactSum[cardanowallet.AdaTokenName] += srcConfig.MinUtxoValue // no change case is not allowed in this case
 		exactSum[srcConfig.NativeTokenFullName] = neededSumNativeToken
 		atLeastSum[srcConfig.NativeTokenFullName] = neededSumNativeToken
+	}
+
+	// do not retrieve exact sum for lovelace if there is a native tokens involed or exact sum is not allowed
+	if exactSumNotAllowed || neededSumNativeToken != 0 {
+		exactSum[cardanowallet.AdaTokenName] += srcConfig.MinUtxoValue
 	}
 
 	inputs, err := cardanowallet.GetUTXOsForAmount(
@@ -204,111 +328,6 @@ func (bts *BridgingTxSender) CreateTx(
 	}
 
 	return builder.Build()
-}
-
-func (bts *BridgingTxSender) SendTx(
-	ctx context.Context, txRaw []byte, cardanoWallet cardanowallet.ITxSigner,
-) error {
-	builder, err := cardanowallet.NewTxBuilder(bts.cardanoCliBinary)
-	if err != nil {
-		return err
-	}
-
-	defer builder.Dispose()
-
-	txSigned, err := builder.SignTx(txRaw, []cardanowallet.ITxSigner{cardanoWallet})
-	if err != nil {
-		return err
-	}
-
-	_, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (bool, error) {
-		return true, bts.txProviderSrc.SubmitTx(ctx, txSigned)
-	})
-
-	return err
-}
-
-func (bts *BridgingTxSender) WaitForTx(
-	ctx context.Context, receivers []cardanowallet.TxOutput, tokenName string,
-) error {
-	return WaitForTx(ctx, bts.txUtxoRetrieverDst, receivers, tokenName)
-}
-
-func (bts *BridgingTxSender) createMetadata(
-	dstChainID, senderAddr string, bridgingType BridgingType,
-	srcConfig, dstConfig BridgingTxChainConfig,
-	receivers []BridgingTxReceiver, bridgingFeeAmount BridgingRequestMetadataCurrencyInfo,
-) ([]byte, error) {
-	metadataObj := BridgingRequestMetadata{
-		BridgingTxType:     bridgingMetaDataType,
-		DestinationChainID: dstChainID,
-		SenderAddr:         infracommon.SplitString(senderAddr, splitStringLength),
-		Transactions:       make([]BridgingRequestMetadataTransaction, len(receivers)),
-		FeeAmount:          bridgingFeeAmount,
-	}
-
-	for i, x := range receivers {
-		switch bridgingType {
-		case BridgingTypeNativeTokenOnSource:
-			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
-				Address:            infracommon.SplitString(x.Addr, splitStringLength),
-				Amount:             x.Amount,
-				IsNativeTokenOnSrc: true,
-				Additional: &BridgingRequestMetadataCurrencyInfo{
-					DestAmount: mul(srcConfig.MinUtxoValue, dstConfig.ExchangeRate),
-					SrcAmount:  srcConfig.MinUtxoValue,
-				},
-			}
-		case BridgingTypeCurrencyOnSource:
-			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
-				Address: infracommon.SplitString(x.Addr, splitStringLength),
-				Amount:  x.Amount,
-				Additional: &BridgingRequestMetadataCurrencyInfo{
-					DestAmount: dstConfig.MinUtxoValue,
-					SrcAmount:  mul(dstConfig.MinUtxoValue, srcConfig.ExchangeRate),
-				},
-			}
-		default:
-			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
-				Address: infracommon.SplitString(x.Addr, splitStringLength),
-				Amount:  x.Amount,
-			}
-		}
-	}
-
-	return metadataObj.Marshal()
-}
-
-func WaitForTx(
-	ctx context.Context, txUtxoRetriever cardanowallet.IUTxORetriever,
-	receivers []cardanowallet.TxOutput, tokenName string,
-) error {
-	errs := make([]error, len(receivers))
-	wg := sync.WaitGroup{}
-
-	for i, x := range receivers {
-		wg.Add(1)
-
-		go func(idx int, recv cardanowallet.TxOutput) {
-			defer wg.Done()
-
-			_, errs[idx] = infracommon.WaitForAmount(
-				ctx, new(big.Int).SetUint64(recv.Amount), func(ctx context.Context) (*big.Int, error) {
-					utxos, err := txUtxoRetriever.GetUtxos(ctx, recv.Addr)
-					if err != nil {
-						return nil, err
-					}
-
-					sum := cardanowallet.GetUtxosSum(utxos)
-
-					return new(big.Int).SetUint64(sum[tokenName]), nil
-				})
-		}(i, x)
-	}
-
-	wg.Wait()
-
-	return errors.Join(errs...)
 }
 
 func getNeededAmounts(
