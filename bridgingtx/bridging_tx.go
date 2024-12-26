@@ -45,6 +45,7 @@ type BridgingTxSender struct {
 	txUtxoRetrieverDst cardanowallet.IUTxORetriever
 	chainConfigMap     map[string]BridgingTxChainConfig
 	bridgingFeeAmount  uint64
+	maxInputsPerTx     int
 }
 
 func NewBridgingTxSender(
@@ -52,6 +53,7 @@ func NewBridgingTxSender(
 	txProviderSrc cardanowallet.ITxProvider,
 	txUtxoRetrieverDst cardanowallet.IUTxORetriever,
 	bridgingFeeAmount uint64,
+	maxInputsPerTx int,
 	chainConfigMap map[string]BridgingTxChainConfig,
 ) *BridgingTxSender {
 	return &BridgingTxSender{
@@ -59,6 +61,7 @@ func NewBridgingTxSender(
 		txProviderSrc:      txProviderSrc,
 		txUtxoRetrieverDst: txUtxoRetrieverDst,
 		bridgingFeeAmount:  bridgingFeeAmount,
+		maxInputsPerTx:     maxInputsPerTx,
 		chainConfigMap:     chainConfigMap,
 	}
 }
@@ -195,21 +198,9 @@ func (bts *BridgingTxSender) createTx(
 		return nil, "", fmt.Errorf("src %s or dst %s chain config not found", srcChainID, dstChainID)
 	}
 
-	qtd, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (cardanowallet.QueryTipData, error) {
-		return bts.txProviderSrc.GetTip(ctx)
-	})
+	queryTip, protocolParams, utxos, err := bts.GetDynamicParameters(ctx, srcConfig, senderAddr)
 	if err != nil {
 		return nil, "", err
-	}
-
-	protocolParams := srcConfig.ProtocolParameters
-	if protocolParams == nil {
-		protocolParams, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]byte, error) {
-			return bts.txProviderSrc.GetProtocolParameters(ctx)
-		})
-		if err != nil {
-			return nil, "", err
-		}
 	}
 
 	neededSumCurrencyLovelace, neededSumNativeToken, feeOnSrcCurrencyLovelace := getNeededAmounts(
@@ -224,38 +215,31 @@ func (bts *BridgingTxSender) createTx(
 		return nil, "", err
 	}
 
-	potentialFee := srcConfig.PotentialFee
-	if potentialFee == 0 {
-		potentialFee = defaultPotentialFee
-	}
+	potentialFee := setOrDefault(srcConfig.PotentialFee, defaultPotentialFee)
+	ttlSlotNumberInc := setOrDefault(srcConfig.TTLSlotNumberInc, defaultTTLSlotNumberInc)
 
-	ttlSlotNumberInc := srcConfig.TTLSlotNumberInc
-	if ttlSlotNumberInc == 0 {
-		ttlSlotNumberInc = defaultTTLSlotNumberInc
+	lovelaceExactSumModificator := uint64(0)
+	// do not satisfy exact sum for lovelace if there is a native tokens involed or exact sum is not allowed
+	if exactSumNotAllowed || neededSumNativeToken != 0 {
+		lovelaceExactSumModificator = srcConfig.MinUtxoValue
 	}
 
 	outputNativeTokens := []cardanowallet.TokenAmount(nil)
-	tokenNames := []string{cardanowallet.AdaTokenName}
-	exactSum := map[string]uint64{
-		cardanowallet.AdaTokenName: neededSumCurrencyLovelace + potentialFee,
-	}
-	atLeastSum := map[string]uint64{
-		cardanowallet.AdaTokenName: neededSumCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
+	conditions := map[string]AmountCondition{
+		cardanowallet.AdaTokenName: {
+			Exact:   neededSumCurrencyLovelace + potentialFee + lovelaceExactSumModificator,
+			AtLeast: neededSumCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
+		},
 	}
 
 	if neededSumNativeToken != 0 {
-		tokenNames = append(tokenNames, srcConfig.NativeTokenFullName)
-		exactSum[srcConfig.NativeTokenFullName] = neededSumNativeToken
-		atLeastSum[srcConfig.NativeTokenFullName] = neededSumNativeToken
+		conditions[srcConfig.NativeTokenFullName] = AmountCondition{
+			Exact:   neededSumNativeToken,
+			AtLeast: neededSumNativeToken,
+		}
 	}
 
-	// do not retrieve exact sum for lovelace if there is a native tokens involed or exact sum is not allowed
-	if exactSumNotAllowed || neededSumNativeToken != 0 {
-		exactSum[cardanowallet.AdaTokenName] += srcConfig.MinUtxoValue
-	}
-
-	inputs, err := cardanowallet.GetUTXOsForAmount(
-		ctx, bts.txProviderSrc, senderAddr, tokenNames, exactSum, atLeastSum)
+	inputs, err := GetUTXOsForAmounts(utxos, conditions, bts.maxInputsPerTx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -301,7 +285,7 @@ func (bts *BridgingTxSender) createTx(
 
 	builder.SetMetaData(metadata).
 		SetProtocolParameters(protocolParams).
-		SetTimeToLive(qtd.Slot + ttlSlotNumberInc).
+		SetTimeToLive(queryTip.Slot + ttlSlotNumberInc).
 		SetTestNetMagic(srcConfig.TestNetMagic).
 		AddInputs(inputs.Inputs...).
 		AddOutputs(outputs...)
@@ -328,6 +312,33 @@ func (bts *BridgingTxSender) createTx(
 	}
 
 	return builder.Build()
+}
+
+func (bts BridgingTxSender) GetDynamicParameters(
+	ctx context.Context, srcConfig BridgingTxChainConfig, addr string,
+) (qtd cardanowallet.QueryTipData, protocolParams []byte, utxos []cardanowallet.Utxo, err error) {
+	protocolParams = srcConfig.ProtocolParameters
+	if protocolParams == nil {
+		protocolParams, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]byte, error) {
+			return bts.txProviderSrc.GetProtocolParameters(ctx)
+		})
+	}
+	if err != nil {
+		return
+	}
+
+	qtd, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (cardanowallet.QueryTipData, error) {
+		return bts.txProviderSrc.GetTip(ctx)
+	})
+	if err != nil {
+		return
+	}
+
+	utxos, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]cardanowallet.Utxo, error) {
+		return bts.txProviderSrc.GetUtxos(ctx, addr)
+	})
+
+	return qtd, protocolParams, utxos, err
 }
 
 func getNeededAmounts(
@@ -363,4 +374,12 @@ func getNativeToken(fullName string, amount uint64) (cardanowallet.TokenAmount, 
 	}
 
 	return cardanowallet.NewTokenAmountWithFullName(fullName, amount, false)
+}
+
+func setOrDefault(val, def uint64) uint64 {
+	if val == 0 {
+		return def
+	}
+
+	return val
 }
