@@ -35,7 +35,7 @@ func GetUTXOsForAmounts(
 	currentSum := map[string]uint64{}
 	choosenCount := 0
 
-	for _, utxo := range utxos {
+	for indxUtxo, utxo := range utxos {
 		utxos[choosenCount] = utxo
 		choosenCount++
 		currentSum[cardanowallet.AdaTokenName] += utxo.Amount
@@ -56,7 +56,8 @@ func GetUTXOsForAmounts(
 			minChosenUTXO, minChosenUTXOIdx := findMinUtxo(utxos[:choosenCount], currentSum, conditions)
 
 			choosenCount--
-			utxos[minChosenUTXOIdx] = utxo
+			utxos[minChosenUTXOIdx], utxos[indxUtxo] = utxos[indxUtxo], utxos[minChosenUTXOIdx]
+
 			currentSum[cardanowallet.AdaTokenName] -= minChosenUTXO.Amount
 
 			for _, token := range minChosenUTXO.Tokens {
@@ -66,7 +67,7 @@ func GetUTXOsForAmounts(
 	}
 
 	return cardanowallet.TxInputs{}, fmt.Errorf(
-		"not enough funds for the transaction: (available, conditions) = (%s, %s)",
+		"not enough funds for the transaction: available = %s; conditions = %s",
 		mapStrUInt64ToStr(currentSum), condMapToStr(conditions))
 }
 
@@ -85,39 +86,53 @@ func utxosToTxInputs(utxos []cardanowallet.Utxo) []cardanowallet.TxInput {
 func findMinUtxo(
 	utxos []cardanowallet.Utxo, currentSum map[string]uint64, conditions map[string]AmountCondition,
 ) (cardanowallet.Utxo, int) {
-	replaceTokenName := ""
+	replaceTokenName := cardanowallet.AdaTokenName
 	biggestDiff := uint64(0)
 	// take the token with the biggest difference as the one to replace
 	for tokenName, amount := range conditions {
-		if diff := amount.AtLeast - currentSum[tokenName]; diff > biggestDiff {
-			diff = biggestDiff
+		sum := currentSum[tokenName]
+		if amount.AtLeast > sum && amount.AtLeast-sum > biggestDiff {
+			biggestDiff = amount.AtLeast - sum
 			replaceTokenName = tokenName
 		}
 	}
 
-	min := utxos[0]
+	getTokensAmount := func(utxo cardanowallet.Utxo, tokenName string) uint64 {
+		for _, token := range utxo.Tokens {
+			if token.TokenName() == tokenName {
+				return token.Amount
+			}
+		}
+
+		return 0
+	}
+
 	idx := 0
+	minUtxo := utxos[0]
 
 	// two lops, one for ada and one for tokens
 	if replaceTokenName == cardanowallet.AdaTokenName {
 		for i, utxo := range utxos[1:] {
-			if utxo.Amount < min.Amount {
-				min = utxo
+			if utxo.Amount < minUtxo.Amount {
+				minUtxo = utxo
 				idx = i + 1
 			}
 		}
 	} else {
+		minCmpAmount := getTokensAmount(minUtxo, replaceTokenName)
+
 		for i, utxo := range utxos[1:] {
-			for _, token := range utxo.Tokens {
-				if token.TokenName() == replaceTokenName && token.Amount < min.Amount {
-					min = utxo
-					idx = i + 1
-				}
+			amountTokens := getTokensAmount(utxo, replaceTokenName)
+			if amountTokens < minCmpAmount || amountTokens == minCmpAmount && utxo.Amount < minUtxo.Amount {
+				minCmpAmount = amountTokens
+				minUtxo = utxo
+				idx = i + 1
 			}
 		}
+
 	}
 
-	return min, idx
+	return minUtxo, idx
 }
 
 func isSumSatisfiesCondition(

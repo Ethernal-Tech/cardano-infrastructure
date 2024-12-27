@@ -322,9 +322,9 @@ func (bts BridgingTxSender) GetDynamicParameters(
 		protocolParams, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]byte, error) {
 			return bts.txProviderSrc.GetProtocolParameters(ctx)
 		})
-	}
-	if err != nil {
-		return
+		if err != nil {
+			return
+		}
 	}
 
 	qtd, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (cardanowallet.QueryTipData, error) {
