@@ -36,6 +36,7 @@ func GetUTXOsForAmounts(
 	choosenCount := 0
 
 	for _, utxo := range utxos {
+		utxos[choosenCount] = utxo
 		choosenCount++
 		currentSum[cardanowallet.AdaTokenName] += utxo.Amount
 
