@@ -66,8 +66,8 @@ func NewBridgingTxSender(
 	}
 }
 
-// CreateTx creates tx and returns cbor of raw transaction data, tx hash and error
-func (bts *BridgingTxSender) CreateTx(
+// CreateBridgingTx creates bridging tx and returns cbor of raw transaction data, tx hash and error
+func (bts *BridgingTxSender) CreateBridgingTx(
 	ctx context.Context,
 	srcChainID string,
 	dstChainID string,
@@ -75,13 +75,62 @@ func (bts *BridgingTxSender) CreateTx(
 	senderAddr string,
 	receivers []BridgingTxReceiver,
 ) ([]byte, string, error) {
+	srcConfig, existsSrc := bts.chainConfigMap[srcChainID]
+	dstConfig, existsDst := bts.chainConfigMap[dstChainID]
+
+	if !existsSrc || !existsDst {
+		return nil, "", fmt.Errorf("src %s or dst %s chain config not found", srcChainID, dstChainID)
+	}
+
+	outputCurrencyLovelace, outputNativeToken, feeOnSrcCurrencyLovelace := getOutputAmounts(
+		bridgingType, srcConfig, dstConfig, bts.bridgingFeeAmount, receivers)
+
+	metadata, err := bts.createMetadata(
+		dstChainID, senderAddr, bridgingType, srcConfig, dstConfig, receivers, BridgingRequestMetadataCurrencyInfo{
+			SrcAmount:  feeOnSrcCurrencyLovelace,
+			DestAmount: bts.bridgingFeeAmount,
+		})
+	if err != nil {
+		return nil, "", err
+	}
+
 	// first try with exact sum
-	raw, hash, err := bts.createTx(ctx, srcChainID, dstChainID, bridgingType, senderAddr, receivers, false)
+	raw, hash, err := bts.createTx(
+		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadata, outputCurrencyLovelace, outputNativeToken, false)
 	if err == nil {
 		return raw, hash, nil
 	}
 
-	return bts.createTx(ctx, srcChainID, dstChainID, bridgingType, senderAddr, receivers, true)
+	// then without
+	return bts.createTx(
+		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadata, outputCurrencyLovelace, outputNativeToken, true)
+}
+
+// CreateTxGeneric creates generic tx to one recipient and returns cbor of raw transaction data, tx hash and error
+func (bts *BridgingTxSender) CreateTxGeneric(
+	ctx context.Context,
+	srcChainID string,
+	senderAddr string,
+	receiverAddr string,
+	metadata []byte,
+	outputCurrencyLovelace uint64,
+	outputNativeToken uint64,
+) ([]byte, string, error) {
+	srcConfig, existsSrc := bts.chainConfigMap[srcChainID]
+	if !existsSrc {
+		return nil, "", fmt.Errorf("src %s chain config not found", srcChainID)
+	}
+
+	// first try with exact sum
+	raw, hash, err := bts.createTx(
+		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadata, outputCurrencyLovelace, outputNativeToken, false)
+	if err == nil {
+		return raw, hash, nil
+	}
+
+	// then without
+	return bts.createTx(
+		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadata, outputCurrencyLovelace, outputNativeToken, true)
 }
 
 func (bts *BridgingTxSender) SendTx(
@@ -184,33 +233,15 @@ func (bts *BridgingTxSender) createMetadata(
 
 func (bts *BridgingTxSender) createTx(
 	ctx context.Context,
-	srcChainID string,
-	dstChainID string,
-	bridgingType BridgingType,
+	srcConfig BridgingTxChainConfig,
 	senderAddr string,
-	receivers []BridgingTxReceiver,
+	receiverAddr string,
+	metadata []byte,
+	outputCurrencyLovelace uint64,
+	outputNativeToken uint64,
 	exactSumNotAllowed bool,
 ) ([]byte, string, error) {
-	srcConfig, existsSrc := bts.chainConfigMap[srcChainID]
-	dstConfig, existsDst := bts.chainConfigMap[dstChainID]
-
-	if !existsSrc || !existsDst {
-		return nil, "", fmt.Errorf("src %s or dst %s chain config not found", srcChainID, dstChainID)
-	}
-
 	queryTip, protocolParams, utxos, err := bts.GetDynamicParameters(ctx, srcConfig, senderAddr)
-	if err != nil {
-		return nil, "", err
-	}
-
-	neededSumCurrencyLovelace, neededSumNativeToken, feeOnSrcCurrencyLovelace := getNeededAmounts(
-		bridgingType, srcConfig, dstConfig, bts.bridgingFeeAmount, receivers)
-
-	metadata, err := bts.createMetadata(
-		dstChainID, senderAddr, bridgingType, srcConfig, dstConfig, receivers, BridgingRequestMetadataCurrencyInfo{
-			SrcAmount:  feeOnSrcCurrencyLovelace,
-			DestAmount: bts.bridgingFeeAmount,
-		})
 	if err != nil {
 		return nil, "", err
 	}
@@ -220,22 +251,22 @@ func (bts *BridgingTxSender) createTx(
 
 	lovelaceExactSumModificator := uint64(0)
 	// do not satisfy exact sum for lovelace if there is a native tokens involed or exact sum is not allowed
-	if exactSumNotAllowed || neededSumNativeToken != 0 {
+	if exactSumNotAllowed || outputNativeToken != 0 {
 		lovelaceExactSumModificator = srcConfig.MinUtxoValue
 	}
 
 	outputNativeTokens := []cardanowallet.TokenAmount(nil)
 	conditions := map[string]AmountCondition{
 		cardanowallet.AdaTokenName: {
-			Exact:   neededSumCurrencyLovelace + potentialFee + lovelaceExactSumModificator,
-			AtLeast: neededSumCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
+			Exact:   outputCurrencyLovelace + potentialFee + lovelaceExactSumModificator,
+			AtLeast: outputCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
 		},
 	}
 
-	if neededSumNativeToken != 0 {
+	if outputNativeToken != 0 {
 		conditions[srcConfig.NativeTokenFullName] = AmountCondition{
-			Exact:   neededSumNativeToken,
-			AtLeast: neededSumNativeToken,
+			Exact:   outputNativeToken,
+			AtLeast: outputNativeToken,
 		}
 	}
 
@@ -244,8 +275,8 @@ func (bts *BridgingTxSender) createTx(
 		return nil, "", err
 	}
 
-	if neededSumNativeToken != 0 {
-		nativeToken, err := getNativeToken(srcConfig.NativeTokenFullName, neededSumNativeToken)
+	if outputNativeToken != 0 {
+		nativeToken, err := getNativeToken(srcConfig.NativeTokenFullName, outputNativeToken)
 		if err != nil {
 			return nil, "", err
 		}
@@ -266,8 +297,8 @@ func (bts *BridgingTxSender) createTx(
 
 	outputs := []cardanowallet.TxOutput{
 		{
-			Addr:   srcConfig.MultiSigAddr,
-			Amount: neededSumCurrencyLovelace,
+			Addr:   receiverAddr,
+			Amount: outputCurrencyLovelace,
 			Tokens: outputNativeTokens,
 		},
 		{
@@ -290,7 +321,7 @@ func (bts *BridgingTxSender) createTx(
 		AddInputs(inputs.Inputs...).
 		AddOutputs(outputs...)
 
-	feeCurrencyLovelace, err := builder.CalculateFee(0)
+	feeCurrencyLovelace, err := builder.CalculateFee(1)
 	if err != nil {
 		return nil, "", err
 	}
@@ -298,11 +329,11 @@ func (bts *BridgingTxSender) createTx(
 	builder.SetFee(feeCurrencyLovelace)
 
 	inputsSumCurrencyLovelace := inputs.Sum[cardanowallet.AdaTokenName]
-	change := inputsSumCurrencyLovelace - neededSumCurrencyLovelace - feeCurrencyLovelace
+	change := inputsSumCurrencyLovelace - outputCurrencyLovelace - feeCurrencyLovelace
 	// handle overflow or insufficient amount
 	if change != 0 && (change > inputsSumCurrencyLovelace || change < srcConfig.MinUtxoValue) {
 		return []byte{}, "", fmt.Errorf("insufficient amount %d for %d or min utxo not satisfied",
-			inputsSumCurrencyLovelace, neededSumCurrencyLovelace+feeCurrencyLovelace)
+			inputsSumCurrencyLovelace, outputCurrencyLovelace+feeCurrencyLovelace)
 	}
 
 	if change != 0 {
@@ -341,27 +372,27 @@ func (bts BridgingTxSender) GetDynamicParameters(
 	return qtd, protocolParams, utxos, err
 }
 
-func getNeededAmounts(
+func getOutputAmounts(
 	bridgingType BridgingType, srcConfig, dstConfig BridgingTxChainConfig,
 	bridgingFeeAmount uint64, receivers []BridgingTxReceiver,
-) (neededSumCurrencyLovelace uint64, neededSumNativeToken uint64, feeOnSrcCurrencyLovelace uint64) {
+) (outputCurrencyLovelace uint64, outputNativeToken uint64, feeOnSrcCurrencyLovelace uint64) {
 	feeOnSrcCurrencyLovelace = mul(bridgingFeeAmount, srcConfig.ExchangeRate) // fee is always paid in lovelace
-	neededSumCurrencyLovelace = feeOnSrcCurrencyLovelace
+	outputCurrencyLovelace = feeOnSrcCurrencyLovelace
 
 	for _, x := range receivers {
 		switch bridgingType {
 		case BridgingTypeNativeTokenOnSource:
-			neededSumNativeToken += x.Amount
-			neededSumCurrencyLovelace += srcConfig.MinUtxoValue // NOTE: is this good -> shell we count only once for multisig?
+			outputNativeToken += x.Amount
+			outputCurrencyLovelace += srcConfig.MinUtxoValue // NOTE: is this good -> shell we count only once for multisig?
 		case BridgingTypeCurrencyOnSource:
-			neededSumNativeToken += mul(dstConfig.MinUtxoValue, srcConfig.ExchangeRate)
-			neededSumCurrencyLovelace += x.Amount
+			outputNativeToken += mul(dstConfig.MinUtxoValue, srcConfig.ExchangeRate)
+			outputCurrencyLovelace += x.Amount
 		default:
-			neededSumCurrencyLovelace += x.Amount
+			outputCurrencyLovelace += x.Amount
 		}
 	}
 
-	return
+	return outputCurrencyLovelace, outputNativeToken, feeOnSrcCurrencyLovelace
 }
 
 func mul(a uint64, b float64) uint64 {

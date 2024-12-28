@@ -97,16 +97,6 @@ func findMinUtxo(
 		}
 	}
 
-	getTokensAmount := func(utxo cardanowallet.Utxo, tokenName string) uint64 {
-		for _, token := range utxo.Tokens {
-			if token.TokenName() == tokenName {
-				return token.Amount
-			}
-		}
-
-		return 0
-	}
-
 	idx := 0
 	minUtxo := utxos[0]
 
@@ -118,18 +108,28 @@ func findMinUtxo(
 				idx = i + 1
 			}
 		}
-	} else {
-		minCmpAmount := getTokensAmount(minUtxo, replaceTokenName)
 
-		for i, utxo := range utxos[1:] {
-			amountTokens := getTokensAmount(utxo, replaceTokenName)
-			if amountTokens < minCmpAmount || amountTokens == minCmpAmount && utxo.Amount < minUtxo.Amount {
-				minCmpAmount = amountTokens
-				minUtxo = utxo
-				idx = i + 1
+		return minUtxo, idx
+	}
+
+	getTokensAmount := func(utxo cardanowallet.Utxo, tokenName string) uint64 {
+		for _, token := range utxo.Tokens {
+			if token.TokenName() == tokenName {
+				return token.Amount
 			}
 		}
 
+		return 0
+	}
+	minCmpAmount := getTokensAmount(minUtxo, replaceTokenName)
+
+	for i, utxo := range utxos[1:] {
+		amountTokens := getTokensAmount(utxo, replaceTokenName)
+		if amountTokens < minCmpAmount || amountTokens == minCmpAmount && utxo.Amount < minUtxo.Amount {
+			minCmpAmount = amountTokens
+			minUtxo = utxo
+			idx = i + 1
+		}
 	}
 
 	return minUtxo, idx
