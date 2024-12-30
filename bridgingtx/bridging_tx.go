@@ -46,6 +46,7 @@ type BridgingTxSender struct {
 	chainConfigMap     map[string]BridgingTxChainConfig
 	bridgingFeeAmount  uint64
 	maxInputsPerTx     int
+	retryOptions       []infracommon.RetryConfigOption
 }
 
 func NewBridgingTxSender(
@@ -55,6 +56,7 @@ func NewBridgingTxSender(
 	bridgingFeeAmount uint64,
 	maxInputsPerTx int,
 	chainConfigMap map[string]BridgingTxChainConfig,
+	retryOptions []infracommon.RetryConfigOption,
 ) *BridgingTxSender {
 	return &BridgingTxSender{
 		cardanoCliBinary:   cardanoCliBinary,
@@ -63,6 +65,7 @@ func NewBridgingTxSender(
 		bridgingFeeAmount:  bridgingFeeAmount,
 		maxInputsPerTx:     maxInputsPerTx,
 		chainConfigMap:     chainConfigMap,
+		retryOptions:       retryOptions,
 	}
 }
 
@@ -133,7 +136,7 @@ func (bts *BridgingTxSender) CreateTxGeneric(
 		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadata, outputCurrencyLovelace, outputNativeToken, true)
 }
 
-func (bts *BridgingTxSender) SendTx(
+func (bts *BridgingTxSender) SubmitTx(
 	ctx context.Context, txRaw []byte, cardanoWallet cardanowallet.ITxSigner,
 ) error {
 	builder, err := cardanowallet.NewTxBuilder(bts.cardanoCliBinary)
@@ -150,7 +153,7 @@ func (bts *BridgingTxSender) SendTx(
 
 	_, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (bool, error) {
 		return true, bts.txProviderSrc.SubmitTx(ctx, txSigned)
-	})
+	}, bts.retryOptions...)
 
 	return err
 }
@@ -241,7 +244,7 @@ func (bts *BridgingTxSender) createTx(
 	outputNativeToken uint64,
 	exactSumNotAllowed bool,
 ) ([]byte, string, error) {
-	queryTip, protocolParams, utxos, err := bts.GetDynamicParameters(ctx, srcConfig, senderAddr)
+	queryTip, protocolParams, utxos, err := bts.getDynamicParameters(ctx, srcConfig, senderAddr)
 	if err != nil {
 		return nil, "", err
 	}
@@ -345,14 +348,14 @@ func (bts *BridgingTxSender) createTx(
 	return builder.Build()
 }
 
-func (bts BridgingTxSender) GetDynamicParameters(
+func (bts BridgingTxSender) getDynamicParameters(
 	ctx context.Context, srcConfig BridgingTxChainConfig, addr string,
 ) (qtd cardanowallet.QueryTipData, protocolParams []byte, utxos []cardanowallet.Utxo, err error) {
 	protocolParams = srcConfig.ProtocolParameters
 	if protocolParams == nil {
 		protocolParams, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]byte, error) {
 			return bts.txProviderSrc.GetProtocolParameters(ctx)
-		})
+		}, bts.retryOptions...)
 		if err != nil {
 			return
 		}
@@ -360,14 +363,14 @@ func (bts BridgingTxSender) GetDynamicParameters(
 
 	qtd, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (cardanowallet.QueryTipData, error) {
 		return bts.txProviderSrc.GetTip(ctx)
-	})
+	}, bts.retryOptions...)
 	if err != nil {
 		return
 	}
 
 	utxos, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]cardanowallet.Utxo, error) {
 		return bts.txProviderSrc.GetUtxos(ctx, addr)
-	})
+	}, bts.retryOptions...)
 
 	return qtd, protocolParams, utxos, err
 }
