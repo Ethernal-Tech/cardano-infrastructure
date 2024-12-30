@@ -24,6 +24,7 @@ const (
 )
 
 type BridgingTxChainConfig struct {
+	CardanoCliBinary    string
 	TxProvider          cardanowallet.ITxProvider
 	MultiSigAddr        string
 	TestNetMagic        uint
@@ -41,7 +42,6 @@ type BridgingTxReceiver struct {
 }
 
 type BridgingTxSender struct {
-	cardanoCliBinary  string
 	chainConfigMap    map[string]BridgingTxChainConfig
 	bridgingFeeAmount uint64
 	maxInputsPerTx    int
@@ -49,14 +49,12 @@ type BridgingTxSender struct {
 }
 
 func NewBridgingTxSender(
-	cardanoCliBinary string,
 	bridgingFeeAmount uint64,
 	maxInputsPerTx int,
 	chainConfigMap map[string]BridgingTxChainConfig,
 	retryOptions ...infracommon.RetryConfigOption,
 ) *BridgingTxSender {
 	return &BridgingTxSender{
-		cardanoCliBinary:  cardanoCliBinary,
 		bridgingFeeAmount: bridgingFeeAmount,
 		maxInputsPerTx:    maxInputsPerTx,
 		chainConfigMap:    chainConfigMap,
@@ -129,7 +127,7 @@ func (bts *BridgingTxSender) SubmitTx(
 		return fmt.Errorf("%s chain config not found", chainID)
 	}
 
-	builder, err := cardanowallet.NewTxBuilder(bts.cardanoCliBinary)
+	builder, err := cardanowallet.NewTxBuilder(chainConfig.CardanoCliBinary)
 	if err != nil {
 		return err
 	}
@@ -319,7 +317,7 @@ func (bts *BridgingTxSender) createTx(
 		},
 	}
 
-	builder, err := cardanowallet.NewTxBuilder(bts.cardanoCliBinary)
+	builder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
 	if err != nil {
 		return nil, "", err
 	}
