@@ -23,12 +23,8 @@ const (
 	splitStringLength       = 40
 )
 
-type ExchangeRateConfig struct {
-	RateOnDst         float64
-	MinUtxoValueOnDst uint64
-}
-
 type BridgingTxChainConfig struct {
+	ChainID             string
 	TxProvider          cardanowallet.ITxProvider
 	MultiSigAddr        string
 	TestNetMagic        uint
@@ -36,7 +32,7 @@ type BridgingTxChainConfig struct {
 	PotentialFee        uint64
 	MinUtxoValue        uint64
 	NativeTokenFullName string
-	ExchangeRate        map[string]ExchangeRateConfig
+	ExchangeRate        map[string]float64
 	ProtocolParameters  []byte
 }
 
@@ -80,14 +76,19 @@ func (bts *BridgingTxSender) CreateBridgingTx(
 ) ([]byte, string, error) {
 	srcConfig, existsSrc := bts.chainConfigMap[srcChainID]
 	if !existsSrc {
-		return nil, "", fmt.Errorf("chain %s config not found", srcChainID)
+		return nil, "", fmt.Errorf("source chain %s config not found", srcChainID)
+	}
+
+	dstConfig, existsSrc := bts.chainConfigMap[dstChainID]
+	if !existsSrc {
+		return nil, "", fmt.Errorf("destination chain %s config not found", dstChainID)
 	}
 
 	outputCurrencyLovelace, outputNativeToken, feeOnSrcCurrencyLovelace := bts.getOutputAmounts(
-		srcConfig, dstChainID, bridgingType, receivers)
+		srcConfig, dstConfig, bridgingType, receivers)
 
 	metadata, err := bts.createMetadata(
-		senderAddr, srcConfig, dstChainID, bridgingType, receivers, BridgingRequestMetadataCurrencyInfo{
+		senderAddr, srcConfig, dstConfig, bridgingType, receivers, BridgingRequestMetadataCurrencyInfo{
 			SrcAmount:  feeOnSrcCurrencyLovelace,
 			DestAmount: bts.bridgingFeeAmount,
 		})
@@ -339,15 +340,14 @@ func (bts BridgingTxSender) getDynamicParameters(
 }
 
 func (bts *BridgingTxSender) createMetadata(
-	senderAddr string, srcConfig BridgingTxChainConfig, dstChainID string, bridgingType BridgingType,
+	senderAddr string, srcConfig, dstConfig BridgingTxChainConfig, bridgingType BridgingType,
 	receivers []BridgingTxReceiver, bridgingFeeAmount BridgingRequestMetadataCurrencyInfo,
 ) ([]byte, error) {
-	minUtxoOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID].MinUtxoValueOnDst, srcConfig.MinUtxoValue)
-	exchangeRateOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID].RateOnDst, 1)
+	exchangeRateOnDst := setOrDefault(srcConfig.ExchangeRate[dstConfig.ChainID], 1)
 	exchangeRateOnSrc := 1.0 / exchangeRateOnDst
 	metadataObj := BridgingRequestMetadata{
 		BridgingTxType:     bridgingMetaDataType,
-		DestinationChainID: dstChainID,
+		DestinationChainID: dstConfig.ChainID,
 		SenderAddr:         infracommon.SplitString(senderAddr, splitStringLength),
 		Transactions:       make([]BridgingRequestMetadataTransaction, len(receivers)),
 		FeeAmount:          bridgingFeeAmount,
@@ -370,8 +370,8 @@ func (bts *BridgingTxSender) createMetadata(
 				Address: infracommon.SplitString(x.Addr, splitStringLength),
 				Amount:  x.Amount,
 				Additional: &BridgingRequestMetadataCurrencyInfo{
-					DestAmount: minUtxoOnDst,
-					SrcAmount:  mul(minUtxoOnDst, exchangeRateOnSrc),
+					DestAmount: dstConfig.MinUtxoValue,
+					SrcAmount:  mul(dstConfig.MinUtxoValue, exchangeRateOnSrc),
 				},
 			}
 		default:
@@ -386,10 +386,9 @@ func (bts *BridgingTxSender) createMetadata(
 }
 
 func (bts *BridgingTxSender) getOutputAmounts(
-	srcConfig BridgingTxChainConfig, dstChainID string, bridgingType BridgingType, receivers []BridgingTxReceiver,
+	srcConfig, dstConfig BridgingTxChainConfig, bridgingType BridgingType, receivers []BridgingTxReceiver,
 ) (outputCurrencyLovelace uint64, outputNativeToken uint64, feeOnSrcCurrencyLovelace uint64) {
-	minUtxoOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID].MinUtxoValueOnDst, srcConfig.MinUtxoValue)
-	exchangeRateOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID].RateOnDst, 1)
+	exchangeRateOnDst := setOrDefault(srcConfig.ExchangeRate[dstConfig.ChainID], 1)
 	exchangeRateOnSrc := 1.0 / exchangeRateOnDst
 	feeOnSrcCurrencyLovelace = mul(bts.bridgingFeeAmount, exchangeRateOnSrc) // fee is always paid in lovelace
 	outputCurrencyLovelace = feeOnSrcCurrencyLovelace
@@ -400,7 +399,7 @@ func (bts *BridgingTxSender) getOutputAmounts(
 			outputNativeToken += x.Amount
 			outputCurrencyLovelace += srcConfig.MinUtxoValue // NOTE: is this good -> shell we count only once for multisig?
 		case BridgingTypeCurrencyOnSource:
-			outputNativeToken += mul(minUtxoOnDst, exchangeRateOnSrc)
+			outputNativeToken += mul(dstConfig.MinUtxoValue, exchangeRateOnSrc)
 			outputCurrencyLovelace += x.Amount
 		default:
 			outputCurrencyLovelace += x.Amount
