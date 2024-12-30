@@ -23,14 +23,20 @@ const (
 	splitStringLength       = 40
 )
 
+type ExchangeRateConfig struct {
+	RateOnDst         float64
+	MinUtxoValueOnDst uint64
+}
+
 type BridgingTxChainConfig struct {
+	TxProvider          cardanowallet.ITxProvider
 	MultiSigAddr        string
 	TestNetMagic        uint
 	TTLSlotNumberInc    uint64
 	PotentialFee        uint64
 	MinUtxoValue        uint64
 	NativeTokenFullName string
-	ExchangeRate        float64
+	ExchangeRate        map[string]ExchangeRateConfig
 	ProtocolParameters  []byte
 }
 
@@ -40,32 +46,26 @@ type BridgingTxReceiver struct {
 }
 
 type BridgingTxSender struct {
-	cardanoCliBinary   string
-	txProviderSrc      cardanowallet.ITxProvider
-	txUtxoRetrieverDst cardanowallet.IUTxORetriever
-	chainConfigMap     map[string]BridgingTxChainConfig
-	bridgingFeeAmount  uint64
-	maxInputsPerTx     int
-	retryOptions       []infracommon.RetryConfigOption
+	cardanoCliBinary  string
+	chainConfigMap    map[string]BridgingTxChainConfig
+	bridgingFeeAmount uint64
+	maxInputsPerTx    int
+	retryOptions      []infracommon.RetryConfigOption
 }
 
 func NewBridgingTxSender(
 	cardanoCliBinary string,
-	txProviderSrc cardanowallet.ITxProvider,
-	txUtxoRetrieverDst cardanowallet.IUTxORetriever,
 	bridgingFeeAmount uint64,
 	maxInputsPerTx int,
 	chainConfigMap map[string]BridgingTxChainConfig,
-	retryOptions []infracommon.RetryConfigOption,
+	retryOptions ...infracommon.RetryConfigOption,
 ) *BridgingTxSender {
 	return &BridgingTxSender{
-		cardanoCliBinary:   cardanoCliBinary,
-		txProviderSrc:      txProviderSrc,
-		txUtxoRetrieverDst: txUtxoRetrieverDst,
-		bridgingFeeAmount:  bridgingFeeAmount,
-		maxInputsPerTx:     maxInputsPerTx,
-		chainConfigMap:     chainConfigMap,
-		retryOptions:       retryOptions,
+		cardanoCliBinary:  cardanoCliBinary,
+		bridgingFeeAmount: bridgingFeeAmount,
+		maxInputsPerTx:    maxInputsPerTx,
+		chainConfigMap:    chainConfigMap,
+		retryOptions:      retryOptions,
 	}
 }
 
@@ -79,17 +79,15 @@ func (bts *BridgingTxSender) CreateBridgingTx(
 	receivers []BridgingTxReceiver,
 ) ([]byte, string, error) {
 	srcConfig, existsSrc := bts.chainConfigMap[srcChainID]
-	dstConfig, existsDst := bts.chainConfigMap[dstChainID]
-
-	if !existsSrc || !existsDst {
-		return nil, "", fmt.Errorf("src %s or dst %s chain config not found", srcChainID, dstChainID)
+	if !existsSrc {
+		return nil, "", fmt.Errorf("chain %s config not found", srcChainID)
 	}
 
-	outputCurrencyLovelace, outputNativeToken, feeOnSrcCurrencyLovelace := getOutputAmounts(
-		bridgingType, srcConfig, dstConfig, bts.bridgingFeeAmount, receivers)
+	outputCurrencyLovelace, outputNativeToken, feeOnSrcCurrencyLovelace := bts.getOutputAmounts(
+		srcConfig, dstChainID, bridgingType, receivers)
 
 	metadata, err := bts.createMetadata(
-		dstChainID, senderAddr, bridgingType, srcConfig, dstConfig, receivers, BridgingRequestMetadataCurrencyInfo{
+		senderAddr, srcConfig, dstChainID, bridgingType, receivers, BridgingRequestMetadataCurrencyInfo{
 			SrcAmount:  feeOnSrcCurrencyLovelace,
 			DestAmount: bts.bridgingFeeAmount,
 		})
@@ -121,7 +119,7 @@ func (bts *BridgingTxSender) CreateTxGeneric(
 ) ([]byte, string, error) {
 	srcConfig, existsSrc := bts.chainConfigMap[srcChainID]
 	if !existsSrc {
-		return nil, "", fmt.Errorf("src %s chain config not found", srcChainID)
+		return nil, "", fmt.Errorf("chain %s config not found", srcChainID)
 	}
 
 	// first try with exact sum
@@ -137,8 +135,13 @@ func (bts *BridgingTxSender) CreateTxGeneric(
 }
 
 func (bts *BridgingTxSender) SubmitTx(
-	ctx context.Context, txRaw []byte, cardanoWallet cardanowallet.ITxSigner,
+	ctx context.Context, chainID string, txRaw []byte, cardanoWallet cardanowallet.ITxSigner,
 ) error {
+	chainConfig, existsSrc := bts.chainConfigMap[chainID]
+	if !existsSrc {
+		return fmt.Errorf("%s chain config not found", chainID)
+	}
+
 	builder, err := cardanowallet.NewTxBuilder(bts.cardanoCliBinary)
 	if err != nil {
 		return err
@@ -152,27 +155,32 @@ func (bts *BridgingTxSender) SubmitTx(
 	}
 
 	_, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (bool, error) {
-		return true, bts.txProviderSrc.SubmitTx(ctx, txSigned)
+		return true, chainConfig.TxProvider.SubmitTx(ctx, txSigned)
 	}, bts.retryOptions...)
 
 	return err
 }
 
 func (bts *BridgingTxSender) WaitForTx(
-	ctx context.Context, receivers []cardanowallet.TxOutput, tokenName string,
+	ctx context.Context, chainID string, receivers []BridgingTxReceiver, tokenName string,
 ) error {
+	chainConfig, existsSrc := bts.chainConfigMap[chainID]
+	if !existsSrc {
+		return fmt.Errorf("%s chain config not found", chainID)
+	}
+
 	errs := make([]error, len(receivers))
 	wg := sync.WaitGroup{}
 
 	for i, x := range receivers {
 		wg.Add(1)
 
-		go func(idx int, recv cardanowallet.TxOutput) {
+		go func(idx int, recv BridgingTxReceiver) {
 			defer wg.Done()
 
 			_, errs[idx] = infracommon.WaitForAmount(
 				ctx, new(big.Int).SetUint64(recv.Amount), func(ctx context.Context) (*big.Int, error) {
-					utxos, err := bts.txUtxoRetrieverDst.GetUtxos(ctx, recv.Addr)
+					utxos, err := chainConfig.TxProvider.GetUtxos(ctx, recv.Addr)
 					if err != nil {
 						return nil, err
 					}
@@ -187,51 +195,6 @@ func (bts *BridgingTxSender) WaitForTx(
 	wg.Wait()
 
 	return errors.Join(errs...)
-}
-
-func (bts *BridgingTxSender) createMetadata(
-	dstChainID, senderAddr string, bridgingType BridgingType,
-	srcConfig, dstConfig BridgingTxChainConfig,
-	receivers []BridgingTxReceiver, bridgingFeeAmount BridgingRequestMetadataCurrencyInfo,
-) ([]byte, error) {
-	metadataObj := BridgingRequestMetadata{
-		BridgingTxType:     bridgingMetaDataType,
-		DestinationChainID: dstChainID,
-		SenderAddr:         infracommon.SplitString(senderAddr, splitStringLength),
-		Transactions:       make([]BridgingRequestMetadataTransaction, len(receivers)),
-		FeeAmount:          bridgingFeeAmount,
-	}
-
-	for i, x := range receivers {
-		switch bridgingType {
-		case BridgingTypeNativeTokenOnSource:
-			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
-				Address:            infracommon.SplitString(x.Addr, splitStringLength),
-				Amount:             x.Amount,
-				IsNativeTokenOnSrc: true,
-				Additional: &BridgingRequestMetadataCurrencyInfo{
-					DestAmount: mul(srcConfig.MinUtxoValue, dstConfig.ExchangeRate),
-					SrcAmount:  srcConfig.MinUtxoValue,
-				},
-			}
-		case BridgingTypeCurrencyOnSource:
-			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
-				Address: infracommon.SplitString(x.Addr, splitStringLength),
-				Amount:  x.Amount,
-				Additional: &BridgingRequestMetadataCurrencyInfo{
-					DestAmount: dstConfig.MinUtxoValue,
-					SrcAmount:  mul(dstConfig.MinUtxoValue, srcConfig.ExchangeRate),
-				},
-			}
-		default:
-			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
-				Address: infracommon.SplitString(x.Addr, splitStringLength),
-				Amount:  x.Amount,
-			}
-		}
-	}
-
-	return metadataObj.Marshal()
 }
 
 func (bts *BridgingTxSender) createTx(
@@ -354,7 +317,7 @@ func (bts BridgingTxSender) getDynamicParameters(
 	protocolParams = srcConfig.ProtocolParameters
 	if protocolParams == nil {
 		protocolParams, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]byte, error) {
-			return bts.txProviderSrc.GetProtocolParameters(ctx)
+			return srcConfig.TxProvider.GetProtocolParameters(ctx)
 		}, bts.retryOptions...)
 		if err != nil {
 			return
@@ -362,24 +325,73 @@ func (bts BridgingTxSender) getDynamicParameters(
 	}
 
 	qtd, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (cardanowallet.QueryTipData, error) {
-		return bts.txProviderSrc.GetTip(ctx)
+		return srcConfig.TxProvider.GetTip(ctx)
 	}, bts.retryOptions...)
 	if err != nil {
 		return
 	}
 
 	utxos, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]cardanowallet.Utxo, error) {
-		return bts.txProviderSrc.GetUtxos(ctx, addr)
+		return srcConfig.TxProvider.GetUtxos(ctx, addr)
 	}, bts.retryOptions...)
 
 	return qtd, protocolParams, utxos, err
 }
 
-func getOutputAmounts(
-	bridgingType BridgingType, srcConfig, dstConfig BridgingTxChainConfig,
-	bridgingFeeAmount uint64, receivers []BridgingTxReceiver,
+func (bts *BridgingTxSender) createMetadata(
+	senderAddr string, srcConfig BridgingTxChainConfig, dstChainID string, bridgingType BridgingType,
+	receivers []BridgingTxReceiver, bridgingFeeAmount BridgingRequestMetadataCurrencyInfo,
+) ([]byte, error) {
+	minUtxoOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID].MinUtxoValueOnDst, srcConfig.MinUtxoValue)
+	exchangeRateOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID].RateOnDst, 1)
+	exchangeRateOnSrc := 1.0 / exchangeRateOnDst
+	metadataObj := BridgingRequestMetadata{
+		BridgingTxType:     bridgingMetaDataType,
+		DestinationChainID: dstChainID,
+		SenderAddr:         infracommon.SplitString(senderAddr, splitStringLength),
+		Transactions:       make([]BridgingRequestMetadataTransaction, len(receivers)),
+		FeeAmount:          bridgingFeeAmount,
+	}
+
+	for i, x := range receivers {
+		switch bridgingType {
+		case BridgingTypeNativeTokenOnSource:
+			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
+				Address:            infracommon.SplitString(x.Addr, splitStringLength),
+				Amount:             x.Amount,
+				IsNativeTokenOnSrc: true,
+				Additional: &BridgingRequestMetadataCurrencyInfo{
+					DestAmount: mul(srcConfig.MinUtxoValue, exchangeRateOnDst),
+					SrcAmount:  srcConfig.MinUtxoValue,
+				},
+			}
+		case BridgingTypeCurrencyOnSource:
+			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
+				Address: infracommon.SplitString(x.Addr, splitStringLength),
+				Amount:  x.Amount,
+				Additional: &BridgingRequestMetadataCurrencyInfo{
+					DestAmount: minUtxoOnDst,
+					SrcAmount:  mul(minUtxoOnDst, exchangeRateOnSrc),
+				},
+			}
+		default:
+			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
+				Address: infracommon.SplitString(x.Addr, splitStringLength),
+				Amount:  x.Amount,
+			}
+		}
+	}
+
+	return metadataObj.Marshal()
+}
+
+func (bts *BridgingTxSender) getOutputAmounts(
+	srcConfig BridgingTxChainConfig, dstChainID string, bridgingType BridgingType, receivers []BridgingTxReceiver,
 ) (outputCurrencyLovelace uint64, outputNativeToken uint64, feeOnSrcCurrencyLovelace uint64) {
-	feeOnSrcCurrencyLovelace = mul(bridgingFeeAmount, srcConfig.ExchangeRate) // fee is always paid in lovelace
+	minUtxoOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID].MinUtxoValueOnDst, srcConfig.MinUtxoValue)
+	exchangeRateOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID].RateOnDst, 1)
+	exchangeRateOnSrc := 1.0 / exchangeRateOnDst
+	feeOnSrcCurrencyLovelace = mul(bts.bridgingFeeAmount, exchangeRateOnSrc) // fee is always paid in lovelace
 	outputCurrencyLovelace = feeOnSrcCurrencyLovelace
 
 	for _, x := range receivers {
@@ -388,7 +400,7 @@ func getOutputAmounts(
 			outputNativeToken += x.Amount
 			outputCurrencyLovelace += srcConfig.MinUtxoValue // NOTE: is this good -> shell we count only once for multisig?
 		case BridgingTypeCurrencyOnSource:
-			outputNativeToken += mul(dstConfig.MinUtxoValue, srcConfig.ExchangeRate)
+			outputNativeToken += mul(minUtxoOnDst, exchangeRateOnSrc)
 			outputCurrencyLovelace += x.Amount
 		default:
 			outputCurrencyLovelace += x.Amount
@@ -410,8 +422,10 @@ func getNativeToken(fullName string, amount uint64) (cardanowallet.TokenAmount, 
 	return cardanowallet.NewTokenAmountWithFullName(fullName, amount, false)
 }
 
-func setOrDefault(val, def uint64) uint64 {
-	if val == 0 {
+func setOrDefault[T comparable](val, def T) T {
+	var zero T
+
+	if val == zero {
 		return def
 	}
 
