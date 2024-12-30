@@ -8,11 +8,6 @@ import (
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
 )
 
-type AmountCondition struct {
-	Exact   uint64
-	AtLeast uint64
-}
-
 // GetUTXOsForAmounts selects UTXOs that fulfill specified token amount conditions while adhering
 // to a maximum input limit per transaction.
 //
@@ -29,7 +24,7 @@ type AmountCondition struct {
 // until the specified conditions are satisfied or no valid selection is possible.
 func GetUTXOsForAmounts(
 	utxos []cardanowallet.Utxo,
-	conditions map[string]AmountCondition,
+	conditions map[string]uint64,
 	maxInputsPerTx int,
 ) (cardanowallet.TxInputs, error) {
 	currentSum := map[string]uint64{}
@@ -68,7 +63,7 @@ func GetUTXOsForAmounts(
 
 	return cardanowallet.TxInputs{}, fmt.Errorf(
 		"not enough funds for the transaction: available = %s; conditions = %s",
-		mapStrUInt64ToStr(currentSum), condMapToStr(conditions))
+		mapStrUInt64ToStr(currentSum), mapStrUInt64ToStr(conditions))
 }
 
 func utxosToTxInputs(utxos []cardanowallet.Utxo) []cardanowallet.TxInput {
@@ -84,15 +79,15 @@ func utxosToTxInputs(utxos []cardanowallet.Utxo) []cardanowallet.TxInput {
 }
 
 func findMinUtxo(
-	utxos []cardanowallet.Utxo, currentSum map[string]uint64, conditions map[string]AmountCondition,
+	utxos []cardanowallet.Utxo, currentSum map[string]uint64, conditions map[string]uint64,
 ) (cardanowallet.Utxo, int) {
 	replaceTokenName := cardanowallet.AdaTokenName
 	biggestDiff := uint64(0)
 	// take the token with the biggest difference as the one to replace
-	for tokenName, amount := range conditions {
+	for tokenName, desiredAmount := range conditions {
 		sum := currentSum[tokenName]
-		if amount.AtLeast > sum && amount.AtLeast-sum > biggestDiff {
-			biggestDiff = amount.AtLeast - sum
+		if desiredAmount > sum && desiredAmount-sum > biggestDiff {
+			biggestDiff = desiredAmount - sum
 			replaceTokenName = tokenName
 		}
 	}
@@ -136,32 +131,15 @@ func findMinUtxo(
 }
 
 func isSumSatisfiesCondition(
-	currentSum map[string]uint64, conditions map[string]AmountCondition,
+	currentSum map[string]uint64, conditions map[string]uint64,
 ) bool {
-	for tokenName, amount := range conditions {
-		if currentSum[tokenName] != amount.Exact && currentSum[tokenName] < amount.AtLeast {
+	for tokenName, desiredAmount := range conditions {
+		if currentSum[tokenName] < desiredAmount {
 			return false
 		}
 	}
 
 	return true
-}
-
-func condMapToStr(m map[string]AmountCondition) string {
-	var sb strings.Builder
-	for k, v := range m {
-		if sb.Len() > 0 {
-			sb.WriteString(", ")
-		}
-
-		sb.WriteString(k)
-		sb.WriteString("=")
-		sb.WriteString(strconv.FormatUint(v.Exact, 10))
-		sb.WriteString(":")
-		sb.WriteString(strconv.FormatUint(v.AtLeast, 10))
-	}
-
-	return sb.String()
 }
 
 func mapStrUInt64ToStr(m map[string]uint64) string {

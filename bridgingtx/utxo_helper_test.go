@@ -73,11 +73,8 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 	}
 
 	t.Run("exact amount", func(t *testing.T) {
-		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]AmountCondition{
-			cardanowallet.AdaTokenName: {
-				Exact:   610,
-				AtLeast: 710,
-			},
+		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+			cardanowallet.AdaTokenName: 610,
 		}, 4)
 
 		require.NoError(t, err)
@@ -101,12 +98,9 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 		}, txInputs.Inputs)
 	})
 
-	t.Run("at least", func(t *testing.T) {
-		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]AmountCondition{
-			cardanowallet.AdaTokenName: {
-				Exact:   660,
-				AtLeast: 710,
-			},
+	t.Run("greater amount", func(t *testing.T) {
+		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+			cardanowallet.AdaTokenName: 710,
 		}, 3)
 
 		require.NoError(t, err)
@@ -127,43 +121,31 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 		}, txInputs.Inputs)
 	})
 
-	t.Run("at least tokens", func(t *testing.T) {
-		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]AmountCondition{
-			cardanowallet.AdaTokenName: {
-				Exact:   200,
-				AtLeast: 200,
-			},
-			"1.31": {
-				Exact:   596,
-				AtLeast: 600,
-			},
+	t.Run("greater tokens", func(t *testing.T) {
+		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+			cardanowallet.AdaTokenName: 200,
+			"1.31":                     410,
 		}, 2)
 
 		require.NoError(t, err)
 		assert.Equal(t, map[string]uint64{
 			cardanowallet.AdaTokenName: 250,
-			"1.31":                     600,
+			"1.31":                     500,
 		}, txInputs.Sum)
 		assert.Equal(t, []cardanowallet.TxInput{
 			{
-				Hash: "7",
+				Hash: "2",
 			},
 			{
-				Hash: "8",
+				Hash: "7",
 			},
 		}, txInputs.Inputs)
 	})
 
 	t.Run("exact tokens", func(t *testing.T) {
-		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]AmountCondition{
-			cardanowallet.AdaTokenName: {
-				Exact:   200,
-				AtLeast: 200,
-			},
-			"1.31": {
-				Exact:   700,
-				AtLeast: 800,
-			},
+		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+			cardanowallet.AdaTokenName: 200,
+			"1.31":                     700,
 		}, 3)
 
 		require.NoError(t, err)
@@ -185,15 +167,9 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 	})
 
 	t.Run("not enough tokens", func(t *testing.T) {
-		_, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]AmountCondition{
-			cardanowallet.AdaTokenName: {
-				Exact:   200,
-				AtLeast: 200,
-			},
-			"1.31": {
-				Exact:   701,
-				AtLeast: 1000,
-			},
+		_, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+			cardanowallet.AdaTokenName: 300,
+			"1.31":                     1000,
 		}, 3)
 
 		require.ErrorContains(t, err, "not enough funds")

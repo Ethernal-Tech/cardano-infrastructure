@@ -30,7 +30,7 @@ type BridgingTxChainConfig struct {
 	TestNetMagic        uint
 	TTLSlotNumberInc    uint64
 	MinUtxoValue        uint64
-	NativeTokenFullName string
+	NativeTokenFullName string // policyID.hex(name)
 	ExchangeRate        map[string]float64
 	ProtocolParameters  []byte
 }
@@ -82,16 +82,8 @@ func (bts *BridgingTxSender) CreateBridgingTx(
 	outputCurrencyLovelace, outputNativeToken := bts.getOutputAmounts(
 		srcConfig, dstChainID, dstConfig.MinUtxoValue, bridgingType, receivers)
 
-	// first try with exact sum
-	raw, hash, err := bts.createTx(
-		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadata, outputCurrencyLovelace, outputNativeToken, false)
-	if err == nil {
-		return raw, hash, nil
-	}
-
-	// then without
 	return bts.createTx(
-		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadata, outputCurrencyLovelace, outputNativeToken, true)
+		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadata, outputCurrencyLovelace, outputNativeToken)
 }
 
 // CreateTxGeneric creates generic tx to one recipient and returns cbor of raw transaction data, tx hash and error
@@ -109,16 +101,8 @@ func (bts *BridgingTxSender) CreateTxGeneric(
 		return nil, "", fmt.Errorf("chain %s config not found", srcChainID)
 	}
 
-	// first try with exact sum
-	raw, hash, err := bts.createTx(
-		ctx, srcConfig, senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken, false)
-	if err == nil {
-		return raw, hash, nil
-	}
-
-	// then without
 	return bts.createTx(
-		ctx, srcConfig, senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken, true)
+		ctx, srcConfig, senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken)
 }
 
 func (bts *BridgingTxSender) SubmitTx(
@@ -172,9 +156,7 @@ func (bts *BridgingTxSender) WaitForTx(
 						return nil, err
 					}
 
-					sum := cardanowallet.GetUtxosSum(utxos)
-
-					return new(big.Int).SetUint64(sum[tokenName]), nil
+					return new(big.Int).SetUint64(cardanowallet.GetUtxosSum(utxos)[tokenName]), nil
 				})
 		}(i, x)
 	}
@@ -251,7 +233,6 @@ func (bts *BridgingTxSender) createTx(
 	metadata []byte,
 	outputCurrencyLovelace uint64,
 	outputNativeToken uint64,
-	exactSumNotAllowed bool,
 ) ([]byte, string, error) {
 	queryTip, protocolParams, utxos, err := bts.getDynamicParameters(ctx, srcConfig, senderAddr)
 	if err != nil {
@@ -261,25 +242,13 @@ func (bts *BridgingTxSender) createTx(
 	potentialFee := setOrDefault(bts.potentialFee, defaultPotentialFee)
 	ttlSlotNumberInc := setOrDefault(srcConfig.TTLSlotNumberInc, defaultTTLSlotNumberInc)
 
-	lovelaceExactSumModificator := uint64(0)
-	// do not satisfy exact sum for lovelace if there is a native tokens involed or exact sum is not allowed
-	if exactSumNotAllowed || outputNativeToken != 0 {
-		lovelaceExactSumModificator = srcConfig.MinUtxoValue
-	}
-
 	outputNativeTokens := []cardanowallet.TokenAmount(nil)
-	conditions := map[string]AmountCondition{
-		cardanowallet.AdaTokenName: {
-			Exact:   outputCurrencyLovelace + potentialFee + lovelaceExactSumModificator,
-			AtLeast: outputCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
-		},
+	conditions := map[string]uint64{
+		cardanowallet.AdaTokenName: outputCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
 	}
 
 	if outputNativeToken != 0 {
-		conditions[srcConfig.NativeTokenFullName] = AmountCondition{
-			Exact:   outputNativeToken,
-			AtLeast: outputNativeToken,
-		}
+		conditions[srcConfig.NativeTokenFullName] = outputNativeToken
 	}
 
 	inputs, err := GetUTXOsForAmounts(utxos, conditions, bts.maxInputsPerTx)
@@ -288,18 +257,18 @@ func (bts *BridgingTxSender) createTx(
 	}
 
 	if outputNativeToken != 0 {
-		nativeToken, err := getNativeToken(srcConfig.NativeTokenFullName, outputNativeToken)
-		if err != nil {
+		inputs.Sum[srcConfig.NativeTokenFullName] -= outputNativeToken
+		if inputs.Sum[srcConfig.NativeTokenFullName] == 0 {
+			delete(inputs.Sum, srcConfig.NativeTokenFullName)
+		}
+
+		nativeToken, err := cardanowallet.NewTokenAmountWithFullName(
+			srcConfig.NativeTokenFullName, outputNativeToken, true)
+		if err == nil {
 			return nil, "", err
 		}
 
-		tokenFullName := nativeToken.TokenName()
 		outputNativeTokens = []cardanowallet.TokenAmount{nativeToken}
-
-		inputs.Sum[tokenFullName] -= nativeToken.Amount
-		if inputs.Sum[tokenFullName] == 0 {
-			delete(inputs.Sum, tokenFullName)
-		}
 	}
 
 	outputRemainingTokens, err := cardanowallet.GetTokensFromSumMap(inputs.Sum)
@@ -412,14 +381,6 @@ func (bts *BridgingTxSender) getOutputAmounts(
 
 func mul(a uint64, b float64) uint64 {
 	return uint64(float64(a) * b)
-}
-
-func getNativeToken(fullName string, amount uint64) (cardanowallet.TokenAmount, error) {
-	if r, err := cardanowallet.NewTokenAmountWithFullName(fullName, amount, true); err == nil {
-		return r, nil
-	}
-
-	return cardanowallet.NewTokenAmountWithFullName(fullName, amount, false)
 }
 
 func setOrDefault[T comparable](val, def T) T {
