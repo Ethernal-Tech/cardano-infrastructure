@@ -390,17 +390,19 @@ func (bts *BridgingTxSender) getOutputAmounts(
 ) (outputCurrencyLovelace uint64, outputNativeToken uint64, feeOnSrcCurrencyLovelace uint64) {
 	exchangeRateOnDst := setOrDefault(srcConfig.ExchangeRate[dstConfig.ChainID], 1)
 	exchangeRateOnSrc := 1.0 / exchangeRateOnDst
+
 	feeOnSrcCurrencyLovelace = mul(bts.bridgingFeeAmount, exchangeRateOnSrc) // fee is always paid in lovelace
 	outputCurrencyLovelace = feeOnSrcCurrencyLovelace
 
 	for _, x := range receivers {
 		switch bridgingType {
 		case BridgingTypeNativeTokenOnSource:
+			// WADA-e, WAPEX-e to ADA-e / APEX-e
 			outputNativeToken += x.Amount
-			outputCurrencyLovelace += srcConfig.MinUtxoValue // NOTE: is this good -> shell we count only once for multisig?
+			outputCurrencyLovelace = srcConfig.MinUtxoValue
 		case BridgingTypeCurrencyOnSource:
-			outputNativeToken += mul(dstConfig.MinUtxoValue, exchangeRateOnSrc)
-			outputCurrencyLovelace += x.Amount
+			// ADA-e / APEX-e to WADA-e, WAPEX-e
+			outputCurrencyLovelace += x.Amount + mul(dstConfig.MinUtxoValue, exchangeRateOnSrc)
 		default:
 			outputCurrencyLovelace += x.Amount
 		}
