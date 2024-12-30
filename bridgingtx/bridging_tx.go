@@ -111,14 +111,14 @@ func (bts *BridgingTxSender) CreateTxGeneric(
 
 	// first try with exact sum
 	raw, hash, err := bts.createTx(
-		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadata, outputCurrencyLovelace, outputNativeToken, false)
+		ctx, srcConfig, senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken, false)
 	if err == nil {
 		return raw, hash, nil
 	}
 
 	// then without
 	return bts.createTx(
-		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadata, outputCurrencyLovelace, outputNativeToken, true)
+		ctx, srcConfig, senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken, true)
 }
 
 func (bts *BridgingTxSender) SubmitTx(
