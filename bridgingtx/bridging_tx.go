@@ -29,7 +29,6 @@ type BridgingTxChainConfig struct {
 	MultiSigAddr        string
 	TestNetMagic        uint
 	TTLSlotNumberInc    uint64
-	PotentialFee        uint64
 	MinUtxoValue        uint64
 	NativeTokenFullName string
 	ExchangeRate        map[string]float64
@@ -42,14 +41,16 @@ type BridgingTxReceiver struct {
 }
 
 type BridgingTxSender struct {
-	chainConfigMap    map[string]BridgingTxChainConfig
 	bridgingFeeAmount uint64
+	potentialFee      uint64
 	maxInputsPerTx    int
+	chainConfigMap    map[string]BridgingTxChainConfig
 	retryOptions      []infracommon.RetryConfigOption
 }
 
 func NewBridgingTxSender(
 	bridgingFeeAmount uint64,
+	potentialFee uint64,
 	maxInputsPerTx int,
 	chainConfigMap map[string]BridgingTxChainConfig,
 	retryOptions ...infracommon.RetryConfigOption,
@@ -57,6 +58,7 @@ func NewBridgingTxSender(
 	return &BridgingTxSender{
 		bridgingFeeAmount: bridgingFeeAmount,
 		maxInputsPerTx:    maxInputsPerTx,
+		potentialFee:      potentialFee,
 		chainConfigMap:    chainConfigMap,
 		retryOptions:      retryOptions,
 	}
@@ -256,7 +258,7 @@ func (bts *BridgingTxSender) createTx(
 		return nil, "", err
 	}
 
-	potentialFee := setOrDefault(srcConfig.PotentialFee, defaultPotentialFee)
+	potentialFee := setOrDefault(bts.potentialFee, defaultPotentialFee)
 	ttlSlotNumberInc := setOrDefault(srcConfig.TTLSlotNumberInc, defaultTTLSlotNumberInc)
 
 	lovelaceExactSumModificator := uint64(0)
