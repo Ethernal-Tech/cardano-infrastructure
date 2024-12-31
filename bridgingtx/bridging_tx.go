@@ -251,7 +251,7 @@ func (bts *BridgingTxSender) createTx(
 		conditions[srcConfig.NativeTokenFullName] = outputNativeToken
 	}
 
-	inputs, err := GetUTXOsForAmounts(utxos, conditions, bts.maxInputsPerTx)
+	inputs, err := GetUTXOsForAmounts(utxos, conditions, bts.maxInputsPerTx, 1)
 	if err != nil {
 		return nil, "", err
 	}

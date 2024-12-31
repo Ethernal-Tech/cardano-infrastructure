@@ -14,7 +14,8 @@ import (
 // Parameters:
 // - utxos: A list of available UTXOs for selection.
 // - conditions: A map defining required token conditions (e.g., exact or minimum amounts).
-// - maxInputsPerTx: The maximum number of UTXOs allowed in the transaction.
+// - maxInputsPerTx: The maximum number of UTXOs that should be returned.
+// - tryAtLeastInputsPerTx: If possible it should be returned at least this number of UTXOs
 //
 // Returns:
 // - cardanowallet.TxInputs: Selected UTXOs and their total sum if conditions are met.
@@ -25,7 +26,8 @@ import (
 func GetUTXOsForAmounts(
 	utxos []cardanowallet.Utxo,
 	conditions map[string]uint64,
-	maxInputsPerTx int,
+	maxInputs int,
+	tryAtLeastInputs int,
 ) (cardanowallet.TxInputs, error) {
 	currentSum := map[string]uint64{}
 	choosenCount := 0
@@ -40,14 +42,11 @@ func GetUTXOsForAmounts(
 		}
 
 		if isSumSatisfiesCondition(currentSum, conditions) {
-			return cardanowallet.TxInputs{
-				Inputs: utxosToTxInputs(utxos[:choosenCount]),
-				Sum:    currentSum,
-			}, nil
+			return prepareTxInputs(utxos, currentSum, maxInputs, tryAtLeastInputs, choosenCount), nil
 		}
 
 		// replace the smallest utxo with the current one
-		if choosenCount == maxInputsPerTx {
+		if choosenCount == maxInputs {
 			minChosenUTXO, minChosenUTXOIdx := findMinUtxo(utxos[:choosenCount], currentSum, conditions)
 
 			choosenCount--
@@ -66,7 +65,7 @@ func GetUTXOsForAmounts(
 		mapStrUInt64ToStr(currentSum), mapStrUInt64ToStr(conditions))
 }
 
-func utxosToTxInputs(utxos []cardanowallet.Utxo) []cardanowallet.TxInput {
+func utxos2TxInputs(utxos []cardanowallet.Utxo) []cardanowallet.TxInput {
 	txInputs := make([]cardanowallet.TxInput, len(utxos))
 	for i, utxo := range utxos {
 		txInputs[i] = cardanowallet.TxInput{
@@ -76,6 +75,30 @@ func utxosToTxInputs(utxos []cardanowallet.Utxo) []cardanowallet.TxInput {
 	}
 
 	return txInputs
+}
+
+func prepareTxInputs(
+	utxos []cardanowallet.Utxo, currentSum map[string]uint64, maxInputsPerTx, tryAtLeastInputsPerTx, choosenCount int,
+) cardanowallet.TxInputs {
+	// try to add utxos until we reach tryAtLeastUtxoCount
+	cnt := max(min(
+		len(utxos)-choosenCount,            // still available in inputUTXOs
+		tryAtLeastInputsPerTx-choosenCount, // needed to fill tryAtLeastUtxoCount
+		maxInputsPerTx-choosenCount,        // maxUtxoCount limit must be preserved
+	), 0)
+
+	for i := choosenCount; i < choosenCount+cnt; i++ {
+		currentSum[cardanowallet.AdaTokenName] += utxos[i].Amount
+
+		for _, token := range utxos[i].Tokens {
+			currentSum[token.TokenName()] += token.Amount
+		}
+	}
+
+	return cardanowallet.TxInputs{
+		Inputs: utxos2TxInputs(utxos[:choosenCount+cnt]),
+		Sum:    currentSum,
+	}
 }
 
 func findMinUtxo(
