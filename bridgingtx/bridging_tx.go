@@ -170,8 +170,8 @@ func (bts *BridgingTxSender) CreateMetadata(
 	senderAddr string, srcChainID, dstChainID string,
 	bridgingType BridgingType, receivers []BridgingTxReceiver,
 ) ([]byte, error) {
-	srcConfig, existsDst := bts.chainConfigMap[srcChainID]
-	if !existsDst {
+	srcConfig, existsSrc := bts.chainConfigMap[srcChainID]
+	if !existsSrc {
 		return nil, fmt.Errorf("source chain %s config not found", srcChainID)
 	}
 
