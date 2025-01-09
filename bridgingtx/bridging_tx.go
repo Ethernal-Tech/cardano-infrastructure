@@ -36,8 +36,9 @@ type BridgingTxChainConfig struct {
 }
 
 type BridgingTxReceiver struct {
-	Addr   string `json:"addr"`
-	Amount uint64 `json:"amount"`
+	BridgingType BridgingType `json:"type"`
+	Addr         string       `json:"addr"`
+	Amount       uint64       `json:"amount"`
 }
 
 type BridgingTxSender struct {
@@ -69,18 +70,17 @@ func (bts *BridgingTxSender) CreateBridgingTx(
 	ctx context.Context,
 	srcChainID string,
 	dstChainID string,
-	bridgingType BridgingType,
 	senderAddr string,
 	receivers []BridgingTxReceiver,
 ) ([]byte, string, error) {
-	metadata, err := bts.CreateMetadata(senderAddr, srcChainID, dstChainID, bridgingType, receivers)
+	metadata, err := bts.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers)
 	if err != nil {
 		return nil, "", err
 	}
 
 	srcConfig, dstConfig := bts.chainConfigMap[srcChainID], bts.chainConfigMap[dstChainID]
 	outputCurrencyLovelace, outputNativeToken := bts.getOutputAmounts(
-		srcConfig, dstChainID, dstConfig.MinUtxoValue, bridgingType, receivers)
+		srcConfig, dstChainID, dstConfig.MinUtxoValue, receivers)
 
 	return bts.createTx(
 		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadata, outputCurrencyLovelace, outputNativeToken)
@@ -167,8 +167,7 @@ func (bts *BridgingTxSender) WaitForTx(
 }
 
 func (bts *BridgingTxSender) CreateMetadata(
-	senderAddr string, srcChainID, dstChainID string,
-	bridgingType BridgingType, receivers []BridgingTxReceiver,
+	senderAddr string, srcChainID, dstChainID string, receivers []BridgingTxReceiver,
 ) ([]byte, error) {
 	srcConfig, existsSrc := bts.chainConfigMap[srcChainID]
 	if !existsSrc {
@@ -194,7 +193,7 @@ func (bts *BridgingTxSender) CreateMetadata(
 	}
 
 	for i, x := range receivers {
-		switch bridgingType {
+		switch x.BridgingType {
 		case BridgingTypeNativeTokenOnSource:
 			metadataObj.Transactions[i] = BridgingRequestMetadataTransaction{
 				Address:            infracommon.SplitString(x.Addr, splitStringLength),
@@ -354,8 +353,7 @@ func (bts BridgingTxSender) getDynamicParameters(
 }
 
 func (bts *BridgingTxSender) getOutputAmounts(
-	srcConfig BridgingTxChainConfig, dstChainID string, dstMinUtxoValue uint64,
-	bridgingType BridgingType, receivers []BridgingTxReceiver,
+	srcConfig BridgingTxChainConfig, dstChainID string, dstMinUtxoValue uint64, receivers []BridgingTxReceiver,
 ) (outputCurrencyLovelace uint64, outputNativeToken uint64) {
 	exchangeRateOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID], 1)
 	exchangeRateOnSrc := 1.0 / exchangeRateOnDst
@@ -363,7 +361,7 @@ func (bts *BridgingTxSender) getOutputAmounts(
 	outputCurrencyLovelace = mul(bts.bridgingFeeAmount, exchangeRateOnSrc)
 
 	for _, x := range receivers {
-		switch bridgingType {
+		switch x.BridgingType {
 		case BridgingTypeNativeTokenOnSource:
 			// WADA/WAPEX to ADA/APEX
 			outputNativeToken += x.Amount
