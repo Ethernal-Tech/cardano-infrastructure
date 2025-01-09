@@ -1,4 +1,4 @@
-package bridgingtx
+package sendtx
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ type BridgingRequestType string
 
 const (
 	metadataMapKey                           = 1
+	metadataBoolTrue                         = 1
 	bridgingMetaDataType BridgingRequestType = "bridge"
 )
 
@@ -29,9 +30,9 @@ type BridgingRequestMetadataCurrencyInfo struct {
 // Additional.DestAmount is Additional.SrcAmount * exchangeRate
 type BridgingRequestMetadataTransaction struct {
 	Address            []string                             `cbor:"a" json:"a"`
-	IsNativeTokenOnSrc bool                                 `cbor:"nt" json:"nt"`
+	IsNativeTokenOnSrc byte                                 `cbor:"nt" json:"nt"` // bool is not supported by cardano!
 	Amount             uint64                               `cbor:"m" json:"m"`
-	Additional         *BridgingRequestMetadataCurrencyInfo `cbor:"ad" json:"ad"`
+	Additional         *BridgingRequestMetadataCurrencyInfo `cbor:"ad,omitempty" json:"ad,omitempty"`
 }
 
 // FeeAmount.DestAmount is minBridgingFee on destination chain
@@ -53,4 +54,25 @@ func (brm BridgingRequestMetadata) Marshal() ([]byte, error) {
 	}
 
 	return result, nil
+}
+
+// GetOutputAmounts returns amount needed for outputs in lovelace and native tokens
+func GetOutputAmounts(metadata *BridgingRequestMetadata) (outputCurrencyLovelace uint64, outputNativeToken uint64) {
+	outputCurrencyLovelace = metadata.FeeAmount.SrcAmount
+
+	for _, x := range metadata.Transactions {
+		if x.IsNativeTokenOnSrc != 0 {
+			// WADA/WAPEX to ADA/APEX
+			outputNativeToken += x.Amount
+		} else {
+			// ADA/APEX to WADA/WAPEX or reactor
+			outputCurrencyLovelace += x.Amount
+		}
+
+		if x.Additional != nil {
+			outputCurrencyLovelace += x.Additional.SrcAmount
+		}
+	}
+
+	return outputCurrencyLovelace, outputNativeToken
 }

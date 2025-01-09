@@ -1,4 +1,4 @@
-package bridgingtx
+package sendtx
 
 import (
 	"fmt"
