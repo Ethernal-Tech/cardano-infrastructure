@@ -98,8 +98,8 @@ func (txSnd *TxSender) CreateBridgingTx(
 	return txRaw, txHash, metadata, nil
 }
 
-// CreateBridgingTx returns calculated fee for bridging tx
-func (txSnd *TxSender) CaluclateBridgingTxFee(
+// CalculateBridgingTxFee returns calculated fee for bridging tx
+func (txSnd *TxSender) CalculateBridgingTxFee(
 	ctx context.Context,
 	srcChainID string,
 	dstChainID string,
@@ -218,8 +218,8 @@ func (txSnd *TxSender) CreateMetadata(
 
 	exchangeRateOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID], 1)
 	exchangeRateOnSrc := 1.0 / exchangeRateOnDst
-	feeCurrencyLovelaceAmount := mul(txSnd.bridgingFeeAmount, exchangeRateOnSrc)
-	srcCurrencyLovelacySum := feeCurrencyLovelaceAmount
+	feeSrcCurrencyLovelaceAmount := mul(txSnd.bridgingFeeAmount, exchangeRateOnSrc)
+	srcCurrencyLovelacySum := feeSrcCurrencyLovelaceAmount
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
 
 	for i, x := range receivers {
@@ -262,11 +262,11 @@ func (txSnd *TxSender) CreateMetadata(
 		}
 	}
 
-	feeDstCurrencyLovelaceAdditional := txSnd.bridgingFeeAmount
+	feeDstCurrencyLovelaceAmount := txSnd.bridgingFeeAmount
 
 	if srcCurrencyLovelacySum < srcConfig.MinUtxoValue {
-		feeCurrencyLovelaceAmount += srcConfig.MinUtxoValue - srcCurrencyLovelacySum
-		feeDstCurrencyLovelaceAdditional += mul(srcConfig.MinUtxoValue-srcCurrencyLovelacySum, exchangeRateOnDst)
+		feeSrcCurrencyLovelaceAmount += srcConfig.MinUtxoValue - srcCurrencyLovelacySum
+		feeDstCurrencyLovelaceAmount += mul(srcConfig.MinUtxoValue-srcCurrencyLovelacySum, exchangeRateOnDst)
 	}
 
 	return &BridgingRequestMetadata{
@@ -275,8 +275,8 @@ func (txSnd *TxSender) CreateMetadata(
 		SenderAddr:         infracommon.SplitString(senderAddr, splitStringLength),
 		Transactions:       txs,
 		FeeAmount: BridgingRequestMetadataCurrencyInfo{
-			SrcAmount:  feeCurrencyLovelaceAmount,
-			DestAmount: feeDstCurrencyLovelaceAdditional,
+			SrcAmount:  feeSrcCurrencyLovelaceAmount,
+			DestAmount: feeDstCurrencyLovelaceAmount,
 		},
 	}, nil
 }
@@ -359,7 +359,8 @@ func (txSnd *TxSender) populateTxBuilder(
 	receiverAddr string,
 	metadata []byte,
 	outputCurrencyLovelace uint64,
-	outputNativeToken uint64) (map[string]uint64, error) {
+	outputNativeToken uint64,
+) (map[string]uint64, error) {
 	queryTip, protocolParams, utxos, err := txSnd.getDynamicParameters(ctx, srcConfig, senderAddr)
 	if err != nil {
 		return nil, err
