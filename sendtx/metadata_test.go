@@ -5,6 +5,7 @@ import (
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetOutputAmounts(t *testing.T) {
@@ -38,4 +39,13 @@ func TestGetOutputAmounts(t *testing.T) {
 
 	assert.Equal(t, uint64(110+200+20+150), v1)
 	assert.Equal(t, uint64(420), v2)
+}
+
+func TestMetaDataMarshal(t *testing.T) {
+	metadata := &BridgingRequestMetadata{}
+
+	bytes, err := metadata.Marshal()
+
+	require.NoError(t, err)
+	require.True(t, len(bytes) > 0)
 }
