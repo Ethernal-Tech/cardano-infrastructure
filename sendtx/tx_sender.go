@@ -2,10 +2,7 @@ package sendtx
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"math/big"
-	"sync"
 
 	infracommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
@@ -167,40 +164,6 @@ func (txSnd *TxSender) SubmitTx(
 	}, txSnd.retryOptions...)
 
 	return err
-}
-
-func (txSnd *TxSender) WaitForTx(
-	ctx context.Context, chainID string, receivers []BridgingTxReceiver, tokenName string,
-) error {
-	chainConfig, existsSrc := txSnd.chainConfigMap[chainID]
-	if !existsSrc {
-		return fmt.Errorf("%s chain config not found", chainID)
-	}
-
-	errs := make([]error, len(receivers))
-	wg := sync.WaitGroup{}
-
-	for i, x := range receivers {
-		wg.Add(1)
-
-		go func(idx int, recv BridgingTxReceiver) {
-			defer wg.Done()
-
-			_, errs[idx] = infracommon.WaitForAmount(
-				ctx, new(big.Int).SetUint64(recv.Amount), func(ctx context.Context) (*big.Int, error) {
-					utxos, err := chainConfig.TxProvider.GetUtxos(ctx, recv.Addr)
-					if err != nil {
-						return nil, err
-					}
-
-					return new(big.Int).SetUint64(cardanowallet.GetUtxosSum(utxos)[tokenName]), nil
-				}, txSnd.retryOptions...)
-		}(i, x)
-	}
-
-	wg.Wait()
-
-	return errors.Join(errs...)
 }
 
 func (txSnd *TxSender) CreateMetadata(
