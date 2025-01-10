@@ -194,7 +194,7 @@ func (txSnd *TxSender) WaitForTx(
 					}
 
 					return new(big.Int).SetUint64(cardanowallet.GetUtxosSum(utxos)[tokenName]), nil
-				})
+				}, txSnd.retryOptions...)
 		}(i, x)
 	}
 
