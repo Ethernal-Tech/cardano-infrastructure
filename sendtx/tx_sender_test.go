@@ -1,7 +1,6 @@
 package sendtx
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/common"
@@ -24,21 +23,6 @@ func TestCreateMetaData(t *testing.T) {
 		},
 		"vector": {
 			MinUtxoValue: 20,
-			ExchangeRate: map[string]float64{
-				"prime": 0.5,
-			},
-		},
-	}
-
-	configs2 := map[string]ChainConfig{
-		"prime": {
-			MinUtxoValue: 550,
-			ExchangeRate: map[string]float64{
-				"vector": 2.0,
-			},
-		},
-		"vector": {
-			MinUtxoValue: 200,
 			ExchangeRate: map[string]float64{
 				"prime": 0.5,
 			},
@@ -96,8 +80,20 @@ func TestCreateMetaData(t *testing.T) {
 	})
 
 	t.Run("valid 2", func(t *testing.T) {
-		fmt.Println("valid 2")
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), uint64(0), 0, configs2)
+		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), uint64(0), 0, map[string]ChainConfig{
+			"prime": {
+				MinUtxoValue: 550,
+				ExchangeRate: map[string]float64{
+					"vector": 2.0,
+				},
+			},
+			"vector": {
+				MinUtxoValue: 200,
+				ExchangeRate: map[string]float64{
+					"prime": 0.5,
+				},
+			},
+		})
 
 		metadata, err := txSnd.CreateMetadata(senderAddr, "prime", "vector", []BridgingTxReceiver{
 			{
