@@ -219,7 +219,7 @@ func (txSnd *TxSender) CreateMetadata(
 	exchangeRateOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID], 1)
 	exchangeRateOnSrc := 1.0 / exchangeRateOnDst
 	feeSrcCurrencyLovelaceAmount := mul(txSnd.bridgingFeeAmount, exchangeRateOnSrc)
-	srcCurrencyLovelacySum := feeSrcCurrencyLovelaceAmount
+	srcCurrencyLovelaceSum := feeSrcCurrencyLovelaceAmount
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
 
 	for i, x := range receivers {
@@ -240,7 +240,7 @@ func (txSnd *TxSender) CreateMetadata(
 			}
 
 			srcAdditionalInfo := mul(dstConfig.MinUtxoValue, exchangeRateOnSrc)
-			srcCurrencyLovelacySum += srcAdditionalInfo + x.Amount
+			srcCurrencyLovelaceSum += srcAdditionalInfo + x.Amount
 			txs[i] = BridgingRequestMetadataTransaction{
 				Address: infracommon.SplitString(x.Addr, splitStringLength),
 				Amount:  x.Amount,
@@ -254,7 +254,7 @@ func (txSnd *TxSender) CreateMetadata(
 				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, txSnd.minAmountToBridge)
 			}
 
-			srcCurrencyLovelacySum += x.Amount
+			srcCurrencyLovelaceSum += x.Amount
 			txs[i] = BridgingRequestMetadataTransaction{
 				Address: infracommon.SplitString(x.Addr, splitStringLength),
 				Amount:  x.Amount,
@@ -264,9 +264,9 @@ func (txSnd *TxSender) CreateMetadata(
 
 	feeDstCurrencyLovelaceAmount := txSnd.bridgingFeeAmount
 
-	if srcCurrencyLovelacySum < srcConfig.MinUtxoValue {
-		feeSrcCurrencyLovelaceAmount += srcConfig.MinUtxoValue - srcCurrencyLovelacySum
-		feeDstCurrencyLovelaceAmount += mul(srcConfig.MinUtxoValue-srcCurrencyLovelacySum, exchangeRateOnDst)
+	if srcCurrencyLovelaceSum < srcConfig.MinUtxoValue {
+		feeSrcCurrencyLovelaceAmount += srcConfig.MinUtxoValue - srcCurrencyLovelaceSum
+		feeDstCurrencyLovelaceAmount += mul(srcConfig.MinUtxoValue-srcCurrencyLovelaceSum, exchangeRateOnDst)
 	}
 
 	return &BridgingRequestMetadata{
