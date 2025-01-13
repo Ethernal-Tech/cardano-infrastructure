@@ -61,7 +61,7 @@ func GetOutputAmounts(metadata *BridgingRequestMetadata) (outputCurrencyLovelace
 	outputCurrencyLovelace = metadata.FeeAmount.SrcAmount
 
 	for _, x := range metadata.Transactions {
-		if x.IsNativeTokenOnSrc != 0 {
+		if x.IsNativeTokenOnSource() {
 			// WADA/WAPEX to ADA/APEX
 			outputNativeToken += x.Amount
 		} else {
@@ -75,4 +75,8 @@ func GetOutputAmounts(metadata *BridgingRequestMetadata) (outputCurrencyLovelace
 	}
 
 	return outputCurrencyLovelace, outputNativeToken
+}
+
+func (brmt BridgingRequestMetadataTransaction) IsNativeTokenOnSource() bool {
+	return brmt.IsNativeTokenOnSrc != 0
 }
