@@ -354,7 +354,7 @@ func (txSnd *TxSender) populateTxBuilder(
 
 		nativeToken, err := cardanowallet.NewTokenAmountWithFullName(
 			srcConfig.NativeTokenFullName, outputNativeToken, true)
-		if err == nil {
+		if err != nil {
 			return nil, err
 		}
 
