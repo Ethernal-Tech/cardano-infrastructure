@@ -127,9 +127,8 @@ func (b *TxProviderBlockFrost) GetUtxos(ctx context.Context, addr string) ([]Utx
 				}
 
 				tokens = append(tokens, TokenAmount{
-					PolicyID: policyID,
-					Name:     name,
-					Amount:   tmpAmount,
+					Token:  NewToken(policyID, name),
+					Amount: tmpAmount,
 				})
 			}
 		}

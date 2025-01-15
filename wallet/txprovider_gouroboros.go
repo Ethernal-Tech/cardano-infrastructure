@@ -154,9 +154,8 @@ func (b *TxProviderGoUroBoros) GetUtxos(ctx context.Context, addr string) ([]Utx
 
 				for _, asset := range assets.Assets(policyIDRaw) {
 					tokens = append(tokens, TokenAmount{
-						PolicyID: policyID,
-						Name:     string(asset),
-						Amount:   assets.Asset(policyIDRaw, asset),
+						Token:  NewToken(policyID, string(asset)),
+						Amount: assets.Asset(policyIDRaw, asset),
 					})
 				}
 			}

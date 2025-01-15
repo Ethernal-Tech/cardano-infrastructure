@@ -72,12 +72,12 @@ func GetTokensFromSumMap(sum map[string]uint64, skipTokenNames ...string) (resul
 			continue
 		}
 
-		token, err := NewTokenAmountWithFullName(tokenName, amount, true)
+		token, err := NewTokenWithFullName(tokenName, true)
 		if err != nil {
 			return result, err
 		}
 
-		result = append(result, token)
+		result = append(result, NewTokenAmount(token, amount))
 	}
 
 	return result, nil
