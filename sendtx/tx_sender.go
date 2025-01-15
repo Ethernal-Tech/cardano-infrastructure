@@ -8,6 +8,11 @@ import (
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
 )
 
+type IUtxosTransformer interface {
+	TransformUtxos(utxos []cardanowallet.Utxo) []cardanowallet.Utxo
+	UpdateUtxos([]cardanowallet.TxInput)
+}
+
 type BridgingType byte
 
 const (
@@ -45,6 +50,7 @@ type TxSender struct {
 	maxInputsPerTx    int
 	chainConfigMap    map[string]ChainConfig
 	retryOptions      []infracommon.RetryConfigOption
+	utxosTransformer  IUtxosTransformer
 }
 
 func NewTxSender(
@@ -63,6 +69,12 @@ func NewTxSender(
 		chainConfigMap:    chainConfigMap,
 		retryOptions:      retryOptions,
 	}
+}
+
+func (txSnd *TxSender) SetUtxosTransformer(utxosTransformer IUtxosTransformer) *TxSender {
+	txSnd.utxosTransformer = utxosTransformer
+
+	return txSnd
 }
 
 // CreateBridgingTx creates bridging tx and returns cbor of raw transaction data, tx hash and error
@@ -346,9 +358,17 @@ func (txSnd *TxSender) populateTxBuilder(
 		conditions[srcConfig.NativeTokenFullName] = outputNativeToken
 	}
 
+	if txSnd.utxosTransformer != nil {
+		utxos = txSnd.utxosTransformer.TransformUtxos(utxos)
+	}
+
 	inputs, err := GetUTXOsForAmounts(utxos, conditions, txSnd.maxInputsPerTx, 1)
 	if err != nil {
 		return nil, err
+	}
+
+	if txSnd.utxosTransformer != nil {
+		txSnd.utxosTransformer.UpdateUtxos(inputs.Inputs)
 	}
 
 	if outputNativeToken != 0 {
