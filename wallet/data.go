@@ -13,7 +13,7 @@ const (
 
 type Token struct {
 	PolicyID string `json:"pid"`
-	Name     string `json:"nam"` // name must not be hex encoded
+	Name     string `json:"nam"` // name must plain name and not be hex encoded
 }
 
 func NewToken(policyID string, name string) Token {
@@ -30,19 +30,20 @@ func NewTokenWithFullName(name string, isNameEncoded bool) (Token, error) {
 	}
 
 	if !isNameEncoded {
-		name = parts[1]
-	} else {
-		decodedName, err := hex.DecodeString(parts[1])
-		if err != nil {
-			return Token{}, fmt.Errorf("invalid full token name: %s", name)
-		}
+		return Token{
+			PolicyID: parts[0],
+			Name:     parts[1],
+		}, nil
+	}
 
-		name = string(decodedName)
+	decodedName, err := hex.DecodeString(parts[1])
+	if err != nil {
+		return Token{}, fmt.Errorf("invalid full token name: %s", name)
 	}
 
 	return Token{
 		PolicyID: parts[0],
-		Name:     name,
+		Name:     string(decodedName),
 	}, nil
 }
 
