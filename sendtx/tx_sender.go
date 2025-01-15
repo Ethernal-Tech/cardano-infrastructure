@@ -102,10 +102,10 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	dstChainID string,
 	senderAddr string,
 	receivers []BridgingTxReceiver,
-) (uint64, error) {
+) (uint64, *BridgingRequestMetadata, error) {
 	metadata, err := txSnd.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
 	srcConfig := txSnd.chainConfigMap[srcChainID]
@@ -113,11 +113,16 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 
 	metaDataRaw, err := metadata.Marshal()
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
-	return txSnd.calculateFee(
+	fee, err := txSnd.calculateFee(
 		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metaDataRaw, outputCurrencyLovelace, outputNativeToken)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return fee, metadata, nil
 }
 
 // CreateTxGeneric creates generic tx to one recipient and returns cbor of raw transaction data, tx hash and error
