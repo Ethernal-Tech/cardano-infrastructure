@@ -18,11 +18,7 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 			Hash:   "2",
 			Amount: 50,
 			Tokens: []cardanowallet.TokenAmount{
-				{
-					PolicyID: "1",
-					Name:     "1",
-					Amount:   100,
-				},
+				cardanowallet.NewTokenAmount(cardanowallet.NewToken("1", "1"), 100),
 			},
 		},
 		{
@@ -37,11 +33,7 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 			Hash:   "5",
 			Amount: 160,
 			Tokens: []cardanowallet.TokenAmount{
-				{
-					PolicyID: "1",
-					Name:     "1",
-					Amount:   50,
-				},
+				cardanowallet.NewTokenAmount(cardanowallet.NewToken("1", "1"), 50),
 			},
 		},
 		{
@@ -52,22 +44,14 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 			Hash:   "7",
 			Amount: 200,
 			Tokens: []cardanowallet.TokenAmount{
-				{
-					PolicyID: "1",
-					Name:     "1",
-					Amount:   400,
-				},
+				cardanowallet.NewTokenAmount(cardanowallet.NewToken("1", "1"), 400),
 			},
 		},
 		{
 			Hash:   "8",
 			Amount: 50,
 			Tokens: []cardanowallet.TokenAmount{
-				{
-					PolicyID: "1",
-					Name:     "1",
-					Amount:   200,
-				},
+				cardanowallet.NewTokenAmount(cardanowallet.NewToken("1", "1"), 200),
 			},
 		},
 	}
@@ -189,11 +173,7 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 				Hash:   "3",
 				Amount: 150,
 				Tokens: []cardanowallet.TokenAmount{
-					{
-						PolicyID: "1",
-						Name:     "1",
-						Amount:   100,
-					},
+					cardanowallet.NewTokenAmount(cardanowallet.NewToken("1", "1"), 100),
 				},
 			},
 			{

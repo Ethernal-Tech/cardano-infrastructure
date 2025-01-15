@@ -32,7 +32,7 @@ type ChainConfig struct {
 	TestNetMagic       uint
 	TTLSlotNumberInc   uint64
 	MinUtxoValue       uint64
-	NativeToken        cardanowallet.TokenAmount
+	NativeToken        cardanowallet.Token
 	ExchangeRate       map[string]float64
 	ProtocolParameters []byte
 }
@@ -353,7 +353,7 @@ func (txSnd *TxSender) populateTxBuilder(
 	conditions := map[string]uint64{
 		cardanowallet.AdaTokenName: outputCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
 	}
-	srcNativeTokenFullName := srcConfig.NativeToken.TokenName()
+	srcNativeTokenFullName := srcConfig.NativeToken.String()
 
 	if outputNativeToken != 0 {
 		conditions[srcNativeTokenFullName] = outputNativeToken
@@ -378,7 +378,9 @@ func (txSnd *TxSender) populateTxBuilder(
 			delete(inputs.Sum, srcNativeTokenFullName)
 		}
 
-		outputNativeTokens = []cardanowallet.TokenAmount{srcConfig.NativeToken}
+		outputNativeTokens = []cardanowallet.TokenAmount{
+			cardanowallet.NewTokenAmount(srcConfig.NativeToken, outputNativeToken),
+		}
 	}
 
 	outputRemainingTokens, err := cardanowallet.GetTokensFromSumMap(inputs.Sum)

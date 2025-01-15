@@ -8,28 +8,25 @@ import (
 )
 
 const (
-	AdaTokenPolicyID = "ada"
-	AdaTokenName     = "lovelace"
+	AdaTokenName = "lovelace"
 )
 
-type TokenAmount struct {
+type Token struct {
 	PolicyID string `json:"pid"`
 	Name     string `json:"nam"` // name must not be hex encoded
-	Amount   uint64 `json:"val"`
 }
 
-func NewTokenAmount(policyID string, name string, amount uint64) TokenAmount {
-	return TokenAmount{
+func NewToken(policyID string, name string) Token {
+	return Token{
 		PolicyID: policyID,
 		Name:     name,
-		Amount:   amount,
 	}
 }
 
-func NewTokenAmountWithFullName(name string, amount uint64, isNameEncoded bool) (TokenAmount, error) {
+func NewTokenWithFullName(name string, isNameEncoded bool) (Token, error) {
 	parts := strings.Split(name, ".")
 	if len(parts) != 2 {
-		return TokenAmount{}, fmt.Errorf("invalid full token name: %s", name)
+		return Token{}, fmt.Errorf("invalid full token name: %s", name)
 	}
 
 	if !isNameEncoded {
@@ -37,21 +34,36 @@ func NewTokenAmountWithFullName(name string, amount uint64, isNameEncoded bool) 
 	} else {
 		decodedName, err := hex.DecodeString(parts[1])
 		if err != nil {
-			return TokenAmount{}, fmt.Errorf("invalid full token name: %s", name)
+			return Token{}, fmt.Errorf("invalid full token name: %s", name)
 		}
 
 		name = string(decodedName)
 	}
 
-	return TokenAmount{
+	return Token{
 		PolicyID: parts[0],
 		Name:     name,
-		Amount:   amount,
 	}, nil
 }
 
-func (tt TokenAmount) TokenName() string {
+func (tt Token) String() string {
 	return fmt.Sprintf("%s.%s", tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
+}
+
+type TokenAmount struct {
+	Token
+	Amount uint64 `json:"val"`
+}
+
+func NewTokenAmount(token Token, amount uint64) TokenAmount {
+	return TokenAmount{
+		Token:  token,
+		Amount: amount,
+	}
+}
+
+func (tt TokenAmount) TokenName() string {
+	return tt.Token.String()
 }
 
 func (tt TokenAmount) String() string {
