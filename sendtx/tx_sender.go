@@ -26,15 +26,15 @@ const (
 )
 
 type ChainConfig struct {
-	CardanoCliBinary    string
-	TxProvider          cardanowallet.ITxProvider
-	MultiSigAddr        string
-	TestNetMagic        uint
-	TTLSlotNumberInc    uint64
-	MinUtxoValue        uint64
-	NativeTokenFullName string // policyID.hex(name)
-	ExchangeRate        map[string]float64
-	ProtocolParameters  []byte
+	CardanoCliBinary   string
+	TxProvider         cardanowallet.ITxProvider
+	MultiSigAddr       string
+	TestNetMagic       uint
+	TTLSlotNumberInc   uint64
+	MinUtxoValue       uint64
+	NativeToken        cardanowallet.TokenAmount
+	ExchangeRate       map[string]float64
+	ProtocolParameters []byte
 }
 
 type BridgingTxReceiver struct {
@@ -353,9 +353,10 @@ func (txSnd *TxSender) populateTxBuilder(
 	conditions := map[string]uint64{
 		cardanowallet.AdaTokenName: outputCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
 	}
+	srcNativeTokenFullName := srcConfig.NativeToken.TokenName()
 
 	if outputNativeToken != 0 {
-		conditions[srcConfig.NativeTokenFullName] = outputNativeToken
+		conditions[srcNativeTokenFullName] = outputNativeToken
 	}
 
 	if txSnd.utxosTransformer != nil {
@@ -372,18 +373,12 @@ func (txSnd *TxSender) populateTxBuilder(
 	}
 
 	if outputNativeToken != 0 {
-		inputs.Sum[srcConfig.NativeTokenFullName] -= outputNativeToken
-		if inputs.Sum[srcConfig.NativeTokenFullName] == 0 {
-			delete(inputs.Sum, srcConfig.NativeTokenFullName)
+		inputs.Sum[srcNativeTokenFullName] -= outputNativeToken
+		if inputs.Sum[srcNativeTokenFullName] == 0 {
+			delete(inputs.Sum, srcNativeTokenFullName)
 		}
 
-		nativeToken, err := cardanowallet.NewTokenAmountWithFullName(
-			srcConfig.NativeTokenFullName, outputNativeToken, true)
-		if err != nil {
-			return nil, err
-		}
-
-		outputNativeTokens = []cardanowallet.TokenAmount{nativeToken}
+		outputNativeTokens = []cardanowallet.TokenAmount{srcConfig.NativeToken}
 	}
 
 	outputRemainingTokens, err := cardanowallet.GetTokensFromSumMap(inputs.Sum)
