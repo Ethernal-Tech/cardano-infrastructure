@@ -26,18 +26,6 @@ const (
 	splitStringLength       = 40
 )
 
-type ChainConfig struct {
-	CardanoCliBinary   string
-	TxProvider         cardanowallet.ITxProvider
-	MultiSigAddr       string
-	TestNetMagic       uint
-	TTLSlotNumberInc   uint64
-	MinUtxoValue       uint64
-	NativeToken        cardanowallet.Token
-	BridgingFeeAmount  uint64
-	ProtocolParameters []byte
-}
-
 type BridgingTxReceiver struct {
 	BridgingType BridgingType `json:"type"`
 	Addr         string       `json:"addr"`
@@ -198,8 +186,8 @@ func (txSnd *TxSender) CreateMetadata(
 		return nil, fmt.Errorf("destination chain %s config not found", dstChainID)
 	}
 
+	exchangeRateOnSrc := exchangeRate.Get(dstChainID, srcChainID)
 	exchangeRateOnDst := exchangeRate.Get(srcChainID, dstChainID)
-	exchangeRateOnSrc := 1.0 / exchangeRateOnDst
 	feeSrcCurrencyLovelaceAmount := mul(dstConfig.BridgingFeeAmount, exchangeRateOnSrc)
 	srcCurrencyLovelaceSum := feeSrcCurrencyLovelaceAmount
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
