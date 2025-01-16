@@ -26,12 +26,6 @@ const (
 	splitStringLength       = 40
 )
 
-type BridgingTxReceiver struct {
-	BridgingType BridgingType `json:"type"`
-	Addr         string       `json:"addr"`
-	Amount       uint64       `json:"amount"`
-}
-
 type ChainConfig struct {
 	CardanoCliBinary   string
 	TxProvider         cardanowallet.ITxProvider
@@ -42,6 +36,12 @@ type ChainConfig struct {
 	NativeToken        cardanowallet.Token
 	BridgingFeeAmount  uint64
 	ProtocolParameters []byte
+}
+
+type BridgingTxReceiver struct {
+	BridgingType BridgingType `json:"type"`
+	Addr         string       `json:"addr"`
+	Amount       uint64       `json:"amount"`
 }
 
 type TxSender struct {
