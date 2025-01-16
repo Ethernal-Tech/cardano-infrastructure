@@ -32,6 +32,18 @@ type BridgingTxReceiver struct {
 	Amount       uint64       `json:"amount"`
 }
 
+type ChainConfig struct {
+	CardanoCliBinary   string
+	TxProvider         cardanowallet.ITxProvider
+	MultiSigAddr       string
+	TestNetMagic       uint
+	TTLSlotNumberInc   uint64
+	MinUtxoValue       uint64
+	NativeToken        cardanowallet.Token
+	BridgingFeeAmount  uint64
+	ProtocolParameters []byte
+}
+
 type TxSender struct {
 	minAmountToBridge uint64
 	potentialFee      uint64
