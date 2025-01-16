@@ -21,6 +21,7 @@ const (
 	BridgingTypeCurrencyOnSource
 
 	defaultPotentialFee     = 250_000
+	defaultMaxInputsPerTx   = 16
 	defaultTTLSlotNumberInc = 500
 	splitStringLength       = 40
 )
@@ -53,26 +54,25 @@ type TxSender struct {
 	utxosTransformer  IUtxosTransformer
 }
 
+type TxSenderOption func(*TxSender)
+
 func NewTxSender(
 	bridgingFeeAmount uint64,
 	minAmountToBridge uint64,
-	potentialFee uint64,
-	maxInputsPerTx int,
 	chainConfigMap map[string]ChainConfig,
-	retryOptions ...infracommon.RetryConfigOption,
+	options ...TxSenderOption,
 ) *TxSender {
-	return &TxSender{
+	txSnd := &TxSender{
 		bridgingFeeAmount: bridgingFeeAmount,
 		minAmountToBridge: minAmountToBridge,
-		maxInputsPerTx:    maxInputsPerTx,
-		potentialFee:      potentialFee,
 		chainConfigMap:    chainConfigMap,
-		retryOptions:      retryOptions,
+		potentialFee:      defaultPotentialFee,
+		maxInputsPerTx:    defaultMaxInputsPerTx,
 	}
-}
 
-func (txSnd *TxSender) SetUtxosTransformer(utxosTransformer IUtxosTransformer) *TxSender {
-	txSnd.utxosTransformer = utxosTransformer
+	for _, opt := range options {
+		opt(txSnd)
+	}
 
 	return txSnd
 }
@@ -346,12 +346,11 @@ func (txSnd *TxSender) populateTxBuilder(
 		return nil, err
 	}
 
-	potentialFee := setOrDefault(txSnd.potentialFee, defaultPotentialFee)
 	ttlSlotNumberInc := setOrDefault(srcConfig.TTLSlotNumberInc, defaultTTLSlotNumberInc)
 
 	outputNativeTokens := []cardanowallet.TokenAmount(nil)
 	conditions := map[string]uint64{
-		cardanowallet.AdaTokenName: outputCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
+		cardanowallet.AdaTokenName: outputCurrencyLovelace + txSnd.potentialFee + srcConfig.MinUtxoValue,
 	}
 	srcNativeTokenFullName := srcConfig.NativeToken.String()
 
@@ -444,4 +443,28 @@ func setOrDefault[T comparable](val, def T) T {
 	}
 
 	return val
+}
+
+func WithUtxosTransformer(utxosTransformer IUtxosTransformer) TxSenderOption {
+	return func(txSnd *TxSender) {
+		txSnd.utxosTransformer = utxosTransformer
+	}
+}
+
+func WithPotentialFee(potentialFee uint64) TxSenderOption {
+	return func(txSnd *TxSender) {
+		txSnd.potentialFee = potentialFee
+	}
+}
+
+func WithMaxInputsPerTx(maxInputsPerTx int) TxSenderOption {
+	return func(txSnd *TxSender) {
+		txSnd.maxInputsPerTx = maxInputsPerTx
+	}
+}
+
+func WithRetryOptions(retryOptions []infracommon.RetryConfigOption) TxSenderOption {
+	return func(txSnd *TxSender) {
+		txSnd.retryOptions = retryOptions
+	}
 }
