@@ -26,6 +26,11 @@ const (
 	splitStringLength       = 40
 )
 
+type TokenExchangeConfig struct {
+	DstChainID string
+	TokenName  string
+}
+
 type ChainConfig struct {
 	CardanoCliBinary   string
 	TxProvider         cardanowallet.ITxProvider
@@ -33,8 +38,9 @@ type ChainConfig struct {
 	TestNetMagic       uint
 	TTLSlotNumberInc   uint64
 	MinUtxoValue       uint64
-	NativeToken        cardanowallet.Token
+	NativeTokens       []TokenExchangeConfig
 	BridgingFeeAmount  uint64
+	PotentialFee       uint64
 	ProtocolParameters []byte
 }
 
@@ -46,7 +52,6 @@ type BridgingTxReceiver struct {
 
 type TxSender struct {
 	minAmountToBridge uint64
-	potentialFee      uint64
 	maxInputsPerTx    int
 	chainConfigMap    map[string]ChainConfig
 	retryOptions      []infracommon.RetryConfigOption
@@ -61,7 +66,6 @@ func NewTxSender(
 ) *TxSender {
 	txSnd := &TxSender{
 		chainConfigMap: chainConfigMap,
-		potentialFee:   defaultPotentialFee,
 		maxInputsPerTx: defaultMaxInputsPerTx,
 	}
 
@@ -99,7 +103,8 @@ func (txSnd *TxSender) CreateBridgingTx(
 	}
 
 	txRaw, txHash, err := txSnd.createTx(
-		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metaDataRaw, outputCurrencyLovelace, outputNativeToken)
+		ctx, srcConfig, dstChainID, senderAddr, srcConfig.MultiSigAddr,
+		metaDataRaw, outputCurrencyLovelace, outputNativeToken)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -130,7 +135,8 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	}
 
 	fee, err := txSnd.calculateFee(
-		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr, metaDataRaw, outputCurrencyLovelace, outputNativeToken)
+		ctx, srcConfig, dstChainID, senderAddr, srcConfig.MultiSigAddr,
+		metaDataRaw, outputCurrencyLovelace, outputNativeToken)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -142,6 +148,7 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 func (txSnd *TxSender) CreateTxGeneric(
 	ctx context.Context,
 	srcChainID string,
+	dstChainID string,
 	senderAddr string,
 	receiverAddr string,
 	metadata []byte,
@@ -154,7 +161,7 @@ func (txSnd *TxSender) CreateTxGeneric(
 	}
 
 	return txSnd.createTx(
-		ctx, srcConfig, senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken)
+		ctx, srcConfig, dstChainID, senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken)
 }
 
 func (txSnd *TxSender) SubmitTx(
@@ -266,6 +273,7 @@ func (txSnd *TxSender) CreateMetadata(
 func (txSnd *TxSender) calculateFee(ctx context.Context,
 	srcConfig ChainConfig,
 	senderAddr string,
+	dstChainID string,
 	receiverAddr string,
 	metadata []byte,
 	outputCurrencyLovelace uint64,
@@ -279,7 +287,8 @@ func (txSnd *TxSender) calculateFee(ctx context.Context,
 	defer builder.Dispose()
 
 	_, err = txSnd.populateTxBuilder(
-		ctx, builder, srcConfig, senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken)
+		ctx, builder, srcConfig, dstChainID,
+		senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken)
 	if err != nil {
 		return 0, err
 	}
@@ -290,6 +299,7 @@ func (txSnd *TxSender) calculateFee(ctx context.Context,
 func (txSnd *TxSender) createTx(
 	ctx context.Context,
 	srcConfig ChainConfig,
+	dstChainID string,
 	senderAddr string,
 	receiverAddr string,
 	metadata []byte,
@@ -304,7 +314,8 @@ func (txSnd *TxSender) createTx(
 	defer builder.Dispose()
 
 	inputsSum, err := txSnd.populateTxBuilder(
-		ctx, builder, srcConfig, senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken)
+		ctx, builder, srcConfig, dstChainID,
+		senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken)
 	if err != nil {
 		return nil, "", err
 	}
@@ -337,6 +348,7 @@ func (txSnd *TxSender) populateTxBuilder(
 	ctx context.Context,
 	builder *cardanowallet.TxBuilder,
 	srcConfig ChainConfig,
+	dstChainID string,
 	senderAddr string,
 	receiverAddr string,
 	metadata []byte,
@@ -349,14 +361,22 @@ func (txSnd *TxSender) populateTxBuilder(
 	}
 
 	ttlSlotNumberInc := setOrDefault(srcConfig.TTLSlotNumberInc, defaultTTLSlotNumberInc)
+	potentialFee := setOrDefault(srcConfig.PotentialFee, defaultPotentialFee)
 
 	outputNativeTokens := []cardanowallet.TokenAmount(nil)
 	conditions := map[string]uint64{
-		cardanowallet.AdaTokenName: outputCurrencyLovelace + txSnd.potentialFee + srcConfig.MinUtxoValue,
+		cardanowallet.AdaTokenName: outputCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
 	}
-	srcNativeTokenFullName := srcConfig.NativeToken.String()
+	nativeToken := cardanowallet.Token{}
+	srcNativeTokenFullName := ""
 
 	if outputNativeToken != 0 {
+		nativeToken, err = getNativeTokenForDstChainID(srcConfig.NativeTokens, dstChainID)
+		if err != nil {
+			return nil, err
+		}
+
+		srcNativeTokenFullName = nativeToken.String()
 		conditions[srcNativeTokenFullName] = outputNativeToken
 	}
 
@@ -380,7 +400,7 @@ func (txSnd *TxSender) populateTxBuilder(
 		}
 
 		outputNativeTokens = []cardanowallet.TokenAmount{
-			cardanowallet.NewTokenAmount(srcConfig.NativeToken, outputNativeToken),
+			cardanowallet.NewTokenAmount(nativeToken, outputNativeToken),
 		}
 	}
 
@@ -433,15 +453,39 @@ func (txSnd TxSender) getDynamicParameters(
 	return qtd, protocolParams, utxos, err
 }
 
+func getNativeTokenForDstChainID(
+	nativeTokenDsts []TokenExchangeConfig, dstChainID string,
+) (token cardanowallet.Token, err error) {
+	srcNativeTokenFullName := ""
+
+	for _, nativeTokenDst := range nativeTokenDsts {
+		if nativeTokenDst.DstChainID == dstChainID {
+			srcNativeTokenFullName = nativeTokenDst.TokenName
+
+			break
+		}
+	}
+
+	if srcNativeTokenFullName == "" {
+		return token, fmt.Errorf("unknown native token for destionation chain: %s", dstChainID)
+	}
+
+	token, err = cardanowallet.NewTokenWithFullName(srcNativeTokenFullName, true)
+	if err == nil {
+		return token, nil
+	}
+
+	token, err = cardanowallet.NewTokenWithFullName(srcNativeTokenFullName, false)
+	if err != nil {
+		return token, fmt.Errorf("invalid native token name: %w", err)
+	}
+
+	return token, nil
+}
+
 func WithUtxosTransformer(utxosTransformer IUtxosTransformer) TxSenderOption {
 	return func(txSnd *TxSender) {
 		txSnd.utxosTransformer = utxosTransformer
-	}
-}
-
-func WithPotentialFee(potentialFee uint64) TxSenderOption {
-	return func(txSnd *TxSender) {
-		txSnd.potentialFee = potentialFee
 	}
 }
 
