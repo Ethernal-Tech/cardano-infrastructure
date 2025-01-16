@@ -70,6 +70,10 @@ func NewTxSender(
 		maxInputsPerTx:    defaultMaxInputsPerTx,
 	}
 
+	for _, opt := range options {
+		opt(txSnd)
+	}
+
 	return txSnd
 }
 
@@ -459,7 +463,7 @@ func WithMaxInputsPerTx(maxInputsPerTx int) TxSenderOption {
 	}
 }
 
-func WithRetryOption(retryOptions []infracommon.RetryConfigOption) TxSenderOption {
+func WithRetryOptions(retryOptions []infracommon.RetryConfigOption) TxSenderOption {
 	return func(txSnd *TxSender) {
 		txSnd.retryOptions = retryOptions
 	}
