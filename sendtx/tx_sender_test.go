@@ -30,7 +30,7 @@ func TestCreateMetaData(t *testing.T) {
 	}
 
 	t.Run("valid", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), uint64(0), 0, configs)
+		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), configs)
 
 		metadata, err := txSnd.CreateMetadata(senderAddr, "prime", "vector", []BridgingTxReceiver{
 			{
@@ -80,7 +80,7 @@ func TestCreateMetaData(t *testing.T) {
 	})
 
 	t.Run("valid 2", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), uint64(0), 0, map[string]ChainConfig{
+		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), map[string]ChainConfig{
 			"prime": {
 				MinUtxoValue: 550,
 				ExchangeRate: map[string]float64{
@@ -121,21 +121,21 @@ func TestCreateMetaData(t *testing.T) {
 	})
 
 	t.Run("invalid destination", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), uint64(0), 0, configs)
+		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), configs)
 
 		_, err := txSnd.CreateMetadata(senderAddr, "prime", "vector1", []BridgingTxReceiver{})
 		require.ErrorContains(t, err, "destination chain ")
 	})
 
 	t.Run("invalid source", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), uint64(0), 0, configs)
+		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), configs)
 
 		_, err := txSnd.CreateMetadata(senderAddr, "prime1", "vector", []BridgingTxReceiver{})
 		require.ErrorContains(t, err, "source chain ")
 	})
 
 	t.Run("invalid amount native token on source", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), uint64(0), 0, configs)
+		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), configs)
 
 		_, err := txSnd.CreateMetadata(senderAddr, "prime", "vector", []BridgingTxReceiver{
 			{
@@ -147,7 +147,7 @@ func TestCreateMetaData(t *testing.T) {
 	})
 
 	t.Run("invalid amount currency on source", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), uint64(0), 0, configs)
+		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), configs)
 
 		_, err := txSnd.CreateMetadata(senderAddr, "prime", "vector", []BridgingTxReceiver{
 			{
@@ -159,7 +159,7 @@ func TestCreateMetaData(t *testing.T) {
 	})
 
 	t.Run("invalid amount reactor", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(190), uint64(0), 0, configs)
+		txSnd := NewTxSender(bridgingFeeAmount, uint64(190), configs)
 
 		_, err := txSnd.CreateMetadata(senderAddr, "prime", "vector", []BridgingTxReceiver{
 			{
