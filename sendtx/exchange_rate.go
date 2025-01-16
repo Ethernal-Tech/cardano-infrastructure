@@ -19,7 +19,7 @@ func NewExchangeRateEntry(srcChainID, dstChainID string, value float64) Exchange
 type ExchangeRate map[string]float64
 
 func NewExchangeRate(entries ...ExchangeRateEntry) ExchangeRate {
-	r := make(ExchangeRate, len(entries))
+	r := make(ExchangeRate, len(entries)*2)
 
 	for _, e := range entries {
 		r[r.getKey(e.SrcChainID, e.DstChainID)] = e.Value
