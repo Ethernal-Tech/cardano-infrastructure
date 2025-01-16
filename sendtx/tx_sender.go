@@ -40,6 +40,7 @@ type ChainConfig struct {
 	MinUtxoValue       uint64
 	NativeTokens       []TokenExchangeConfig
 	BridgingFeeAmount  uint64
+	PotentialFee       uint64
 	ProtocolParameters []byte
 }
 
@@ -51,7 +52,6 @@ type BridgingTxReceiver struct {
 
 type TxSender struct {
 	minAmountToBridge uint64
-	potentialFee      uint64
 	maxInputsPerTx    int
 	chainConfigMap    map[string]ChainConfig
 	retryOptions      []infracommon.RetryConfigOption
@@ -66,7 +66,6 @@ func NewTxSender(
 ) *TxSender {
 	txSnd := &TxSender{
 		chainConfigMap: chainConfigMap,
-		potentialFee:   defaultPotentialFee,
 		maxInputsPerTx: defaultMaxInputsPerTx,
 	}
 
@@ -362,10 +361,11 @@ func (txSnd *TxSender) populateTxBuilder(
 	}
 
 	ttlSlotNumberInc := setOrDefault(srcConfig.TTLSlotNumberInc, defaultTTLSlotNumberInc)
+	potentialFee := setOrDefault(srcConfig.PotentialFee, defaultPotentialFee)
 
 	outputNativeTokens := []cardanowallet.TokenAmount(nil)
 	conditions := map[string]uint64{
-		cardanowallet.AdaTokenName: outputCurrencyLovelace + txSnd.potentialFee + srcConfig.MinUtxoValue,
+		cardanowallet.AdaTokenName: outputCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
 	}
 	nativeToken := cardanowallet.Token{}
 	srcNativeTokenFullName := ""
@@ -486,12 +486,6 @@ func getNativeTokenForDstChainID(
 func WithUtxosTransformer(utxosTransformer IUtxosTransformer) TxSenderOption {
 	return func(txSnd *TxSender) {
 		txSnd.utxosTransformer = utxosTransformer
-	}
-}
-
-func WithPotentialFee(potentialFee uint64) TxSenderOption {
-	return func(txSnd *TxSender) {
-		txSnd.potentialFee = potentialFee
 	}
 }
 
