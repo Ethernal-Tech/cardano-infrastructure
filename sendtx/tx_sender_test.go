@@ -16,21 +16,19 @@ func TestCreateMetaData(t *testing.T) {
 
 	configs := map[string]ChainConfig{
 		"prime": {
-			MinUtxoValue: 55,
-			ExchangeRate: map[string]float64{
-				"vector": 2.0,
-			},
+			BridgingFeeAmount: bridgingFeeAmount,
+			MinUtxoValue:      55,
 		},
 		"vector": {
-			MinUtxoValue: 20,
-			ExchangeRate: map[string]float64{
-				"prime": 0.5,
-			},
+			BridgingFeeAmount: bridgingFeeAmount,
+			MinUtxoValue:      20,
 		},
 	}
 
+	exchangeRate := NewExchangeRate(NewExchangeRateEntry("prime", "vector", 2.0))
+
 	t.Run("valid", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), configs)
+		txSnd := NewTxSender(configs)
 
 		metadata, err := txSnd.CreateMetadata(senderAddr, "prime", "vector", []BridgingTxReceiver{
 			{
@@ -48,7 +46,7 @@ func TestCreateMetaData(t *testing.T) {
 				Addr:         "addr1_ac",
 				Amount:       uint64(33),
 			},
-		})
+		}, exchangeRate)
 
 		require.NoError(t, err)
 		assert.Equal(t, common.SplitString(senderAddr, splitStringLength), metadata.SenderAddr)
@@ -80,18 +78,14 @@ func TestCreateMetaData(t *testing.T) {
 	})
 
 	t.Run("valid 2", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), map[string]ChainConfig{
+		txSnd := NewTxSender(map[string]ChainConfig{
 			"prime": {
-				MinUtxoValue: 550,
-				ExchangeRate: map[string]float64{
-					"vector": 2.0,
-				},
+				BridgingFeeAmount: bridgingFeeAmount,
+				MinUtxoValue:      550,
 			},
 			"vector": {
-				MinUtxoValue: 200,
-				ExchangeRate: map[string]float64{
-					"prime": 0.5,
-				},
+				BridgingFeeAmount: bridgingFeeAmount,
+				MinUtxoValue:      200,
 			},
 		})
 
@@ -101,7 +95,7 @@ func TestCreateMetaData(t *testing.T) {
 				Addr:         "addr1_ab",
 				Amount:       uint64(200),
 			},
-		})
+		}, exchangeRate)
 
 		require.NoError(t, err)
 		assert.Equal(t, common.SplitString(senderAddr, splitStringLength), metadata.SenderAddr)
@@ -121,52 +115,61 @@ func TestCreateMetaData(t *testing.T) {
 	})
 
 	t.Run("invalid destination", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), configs)
+		txSnd := NewTxSender(configs)
 
-		_, err := txSnd.CreateMetadata(senderAddr, "prime", "vector1", []BridgingTxReceiver{})
+		_, err := txSnd.CreateMetadata(senderAddr, "prime", "vector1", []BridgingTxReceiver{}, exchangeRate)
 		require.ErrorContains(t, err, "destination chain ")
 	})
 
 	t.Run("invalid source", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), configs)
+		txSnd := NewTxSender(configs)
 
-		_, err := txSnd.CreateMetadata(senderAddr, "prime1", "vector", []BridgingTxReceiver{})
+		_, err := txSnd.CreateMetadata(senderAddr, "prime1", "vector", []BridgingTxReceiver{}, exchangeRate)
 		require.ErrorContains(t, err, "source chain ")
 	})
 
 	t.Run("invalid amount native token on source", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), configs)
+		txSnd := NewTxSender(configs)
 
 		_, err := txSnd.CreateMetadata(senderAddr, "prime", "vector", []BridgingTxReceiver{
 			{
 				BridgingType: BridgingTypeNativeTokenOnSource,
 				Amount:       19,
 			},
-		})
+		}, exchangeRate)
 		require.ErrorContains(t, err, "amount for receiver ")
 	})
 
 	t.Run("invalid amount currency on source", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(50), configs)
+		txSnd := NewTxSender(configs)
 
 		_, err := txSnd.CreateMetadata(senderAddr, "prime", "vector", []BridgingTxReceiver{
 			{
 				BridgingType: BridgingTypeCurrencyOnSource,
 				Amount:       9,
 			},
-		})
+		}, exchangeRate)
 		require.ErrorContains(t, err, "amount for receiver ")
 	})
 
 	t.Run("invalid amount reactor", func(t *testing.T) {
-		txSnd := NewTxSender(bridgingFeeAmount, uint64(190), configs)
+		txSnd := NewTxSender(map[string]ChainConfig{
+			"prime": {
+				BridgingFeeAmount: bridgingFeeAmount,
+				MinUtxoValue:      190,
+			},
+			"vector": {
+				BridgingFeeAmount: bridgingFeeAmount,
+				MinUtxoValue:      20,
+			},
+		})
 
 		_, err := txSnd.CreateMetadata(senderAddr, "prime", "vector", []BridgingTxReceiver{
 			{
 				BridgingType: BridgingTypeNormal,
 				Amount:       189,
 			},
-		})
+		}, exchangeRate)
 		require.ErrorContains(t, err, "amount for receiver ")
 	})
 }

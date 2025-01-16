@@ -34,7 +34,7 @@ type ChainConfig struct {
 	TTLSlotNumberInc   uint64
 	MinUtxoValue       uint64
 	NativeToken        cardanowallet.Token
-	ExchangeRate       map[string]float64
+	BridgingFeeAmount  uint64
 	ProtocolParameters []byte
 }
 
@@ -45,7 +45,6 @@ type BridgingTxReceiver struct {
 }
 
 type TxSender struct {
-	bridgingFeeAmount uint64
 	minAmountToBridge uint64
 	potentialFee      uint64
 	maxInputsPerTx    int
@@ -57,17 +56,17 @@ type TxSender struct {
 type TxSenderOption func(*TxSender)
 
 func NewTxSender(
-	bridgingFeeAmount uint64,
-	minAmountToBridge uint64,
 	chainConfigMap map[string]ChainConfig,
 	options ...TxSenderOption,
 ) *TxSender {
 	txSnd := &TxSender{
-		bridgingFeeAmount: bridgingFeeAmount,
-		minAmountToBridge: minAmountToBridge,
-		chainConfigMap:    chainConfigMap,
-		potentialFee:      defaultPotentialFee,
-		maxInputsPerTx:    defaultMaxInputsPerTx,
+		chainConfigMap: chainConfigMap,
+		potentialFee:   defaultPotentialFee,
+		maxInputsPerTx: defaultMaxInputsPerTx,
+	}
+
+	for _, config := range chainConfigMap {
+		txSnd.minAmountToBridge = max(txSnd.minAmountToBridge, config.MinUtxoValue)
 	}
 
 	for _, opt := range options {
@@ -84,8 +83,9 @@ func (txSnd *TxSender) CreateBridgingTx(
 	dstChainID string,
 	senderAddr string,
 	receivers []BridgingTxReceiver,
+	exchangeRate ExchangeRate,
 ) ([]byte, string, *BridgingRequestMetadata, error) {
-	metadata, err := txSnd.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers)
+	metadata, err := txSnd.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers, exchangeRate)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -114,8 +114,9 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	dstChainID string,
 	senderAddr string,
 	receivers []BridgingTxReceiver,
+	exchangeRate ExchangeRate,
 ) (uint64, *BridgingRequestMetadata, error) {
-	metadata, err := txSnd.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers)
+	metadata, err := txSnd.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers, exchangeRate)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -184,7 +185,8 @@ func (txSnd *TxSender) SubmitTx(
 }
 
 func (txSnd *TxSender) CreateMetadata(
-	senderAddr string, srcChainID, dstChainID string, receivers []BridgingTxReceiver,
+	senderAddr string, srcChainID, dstChainID string, receivers []BridgingTxReceiver, exchangeRate ExchangeRate,
+
 ) (*BridgingRequestMetadata, error) {
 	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
 	if !existsSrc {
@@ -196,9 +198,9 @@ func (txSnd *TxSender) CreateMetadata(
 		return nil, fmt.Errorf("destination chain %s config not found", dstChainID)
 	}
 
-	exchangeRateOnDst := setOrDefault(srcConfig.ExchangeRate[dstChainID], 1)
+	exchangeRateOnDst := exchangeRate.Get(srcChainID, dstChainID)
 	exchangeRateOnSrc := 1.0 / exchangeRateOnDst
-	feeSrcCurrencyLovelaceAmount := mul(txSnd.bridgingFeeAmount, exchangeRateOnSrc)
+	feeSrcCurrencyLovelaceAmount := mul(dstConfig.BridgingFeeAmount, exchangeRateOnSrc)
 	srcCurrencyLovelaceSum := feeSrcCurrencyLovelaceAmount
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
 
@@ -242,7 +244,7 @@ func (txSnd *TxSender) CreateMetadata(
 		}
 	}
 
-	feeDstCurrencyLovelaceAmount := txSnd.bridgingFeeAmount
+	feeDstCurrencyLovelaceAmount := dstConfig.BridgingFeeAmount
 
 	if srcCurrencyLovelaceSum < srcConfig.MinUtxoValue {
 		feeSrcCurrencyLovelaceAmount += srcConfig.MinUtxoValue - srcCurrencyLovelaceSum
@@ -429,20 +431,6 @@ func (txSnd TxSender) getDynamicParameters(
 	}, txSnd.retryOptions...)
 
 	return qtd, protocolParams, utxos, err
-}
-
-func mul(a uint64, b float64) uint64 {
-	return uint64(float64(a) * b)
-}
-
-func setOrDefault[T comparable](val, def T) T {
-	var zero T
-
-	if val == zero {
-		return def
-	}
-
-	return val
 }
 
 func WithUtxosTransformer(utxosTransformer IUtxosTransformer) TxSenderOption {
