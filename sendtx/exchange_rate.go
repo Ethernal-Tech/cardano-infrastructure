@@ -1,6 +1,9 @@
 package sendtx
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type ExchangeRateEntry struct {
 	SrcChainID string
@@ -34,5 +37,5 @@ func (r ExchangeRate) Get(srcChainID, dstChainID string) float64 {
 }
 
 func (r ExchangeRate) getKey(srcChainID, dstChainID string) string {
-	return fmt.Sprintf("%s_%s", srcChainID, dstChainID)
+	return fmt.Sprintf("%s_%s", strings.ToLower(srcChainID), strings.ToLower(dstChainID))
 }
