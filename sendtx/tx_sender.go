@@ -22,7 +22,7 @@ const (
 	BridgingTypeCurrencyOnSource
 
 	defaultPotentialFee     = 400_000
-	defaultMaxInputsPerTx   = 60
+	defaultMaxInputsPerTx   = 50
 	defaultTTLSlotNumberInc = 500
 	splitStringLength       = 40
 )
