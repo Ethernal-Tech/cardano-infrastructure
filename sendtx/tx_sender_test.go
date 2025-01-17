@@ -16,12 +16,12 @@ func TestCreateMetaData(t *testing.T) {
 
 	configs := map[string]ChainConfig{
 		"prime": {
-			BridgingFeeAmount: bridgingFeeAmount,
-			MinUtxoValue:      55,
+			MinBridgingFeeAmount: bridgingFeeAmount,
+			MinUtxoValue:         55,
 		},
 		"vector": {
-			BridgingFeeAmount: bridgingFeeAmount,
-			MinUtxoValue:      20,
+			MinBridgingFeeAmount: bridgingFeeAmount,
+			MinUtxoValue:         20,
 		},
 	}
 
@@ -46,7 +46,7 @@ func TestCreateMetaData(t *testing.T) {
 				Addr:         "addr1_ac",
 				Amount:       uint64(33),
 			},
-		}, exchangeRate)
+		}, bridgingFeeAmount, exchangeRate)
 
 		require.NoError(t, err)
 		assert.Equal(t, common.SplitString(senderAddr, splitStringLength), metadata.SenderAddr)
@@ -80,12 +80,12 @@ func TestCreateMetaData(t *testing.T) {
 	t.Run("valid 2", func(t *testing.T) {
 		txSnd := NewTxSender(map[string]ChainConfig{
 			"prime": {
-				BridgingFeeAmount: bridgingFeeAmount,
-				MinUtxoValue:      550,
+				MinBridgingFeeAmount: bridgingFeeAmount,
+				MinUtxoValue:         550,
 			},
 			"vector": {
-				BridgingFeeAmount: bridgingFeeAmount,
-				MinUtxoValue:      200,
+				MinBridgingFeeAmount: bridgingFeeAmount,
+				MinUtxoValue:         200,
 			},
 		})
 
@@ -95,7 +95,7 @@ func TestCreateMetaData(t *testing.T) {
 				Addr:         "addr1_ab",
 				Amount:       uint64(200),
 			},
-		}, exchangeRate)
+		}, bridgingFeeAmount, exchangeRate)
 
 		require.NoError(t, err)
 		assert.Equal(t, common.SplitString(senderAddr, splitStringLength), metadata.SenderAddr)
@@ -117,14 +117,16 @@ func TestCreateMetaData(t *testing.T) {
 	t.Run("invalid destination", func(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
-		_, err := txSnd.CreateMetadata(senderAddr, "prime", "vector1", []BridgingTxReceiver{}, exchangeRate)
+		_, err := txSnd.CreateMetadata(
+			senderAddr, "prime", "vector1", []BridgingTxReceiver{}, bridgingFeeAmount, exchangeRate)
 		require.ErrorContains(t, err, "destination chain ")
 	})
 
 	t.Run("invalid source", func(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
-		_, err := txSnd.CreateMetadata(senderAddr, "prime1", "vector", []BridgingTxReceiver{}, exchangeRate)
+		_, err := txSnd.CreateMetadata(
+			senderAddr, "prime1", "vector", []BridgingTxReceiver{}, bridgingFeeAmount, exchangeRate)
 		require.ErrorContains(t, err, "source chain ")
 	})
 
@@ -136,7 +138,7 @@ func TestCreateMetaData(t *testing.T) {
 				BridgingType: BridgingTypeNativeTokenOnSource,
 				Amount:       19,
 			},
-		}, exchangeRate)
+		}, bridgingFeeAmount, exchangeRate)
 		require.ErrorContains(t, err, "amount for receiver ")
 	})
 
@@ -148,19 +150,31 @@ func TestCreateMetaData(t *testing.T) {
 				BridgingType: BridgingTypeCurrencyOnSource,
 				Amount:       9,
 			},
-		}, exchangeRate)
+		}, bridgingFeeAmount, exchangeRate)
 		require.ErrorContains(t, err, "amount for receiver ")
+	})
+
+	t.Run("invalid bridging fee", func(t *testing.T) {
+		txSnd := NewTxSender(configs)
+
+		_, err := txSnd.CreateMetadata(senderAddr, "prime", "vector", []BridgingTxReceiver{
+			{
+				BridgingType: BridgingTypeCurrencyOnSource,
+				Amount:       9,
+			},
+		}, bridgingFeeAmount-1, exchangeRate)
+		require.ErrorContains(t, err, "bridging fee")
 	})
 
 	t.Run("invalid amount reactor", func(t *testing.T) {
 		txSnd := NewTxSender(map[string]ChainConfig{
 			"prime": {
-				BridgingFeeAmount: bridgingFeeAmount,
-				MinUtxoValue:      190,
+				MinBridgingFeeAmount: bridgingFeeAmount,
+				MinUtxoValue:         190,
 			},
 			"vector": {
-				BridgingFeeAmount: bridgingFeeAmount,
-				MinUtxoValue:      20,
+				MinBridgingFeeAmount: bridgingFeeAmount,
+				MinUtxoValue:         20,
 			},
 		})
 
@@ -169,7 +183,7 @@ func TestCreateMetaData(t *testing.T) {
 				BridgingType: BridgingTypeNormal,
 				Amount:       189,
 			},
-		}, exchangeRate)
+		}, bridgingFeeAmount, exchangeRate)
 		require.ErrorContains(t, err, "amount for receiver ")
 	})
 }
