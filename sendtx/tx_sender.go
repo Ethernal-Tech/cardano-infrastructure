@@ -3,6 +3,7 @@ package sendtx
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	infracommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
@@ -32,16 +33,16 @@ type TokenExchangeConfig struct {
 }
 
 type ChainConfig struct {
-	CardanoCliBinary   string
-	TxProvider         cardanowallet.ITxProvider
-	MultiSigAddr       string
-	TestNetMagic       uint
-	TTLSlotNumberInc   uint64
-	MinUtxoValue       uint64
-	NativeTokens       []TokenExchangeConfig
-	BridgingFeeAmount  uint64
-	PotentialFee       uint64
-	ProtocolParameters []byte
+	CardanoCliBinary     string
+	TxProvider           cardanowallet.ITxProvider
+	MultiSigAddr         string
+	TestNetMagic         uint
+	TTLSlotNumberInc     uint64
+	MinUtxoValue         uint64
+	NativeTokens         []TokenExchangeConfig
+	MinBridgingFeeAmount uint64
+	PotentialFee         uint64
+	ProtocolParameters   []byte
 }
 
 type BridgingTxReceiver struct {
@@ -56,6 +57,7 @@ type TxSender struct {
 	chainConfigMap    map[string]ChainConfig
 	retryOptions      []infracommon.RetryConfigOption
 	utxosTransformer  IUtxosTransformer
+	sortedUtxos       bool
 }
 
 type TxSenderOption func(*TxSender)
@@ -87,9 +89,10 @@ func (txSnd *TxSender) CreateBridgingTx(
 	dstChainID string,
 	senderAddr string,
 	receivers []BridgingTxReceiver,
+	bridgingFee uint64,
 	exchangeRate ExchangeRate,
 ) ([]byte, string, *BridgingRequestMetadata, error) {
-	metadata, err := txSnd.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers, exchangeRate)
+	metadata, err := txSnd.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers, bridgingFee, exchangeRate)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -119,9 +122,10 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	dstChainID string,
 	senderAddr string,
 	receivers []BridgingTxReceiver,
+	bridgingFee uint64,
 	exchangeRate ExchangeRate,
 ) (uint64, *BridgingRequestMetadata, error) {
-	metadata, err := txSnd.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers, exchangeRate)
+	metadata, err := txSnd.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers, bridgingFee, exchangeRate)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -192,8 +196,12 @@ func (txSnd *TxSender) SubmitTx(
 }
 
 func (txSnd *TxSender) CreateMetadata(
-	senderAddr string, srcChainID, dstChainID string, receivers []BridgingTxReceiver, exchangeRate ExchangeRate,
-
+	senderAddr string,
+	srcChainID string,
+	dstChainID string,
+	receivers []BridgingTxReceiver,
+	bridgingFee uint64,
+	exchangeRate ExchangeRate,
 ) (*BridgingRequestMetadata, error) {
 	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
 	if !existsSrc {
@@ -205,9 +213,13 @@ func (txSnd *TxSender) CreateMetadata(
 		return nil, fmt.Errorf("destination chain %s config not found", dstChainID)
 	}
 
+	if bridgingFee < dstConfig.MinBridgingFeeAmount {
+		return nil, fmt.Errorf("bridging fee is less than: %d", dstConfig.MinBridgingFeeAmount)
+	}
+
 	exchangeRateOnSrc := exchangeRate.Get(dstChainID, srcChainID)
 	exchangeRateOnDst := exchangeRate.Get(srcChainID, dstChainID)
-	feeSrcCurrencyLovelaceAmount := mul(dstConfig.BridgingFeeAmount, exchangeRateOnSrc)
+	feeSrcCurrencyLovelaceAmount := mul(bridgingFee, exchangeRateOnSrc)
 	srcCurrencyLovelaceSum := feeSrcCurrencyLovelaceAmount
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
 
@@ -251,7 +263,7 @@ func (txSnd *TxSender) CreateMetadata(
 		}
 	}
 
-	feeDstCurrencyLovelaceAmount := dstConfig.BridgingFeeAmount
+	feeDstCurrencyLovelaceAmount := bridgingFee
 
 	if srcCurrencyLovelaceSum < srcConfig.MinUtxoValue {
 		feeSrcCurrencyLovelaceAmount += srcConfig.MinUtxoValue - srcCurrencyLovelaceSum
@@ -450,6 +462,12 @@ func (txSnd TxSender) getDynamicParameters(
 		return srcConfig.TxProvider.GetUtxos(ctx, addr)
 	}, txSnd.retryOptions...)
 
+	if txSnd.sortedUtxos {
+		sort.Slice(utxos, func(i, j int) bool {
+			return utxos[i].Amount > utxos[j].Amount
+		})
+	}
+
 	return qtd, protocolParams, utxos, err
 }
 
@@ -498,5 +516,11 @@ func WithMaxInputsPerTx(maxInputsPerTx int) TxSenderOption {
 func WithRetryOptions(retryOptions []infracommon.RetryConfigOption) TxSenderOption {
 	return func(txSnd *TxSender) {
 		txSnd.retryOptions = retryOptions
+	}
+}
+
+func WithSortedUtxos(sortedUtxos bool) TxSenderOption {
+	return func(txSnd *TxSender) {
+		txSnd.sortedUtxos = sortedUtxos
 	}
 }
