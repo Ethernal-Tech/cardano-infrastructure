@@ -150,6 +150,15 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 		}, txInputs.Inputs)
 	})
 
+	t.Run("try to consolidate utxos", func(t *testing.T) {
+		_, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+			cardanowallet.AdaTokenName: 200,
+			"1.31":                     500,
+		}, 1, 1)
+
+		require.ErrorContains(t, err, "limit reached")
+	})
+
 	t.Run("not enough tokens", func(t *testing.T) {
 		_, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
 			cardanowallet.AdaTokenName: 300,

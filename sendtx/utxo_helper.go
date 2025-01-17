@@ -30,15 +30,18 @@ func GetUTXOsForAmounts(
 	tryAtLeastInputs int,
 ) (cardanowallet.TxInputs, error) {
 	currentSum := map[string]uint64{}
+	currentSumTotal := map[string]uint64{}
 	choosenCount := 0
 
 	for _, utxo := range utxos {
 		utxos[choosenCount] = utxo
 		choosenCount++
 		currentSum[cardanowallet.AdaTokenName] += utxo.Amount
+		currentSumTotal[cardanowallet.AdaTokenName] += utxo.Amount
 
 		for _, token := range utxo.Tokens {
 			currentSum[token.TokenName()] += token.Amount
+			currentSumTotal[token.TokenName()] += token.Amount
 		}
 
 		if isSumSatisfiesCondition(currentSum, conditions) {
@@ -58,6 +61,12 @@ func GetUTXOsForAmounts(
 				currentSum[token.TokenName()] -= token.Amount
 			}
 		}
+	}
+
+	if isSumSatisfiesCondition(currentSumTotal, conditions) {
+		return cardanowallet.TxInputs{}, fmt.Errorf(
+			"utxos limit reached (%d), try to consolidate utxos: total available = %s; conditions = %s",
+			maxInputs, mapStrUInt64ToStr(currentSumTotal), mapStrUInt64ToStr(conditions))
 	}
 
 	return cardanowallet.TxInputs{}, fmt.Errorf(

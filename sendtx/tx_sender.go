@@ -2,6 +2,7 @@ package sendtx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -21,7 +22,7 @@ const (
 	BridgingTypeNativeTokenOnSource
 	BridgingTypeCurrencyOnSource
 
-	defaultPotentialFee     = 250_000
+	defaultPotentialFee     = 400_000
 	defaultMaxInputsPerTx   = 50
 	defaultTTLSlotNumberInc = 500
 	splitStringLength       = 40
@@ -105,9 +106,14 @@ func (txSnd *TxSender) CreateBridgingTx(
 		return nil, "", nil, err
 	}
 
+	srcNativeTokenFullName, err := getNativeTokenNameForDstChainID(srcConfig.NativeTokens, dstChainID)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
 	txRaw, txHash, err := txSnd.createTx(
-		ctx, srcConfig, dstChainID, senderAddr, srcConfig.MultiSigAddr,
-		metaDataRaw, outputCurrencyLovelace, outputNativeToken)
+		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr,
+		metaDataRaw, outputCurrencyLovelace, outputNativeToken, srcNativeTokenFullName)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -138,9 +144,14 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 		return 0, nil, err
 	}
 
+	srcNativeTokenFullName, err := getNativeTokenNameForDstChainID(srcConfig.NativeTokens, dstChainID)
+	if err != nil {
+		return 0, nil, err
+	}
+
 	fee, err := txSnd.calculateFee(
-		ctx, srcConfig, dstChainID, senderAddr, srcConfig.MultiSigAddr,
-		metaDataRaw, outputCurrencyLovelace, outputNativeToken)
+		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr,
+		metaDataRaw, outputCurrencyLovelace, outputNativeToken, srcNativeTokenFullName)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -152,12 +163,12 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 func (txSnd *TxSender) CreateTxGeneric(
 	ctx context.Context,
 	srcChainID string,
-	dstChainID string,
 	senderAddr string,
 	receiverAddr string,
 	metadata []byte,
 	outputCurrencyLovelace uint64,
 	outputNativeToken uint64,
+	srcNativeTokenFullName string,
 ) ([]byte, string, error) {
 	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
 	if !existsSrc {
@@ -165,7 +176,8 @@ func (txSnd *TxSender) CreateTxGeneric(
 	}
 
 	return txSnd.createTx(
-		ctx, srcConfig, dstChainID, senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken)
+		ctx, srcConfig, senderAddr, receiverAddr, metadata,
+		outputCurrencyLovelace, outputNativeToken, srcNativeTokenFullName)
 }
 
 func (txSnd *TxSender) SubmitTx(
@@ -285,11 +297,11 @@ func (txSnd *TxSender) CreateMetadata(
 func (txSnd *TxSender) calculateFee(ctx context.Context,
 	srcConfig ChainConfig,
 	senderAddr string,
-	dstChainID string,
 	receiverAddr string,
 	metadata []byte,
 	outputCurrencyLovelace uint64,
 	outputNativeToken uint64,
+	srcNativeTokenFullName string,
 ) (uint64, error) {
 	builder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
 	if err != nil {
@@ -299,8 +311,10 @@ func (txSnd *TxSender) calculateFee(ctx context.Context,
 	defer builder.Dispose()
 
 	_, err = txSnd.populateTxBuilder(
-		ctx, builder, srcConfig, dstChainID,
-		senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken)
+		ctx, builder, srcConfig,
+		senderAddr, receiverAddr,
+		metadata, outputCurrencyLovelace,
+		outputNativeToken, srcNativeTokenFullName)
 	if err != nil {
 		return 0, err
 	}
@@ -311,12 +325,12 @@ func (txSnd *TxSender) calculateFee(ctx context.Context,
 func (txSnd *TxSender) createTx(
 	ctx context.Context,
 	srcConfig ChainConfig,
-	dstChainID string,
 	senderAddr string,
 	receiverAddr string,
 	metadata []byte,
 	outputCurrencyLovelace uint64,
 	outputNativeToken uint64,
+	srcNativeTokenFullName string,
 ) ([]byte, string, error) {
 	builder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
 	if err != nil {
@@ -326,8 +340,10 @@ func (txSnd *TxSender) createTx(
 	defer builder.Dispose()
 
 	inputsSum, err := txSnd.populateTxBuilder(
-		ctx, builder, srcConfig, dstChainID,
-		senderAddr, receiverAddr, metadata, outputCurrencyLovelace, outputNativeToken)
+		ctx, builder, srcConfig,
+		senderAddr, receiverAddr,
+		metadata, outputCurrencyLovelace,
+		outputNativeToken, srcNativeTokenFullName)
 	if err != nil {
 		return nil, "", err
 	}
@@ -360,12 +376,12 @@ func (txSnd *TxSender) populateTxBuilder(
 	ctx context.Context,
 	builder *cardanowallet.TxBuilder,
 	srcConfig ChainConfig,
-	dstChainID string,
 	senderAddr string,
 	receiverAddr string,
 	metadata []byte,
 	outputCurrencyLovelace uint64,
 	outputNativeToken uint64,
+	srcNativeTokenFullName string,
 ) (map[string]uint64, error) {
 	queryTip, protocolParams, utxos, err := txSnd.getDynamicParameters(ctx, srcConfig, senderAddr)
 	if err != nil {
@@ -380,15 +396,14 @@ func (txSnd *TxSender) populateTxBuilder(
 		cardanowallet.AdaTokenName: outputCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
 	}
 	nativeToken := cardanowallet.Token{}
-	srcNativeTokenFullName := ""
 
 	if outputNativeToken != 0 {
-		nativeToken, err = getNativeTokenForDstChainID(srcConfig.NativeTokens, dstChainID)
+		nativeToken, err = getNativeToken(srcNativeTokenFullName)
 		if err != nil {
 			return nil, err
 		}
 
-		srcNativeTokenFullName = nativeToken.String()
+		srcNativeTokenFullName = nativeToken.String() // take the name used for maps
 		conditions[srcNativeTokenFullName] = outputNativeToken
 	}
 
@@ -471,29 +486,29 @@ func (txSnd TxSender) getDynamicParameters(
 	return qtd, protocolParams, utxos, err
 }
 
-func getNativeTokenForDstChainID(
+func getNativeTokenNameForDstChainID(
 	nativeTokenDsts []TokenExchangeConfig, dstChainID string,
-) (token cardanowallet.Token, err error) {
-	srcNativeTokenFullName := ""
-
+) (string, error) {
 	for _, nativeTokenDst := range nativeTokenDsts {
 		if nativeTokenDst.DstChainID == dstChainID {
-			srcNativeTokenFullName = nativeTokenDst.TokenName
-
-			break
+			return nativeTokenDst.TokenName, nil
 		}
 	}
 
-	if srcNativeTokenFullName == "" {
-		return token, fmt.Errorf("unknown native token for destionation chain: %s", dstChainID)
+	return "", fmt.Errorf("native token not exists for %s", dstChainID)
+}
+
+func getNativeToken(fullName string) (token cardanowallet.Token, err error) {
+	if fullName == "" {
+		return token, errors.New("native token name not specified")
 	}
 
-	token, err = cardanowallet.NewTokenWithFullName(srcNativeTokenFullName, true)
+	token, err = cardanowallet.NewTokenWithFullName(fullName, true)
 	if err == nil {
 		return token, nil
 	}
 
-	token, err = cardanowallet.NewTokenWithFullName(srcNativeTokenFullName, false)
+	token, err = cardanowallet.NewTokenWithFullName(fullName, false)
 	if err != nil {
 		return token, fmt.Errorf("invalid native token name: %w", err)
 	}
