@@ -29,8 +29,8 @@ const (
 )
 
 type TokenExchangeConfig struct {
-	DstChainID string
-	TokenName  string
+	DstChainID string `json:"dstChainID"`
+	TokenName  string `json:"tokenName"`
 }
 
 type ChainConfig struct {
@@ -100,13 +100,9 @@ func (txSnd *TxSender) CreateBridgingTx(
 
 	srcConfig := txSnd.chainConfigMap[srcChainID]
 	outputCurrencyLovelace, outputNativeToken := GetOutputAmounts(metadata)
+	srcNativeTokenFullName := getNativeTokenNameForDstChainID(srcConfig.NativeTokens, dstChainID)
 
 	metaDataRaw, err := metadata.Marshal()
-	if err != nil {
-		return nil, "", nil, err
-	}
-
-	srcNativeTokenFullName, err := getNativeTokenNameForDstChainID(srcConfig.NativeTokens, dstChainID)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -138,13 +134,9 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 
 	srcConfig := txSnd.chainConfigMap[srcChainID]
 	outputCurrencyLovelace, outputNativeToken := GetOutputAmounts(metadata)
+	srcNativeTokenFullName := getNativeTokenNameForDstChainID(srcConfig.NativeTokens, dstChainID)
 
 	metaDataRaw, err := metadata.Marshal()
-	if err != nil {
-		return 0, nil, err
-	}
-
-	srcNativeTokenFullName, err := getNativeTokenNameForDstChainID(srcConfig.NativeTokens, dstChainID)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -488,14 +480,14 @@ func (txSnd TxSender) getDynamicParameters(
 
 func getNativeTokenNameForDstChainID(
 	nativeTokenDsts []TokenExchangeConfig, dstChainID string,
-) (string, error) {
+) string {
 	for _, nativeTokenDst := range nativeTokenDsts {
 		if nativeTokenDst.DstChainID == dstChainID {
-			return nativeTokenDst.TokenName, nil
+			return nativeTokenDst.TokenName
 		}
 	}
 
-	return "", fmt.Errorf("native token not exists for %s", dstChainID)
+	return ""
 }
 
 func getNativeToken(fullName string) (token cardanowallet.Token, err error) {
