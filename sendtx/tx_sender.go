@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	infracommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
@@ -235,7 +236,7 @@ func (txSnd *TxSender) CreateMetadata(
 			}
 
 			txs[i] = BridgingRequestMetadataTransaction{
-				Address:            infracommon.SplitString(x.Addr, splitStringLength),
+				Address:            addrToMetaDataAddr(x.Addr),
 				Amount:             x.Amount,
 				IsNativeTokenOnSrc: metadataBoolTrue,
 			}
@@ -247,7 +248,7 @@ func (txSnd *TxSender) CreateMetadata(
 			srcAdditionalInfo := mul(dstConfig.MinUtxoValue, exchangeRateOnSrc)
 			srcCurrencyLovelaceSum += srcAdditionalInfo + x.Amount
 			txs[i] = BridgingRequestMetadataTransaction{
-				Address: infracommon.SplitString(x.Addr, splitStringLength),
+				Address: addrToMetaDataAddr(x.Addr),
 				Amount:  x.Amount,
 				Additional: &BridgingRequestMetadataCurrencyInfo{
 					DestAmount: dstConfig.MinUtxoValue,
@@ -261,7 +262,7 @@ func (txSnd *TxSender) CreateMetadata(
 
 			srcCurrencyLovelaceSum += x.Amount
 			txs[i] = BridgingRequestMetadataTransaction{
-				Address: infracommon.SplitString(x.Addr, splitStringLength),
+				Address: addrToMetaDataAddr(x.Addr),
 				Amount:  x.Amount,
 			}
 		}
@@ -277,7 +278,7 @@ func (txSnd *TxSender) CreateMetadata(
 	return &BridgingRequestMetadata{
 		BridgingTxType:     bridgingMetaDataType,
 		DestinationChainID: dstChainID,
-		SenderAddr:         infracommon.SplitString(senderAddr, splitStringLength),
+		SenderAddr:         addrToMetaDataAddr(senderAddr),
 		Transactions:       txs,
 		FeeAmount: BridgingRequestMetadataCurrencyInfo{
 			SrcAmount:  feeSrcCurrencyLovelaceAmount,
@@ -506,6 +507,12 @@ func getNativeToken(fullName string) (token cardanowallet.Token, err error) {
 	}
 
 	return token, nil
+}
+
+func addrToMetaDataAddr(addr string) []string {
+	addr = strings.TrimPrefix(strings.TrimPrefix(addr, "0x"), "0X")
+
+	return infracommon.SplitString(addr, splitStringLength)
 }
 
 func WithUtxosTransformer(utxosTransformer IUtxosTransformer) TxSenderOption {
