@@ -81,7 +81,12 @@ func GenerateWallet(isStake bool) (*Wallet, error) {
 }
 
 func (w Wallet) SignTransaction(txRaw []byte) ([]byte, error) {
-	return SignMessage(w.SigningKey, w.VerificationKey, txRaw)
+	signature, err := SignMessage(w.SigningKey, w.VerificationKey, txRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	return cbor.Marshal([][]byte{w.VerificationKey, signature})
 }
 
 func (w Wallet) GetPaymentKeys() ([]byte, []byte) {
