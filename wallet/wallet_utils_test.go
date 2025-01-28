@@ -96,9 +96,17 @@ func TestWalletExtended(t *testing.T) {
 
 	wallet, err := GenerateWallet(false)
 	require.NoError(t, err)
+	require.Nil(t, wallet.StakeSigningKey)
+	require.Nil(t, wallet.StakeVerificationKey)
+	require.Len(t, wallet.SigningKey, KeySize)
+	require.Len(t, wallet.VerificationKey, KeySize)
 
 	walletStake, err := GenerateWallet(true)
 	require.NoError(t, err)
+	require.Len(t, walletStake.SigningKey, KeySize)
+	require.Len(t, walletStake.VerificationKey, KeySize)
+	require.Len(t, walletStake.StakeSigningKey, KeySize)
+	require.Len(t, walletStake.StakeVerificationKey, KeySize)
 
 	wc := &walletContainer{
 		Wallet:      wallet,

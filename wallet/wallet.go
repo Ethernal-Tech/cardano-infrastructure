@@ -33,13 +33,15 @@ func NewWallet(signingKey, stakeSigningKey []byte) *Wallet {
 			return signingKey[64:96]
 		}
 
-		return PadKeyToSize(GetVerificationKeyFromSigningKey(signingKey))
+		return GetVerificationKeyFromSigningKey(signingKey)
 	}
 
 	signingKey = PadKeyToSize(signingKey)
+	stakeVerificationKey := []byte(nil)
 
 	if len(stakeSigningKey) > 0 {
 		stakeSigningKey = PadKeyToSize(stakeSigningKey)
+		stakeVerificationKey = getVerificationKey(stakeSigningKey)
 	} else {
 		stakeSigningKey = nil
 	}
@@ -48,7 +50,7 @@ func NewWallet(signingKey, stakeSigningKey []byte) *Wallet {
 		SigningKey:           signingKey,
 		VerificationKey:      getVerificationKey(signingKey),
 		StakeSigningKey:      stakeSigningKey,
-		StakeVerificationKey: getVerificationKey(stakeSigningKey),
+		StakeVerificationKey: stakeVerificationKey,
 	}
 }
 
@@ -61,16 +63,20 @@ func GenerateWallet(isStake bool) (*Wallet, error) {
 		return nil, err
 	}
 
-	stakeSigningKey, stakeVerificationKey, err = GenerateKeyPair()
-	if err != nil {
-		return nil, err
+	if isStake {
+		stakeSigningKey, stakeVerificationKey, err = GenerateKeyPair()
+		if err != nil {
+			return nil, err
+		}
+
+		stakeSigningKey, stakeVerificationKey = PadKeyToSize(stakeSigningKey), PadKeyToSize(stakeVerificationKey)
 	}
 
 	return &Wallet{
 		SigningKey:           PadKeyToSize(signingKey),
 		VerificationKey:      PadKeyToSize(verificationKey),
-		StakeSigningKey:      PadKeyToSize(stakeSigningKey),
-		StakeVerificationKey: PadKeyToSize(stakeVerificationKey),
+		StakeSigningKey:      stakeSigningKey,
+		StakeVerificationKey: stakeVerificationKey,
 	}, nil
 }
 
