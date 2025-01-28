@@ -23,40 +23,55 @@ type Wallet struct {
 
 var _ ITxSigner = (*Wallet)(nil)
 
-func NewWallet(verificationKey []byte, signingKey []byte) *Wallet {
-	return &Wallet{
-		VerificationKey: PadKeyToSize(verificationKey),
-		SigningKey:      PadKeyToSize(signingKey),
-	}
-}
+func NewWallet(signingKey, stakeSigningKey []byte) *Wallet {
+	getVerificationKey := func(signingKey []byte) []byte {
+		if len(signingKey) == 0 {
+			return nil
+		}
 
-func NewStakeWallet(verificationKey []byte, signingKey []byte,
-	stakeVerificationKey []byte, stakeSigningKey []byte) *Wallet {
+		if len(signingKey) >= 96 {
+			return signingKey[64:96]
+		}
+
+		return PadKeyToSize(GetVerificationKeyFromSigningKey(signingKey))
+	}
+
+	signingKey = PadKeyToSize(signingKey)
+
+	if len(stakeSigningKey) > 0 {
+		stakeSigningKey = PadKeyToSize(stakeSigningKey)
+	} else {
+		stakeSigningKey = nil
+	}
+
 	return &Wallet{
-		StakeVerificationKey: PadKeyToSize(stakeVerificationKey),
-		StakeSigningKey:      PadKeyToSize(stakeSigningKey),
-		VerificationKey:      PadKeyToSize(verificationKey),
-		SigningKey:           PadKeyToSize(signingKey),
+		SigningKey:           signingKey,
+		VerificationKey:      getVerificationKey(signingKey),
+		StakeSigningKey:      stakeSigningKey,
+		StakeVerificationKey: getVerificationKey(stakeSigningKey),
 	}
 }
 
 // GenerateWallet generates wallet
 func GenerateWallet(isStake bool) (*Wallet, error) {
+	var stakeSigningKey, stakeVerificationKey []byte
+
 	signingKey, verificationKey, err := GenerateKeyPair()
 	if err != nil {
 		return nil, err
 	}
 
-	if !isStake {
-		return NewWallet(verificationKey, signingKey), nil
-	}
-
-	stakeSigningKey, stakeVerificationKey, err := GenerateKeyPair()
+	stakeSigningKey, stakeVerificationKey, err = GenerateKeyPair()
 	if err != nil {
 		return nil, err
 	}
 
-	return NewStakeWallet(verificationKey, signingKey, stakeVerificationKey, stakeSigningKey), nil
+	return &Wallet{
+		SigningKey:           PadKeyToSize(signingKey),
+		VerificationKey:      PadKeyToSize(verificationKey),
+		StakeSigningKey:      PadKeyToSize(stakeSigningKey),
+		StakeVerificationKey: PadKeyToSize(stakeVerificationKey),
+	}, nil
 }
 
 func (w Wallet) SignTransaction(txRaw []byte) ([]byte, error) {
