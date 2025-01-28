@@ -349,7 +349,7 @@ func (b *TxBuilder) CreateTxWitness(txRaw []byte, wallet ITxSigner) ([]byte, err
 	if len(signingKey) > KeySize {
 		title = "PaymentExtendedSigningKeyShelley_ed25519_bip32"
 	} else {
-		title = "StakeSigningKeyShelley_ed25519"
+		title = "PaymentSigningKeyShelley_ed25519"
 	}
 
 	key, err := NewKeyFromBytes(title, "", signingKey)
