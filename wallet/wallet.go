@@ -25,10 +25,6 @@ var _ ITxSigner = (*Wallet)(nil)
 
 func NewWallet(signingKey, stakeSigningKey []byte) *Wallet {
 	getVerificationKey := func(signingKey []byte) []byte {
-		if len(signingKey) == 0 {
-			return nil
-		}
-
 		if len(signingKey) >= 96 {
 			return signingKey[64:96]
 		}
