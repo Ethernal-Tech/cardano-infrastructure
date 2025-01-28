@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	KeyHashSize = 28
-	KeySize     = 32
+	KeyHashSize     = 28
+	KeySize         = 32
+	KeyExtendedSize = 128
 )
 
 type Wallet struct {
@@ -88,7 +89,7 @@ func NewKey(filePath string) (Key, error) {
 }
 
 func NewKeyFromBytes(keyType string, desc string, bytes []byte) (Key, error) {
-	cborBytes, err := cbor.Marshal(bytes)
+	cborBytes, err := cbor.Marshal(PadKeyToSize(bytes))
 	if err != nil {
 		return Key{}, err
 	}
