@@ -80,8 +80,8 @@ func GenerateWallet(isStake bool) (*Wallet, error) {
 	}, nil
 }
 
-func (w Wallet) SignTransaction(txRaw []byte) ([]byte, error) {
-	signature, err := SignMessage(w.SigningKey, w.VerificationKey, txRaw)
+func (w Wallet) CreateTxWitness(txHash []byte) ([]byte, error) {
+	signature, err := SignMessage(w.SigningKey, w.VerificationKey, txHash)
 	if err != nil {
 		return nil, err
 	}
