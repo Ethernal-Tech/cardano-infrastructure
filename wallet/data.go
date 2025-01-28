@@ -103,7 +103,7 @@ type ITxProvider interface {
 
 type ITxSigner interface {
 	SignTransaction([]byte) ([]byte, error)
-	GetTransactionVerificationKey() []byte
+	GetPaymentKeys() ([]byte, []byte)
 }
 
 type IPolicyScript interface {

@@ -20,6 +20,8 @@ type Wallet struct {
 	StakeSigningKey      []byte `json:"sstake"`
 }
 
+var _ ITxSigner = (*Wallet)(nil)
+
 func NewWallet(verificationKey []byte, signingKey []byte) *Wallet {
 	return &Wallet{
 		VerificationKey: PadKeyToSize(verificationKey),
@@ -60,8 +62,8 @@ func (w Wallet) SignTransaction(txRaw []byte) ([]byte, error) {
 	return SignMessage(w.SigningKey, w.VerificationKey, txRaw)
 }
 
-func (w Wallet) GetTransactionVerificationKey() []byte {
-	return w.VerificationKey
+func (w Wallet) GetPaymentKeys() ([]byte, []byte) {
+	return w.SigningKey, w.VerificationKey
 }
 
 type Key struct {
@@ -86,7 +88,7 @@ func NewKey(filePath string) (Key, error) {
 }
 
 func NewKeyFromBytes(keyType string, desc string, bytes []byte) (Key, error) {
-	cborBytes, err := cbor.Marshal(PadKeyToSize(bytes))
+	cborBytes, err := cbor.Marshal(bytes)
 	if err != nil {
 		return Key{}, err
 	}
