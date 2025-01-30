@@ -26,7 +26,7 @@ func ResolveCardanoCliBinary(networkID CardanoNetworkType) string {
 	var env, name string
 
 	switch networkID {
-	case VectorMainNetNetwork, VectorTestNetNetwork:
+	case VectorMainNetNetwork, VectorTestNetNetwork, CardanoTestNetwork:
 		env = "CARDANO_CLI_BINARY_VECTOR"
 		name = "vector-cli"
 	default:

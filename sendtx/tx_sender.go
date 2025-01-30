@@ -99,9 +99,22 @@ func (txSnd *TxSender) CreateBridgingTx(
 		return nil, "", nil, err
 	}
 
-	srcConfig := txSnd.chainConfigMap[srcChainID]
+	srcConfig, exists := txSnd.chainConfigMap[srcChainID]
+	if !exists {
+		return nil, "", nil, fmt.Errorf("src chain %s config not found", srcChainID)
+	}
+
+	dstConfig, exists := txSnd.chainConfigMap[dstChainID]
+	if !exists {
+		return nil, "", nil, fmt.Errorf("dest chain %s config not found", dstChainID)
+	}
+
 	outputCurrencyLovelace, outputNativeToken := GetOutputAmounts(metadata)
-	srcNativeTokenFullName := getNativeTokenNameForDstChainID(srcConfig.NativeTokens, dstChainID)
+	srcNativeTokenFullName := getNativeTokenNameForDstChainID(dstConfig.NativeTokens, srcChainID)
+
+	if srcNativeTokenFullName == "" {
+		return nil, "", nil, fmt.Errorf("src native token not found for src chain %s", srcChainID)
+	}
 
 	metaDataRaw, err := metadata.Marshal()
 	if err != nil {
@@ -133,9 +146,17 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 		return 0, nil, err
 	}
 
-	srcConfig := txSnd.chainConfigMap[srcChainID]
+	srcConfig, exists := txSnd.chainConfigMap[srcChainID]
+	if !exists {
+		return 0, nil, fmt.Errorf("dest chain %s config not found", srcChainID)
+	}
+
 	outputCurrencyLovelace, outputNativeToken := GetOutputAmounts(metadata)
 	srcNativeTokenFullName := getNativeTokenNameForDstChainID(srcConfig.NativeTokens, dstChainID)
+
+	if srcNativeTokenFullName == "" {
+		return 0, nil, fmt.Errorf("src native token not found for src chain %s", dstChainID)
+	}
 
 	metaDataRaw, err := metadata.Marshal()
 	if err != nil {

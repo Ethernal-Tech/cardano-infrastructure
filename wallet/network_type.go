@@ -13,6 +13,7 @@ const (
 	VectorTestNetProtocolMagic = uint(1127)
 	VectorMainNetProtocolMagic = uint(3327)
 
+	CardanoTestNetwork   CardanoNetworkType = 4
 	VectorMainNetNetwork CardanoNetworkType = 3
 	VectorTestNetNetwork CardanoNetworkType = 2
 	MainNetNetwork       CardanoNetworkType = 1
@@ -21,7 +22,7 @@ const (
 
 func (n CardanoNetworkType) GetPrefix() string {
 	switch n {
-	case VectorTestNetNetwork:
+	case VectorTestNetNetwork, CardanoTestNetwork:
 		return "vector_test"
 	case VectorMainNetNetwork:
 		return "vector"
@@ -38,7 +39,7 @@ func (n CardanoNetworkType) GetStakePrefix() string {
 	switch n {
 	case MainNetNetwork, VectorMainNetNetwork:
 		return "stake"
-	case TestNetNetwork, VectorTestNetNetwork:
+	case TestNetNetwork, VectorTestNetNetwork, CardanoTestNetwork:
 		return "stake_test"
 	default:
 		return "" // not handled but dont raise an error
