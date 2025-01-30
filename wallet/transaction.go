@@ -231,6 +231,30 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 	return strconv.ParseUint(strings.Split(feeOutput, " ")[0], 10, 64)
 }
 
+func (b *TxBuilder) CalculateMinUtxo(output TxOutput) (uint64, error) {
+	if b.protocolParameters == nil {
+		return 0, errors.New("protocol parameters not set")
+	}
+
+	protocolParamsFilePath := filepath.Join(b.baseDirectory, "protocol-parameters.json")
+	if err := os.WriteFile(protocolParamsFilePath, b.protocolParameters, FilePermission); err != nil {
+		return 0, err
+	}
+
+	result, err := runCommand(b.cardanoCliBinary, []string{
+		"transaction", "calculate-min-required-utxo",
+		"--protocol-params-file", protocolParamsFilePath,
+		"--tx-out", output.String(),
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	result = strings.TrimSpace(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(result)), AdaTokenName))
+
+	return strconv.ParseUint(result, 0, 64)
+}
+
 func (b *TxBuilder) Build() ([]byte, string, error) {
 	if b.protocolParameters == nil {
 		return nil, "", errors.New("protocol parameters not set")
