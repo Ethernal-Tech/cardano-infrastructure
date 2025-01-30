@@ -94,3 +94,38 @@ func GetUTXOsForAmount(
 	return TxInputs{}, fmt.Errorf("not enough funds for the transaction: (available, exact, at least) = (%d, %d, %d)",
 		currentSum[notGoodTokenName], exactSum[notGoodTokenName], atLeastSum[notGoodTokenName])
 }
+
+func GetTokenCostSum(userAddress string, utxos []Utxo, cardanoCliBinary string) (uint64, error) {
+	userTokenSum := GetUtxosSum(utxos)
+
+	txOutput := TxOutput{
+		Addr:   userAddress,
+		Amount: userTokenSum[AdaTokenName],
+	}
+
+	for tokenName, amount := range userTokenSum {
+		if tokenName != AdaTokenName {
+			tokenAmount, err := NewTokenAmountWithFullName(tokenName, amount, false)
+			if err != nil {
+				tokenAmount, err = NewTokenAmountWithFullName(tokenName, amount, true)
+				if err != nil {
+					return 0, err
+				}
+			}
+
+			txOutput.Tokens = append(txOutput.Tokens, tokenAmount)
+		}
+	}
+
+	txBuilder, err := NewTxBuilder(cardanoCliBinary)
+	if err != nil {
+		return 0, err
+	}
+
+	retSum, err := txBuilder.CalculateMinUtxo(txOutput)
+	if err != nil {
+		return 0, err
+	}
+
+	return retSum, nil
+}
