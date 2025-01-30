@@ -95,7 +95,7 @@ func GetUTXOsForAmount(
 		currentSum[notGoodTokenName], exactSum[notGoodTokenName], atLeastSum[notGoodTokenName])
 }
 
-func GetTokenCostSum(userAddress string, utxos []Utxo, cardanoCliBinary string) (uint64, error) {
+func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (uint64, error) {
 	userTokenSum := GetUtxosSum(utxos)
 
 	txOutput := TxOutput{
@@ -115,11 +115,6 @@ func GetTokenCostSum(userAddress string, utxos []Utxo, cardanoCliBinary string) 
 
 			txOutput.Tokens = append(txOutput.Tokens, tokenAmount)
 		}
-	}
-
-	txBuilder, err := NewTxBuilder(cardanoCliBinary)
-	if err != nil {
-		return 0, err
 	}
 
 	retSum, err := txBuilder.CalculateMinUtxo(txOutput)
