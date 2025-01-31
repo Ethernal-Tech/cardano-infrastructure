@@ -27,6 +27,8 @@ const (
 	defaultMaxInputsPerTx   = 50
 	defaultTTLSlotNumberInc = 500
 	splitStringLength       = 40
+
+	minUtxoWithTokens = uint64(1_043_020)
 )
 
 type TokenExchangeConfig struct {
@@ -249,6 +251,8 @@ func (txSnd *TxSender) CreateMetadata(
 	srcCurrencyLovelaceSum := feeSrcCurrencyLovelaceAmount
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
 
+	srcMinUtxo := srcConfig.MinUtxoValue
+
 	for i, x := range receivers {
 		switch x.BridgingType {
 		case BridgingTypeNativeTokenOnSource:
@@ -261,18 +265,20 @@ func (txSnd *TxSender) CreateMetadata(
 				Amount:             x.Amount,
 				IsNativeTokenOnSrc: metadataBoolTrue,
 			}
+
+			srcMinUtxo = max(srcConfig.MinUtxoValue, minUtxoWithTokens)
 		case BridgingTypeCurrencyOnSource:
 			if x.Amount < srcConfig.MinUtxoValue {
 				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, srcConfig.MinUtxoValue)
 			}
 
-			srcAdditionalInfo := mul(dstConfig.MinUtxoValue, exchangeRateOnSrc)
+			srcAdditionalInfo := mul(max(dstConfig.MinUtxoValue, minUtxoWithTokens), exchangeRateOnSrc)
 			srcCurrencyLovelaceSum += srcAdditionalInfo + x.Amount
 			txs[i] = BridgingRequestMetadataTransaction{
 				Address: addrToMetaDataAddr(x.Addr),
 				Amount:  x.Amount,
 				Additional: &BridgingRequestMetadataCurrencyInfo{
-					DestAmount: dstConfig.MinUtxoValue,
+					DestAmount: max(dstConfig.MinUtxoValue, minUtxoWithTokens),
 					SrcAmount:  srcAdditionalInfo,
 				},
 			}
@@ -291,9 +297,9 @@ func (txSnd *TxSender) CreateMetadata(
 
 	feeDstCurrencyLovelaceAmount := bridgingFee
 
-	if srcCurrencyLovelaceSum < srcConfig.MinUtxoValue {
-		feeSrcCurrencyLovelaceAmount += srcConfig.MinUtxoValue - srcCurrencyLovelaceSum
-		feeDstCurrencyLovelaceAmount += mul(srcConfig.MinUtxoValue-srcCurrencyLovelaceSum, exchangeRateOnDst)
+	if srcCurrencyLovelaceSum < srcMinUtxo {
+		feeSrcCurrencyLovelaceAmount += srcMinUtxo - srcCurrencyLovelaceSum
+		feeDstCurrencyLovelaceAmount += mul(srcMinUtxo-srcCurrencyLovelaceSum, exchangeRateOnDst)
 	}
 
 	return &BridgingRequestMetadata{
