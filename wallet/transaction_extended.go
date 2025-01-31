@@ -32,3 +32,33 @@ type TxInputs struct {
 	Inputs []TxInput
 	Sum    map[string]uint64
 }
+
+func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (uint64, error) {
+	userTokenSum := GetUtxosSum(utxos)
+
+	txOutput := TxOutput{
+		Addr:   userAddress,
+		Amount: userTokenSum[AdaTokenName],
+	}
+
+	for tokenName, amount := range userTokenSum {
+		if tokenName != AdaTokenName {
+			token, err := NewTokenWithFullName(tokenName, false)
+			if err != nil {
+				token, err = NewTokenWithFullName(tokenName, true)
+				if err != nil {
+					return 0, err
+				}
+			}
+
+			tokenAmount := NewTokenAmount(token, amount)
+
+			txOutput.Tokens = append(txOutput.Tokens, tokenAmount)
+		}
+	}
+	retSum, err := txBuilder.CalculateMinUtxo(txOutput)
+	if err != nil {
+		return 0, err
+	}
+	return retSum, nil
+}
