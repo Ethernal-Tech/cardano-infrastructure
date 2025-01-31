@@ -124,3 +124,57 @@ func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (ui
 
 	return retSum, nil
 }
+
+// CreateTxOutputChange generates a TxOutput representing the change
+// by subtracting the total sum of outputs from the total available amount of each currency/token.
+func CreateTxOutputChange(
+	baseTxOutput TxOutput, totalSum map[string]uint64, outputsSum map[string]uint64,
+) (TxOutput, error) {
+	totalAmount := baseTxOutput.Amount + totalSum[AdaTokenName]
+	outputAmount := outputsSum[AdaTokenName]
+
+	if totalAmount < outputAmount {
+		return TxOutput{}, fmt.Errorf("invalid amount: has = %d, required = %d", totalAmount, outputAmount)
+	}
+
+	changeAmount := totalAmount - outputAmount
+	changeTokens := []TokenAmount(nil)
+
+	for tokenName, tokenAmount := range totalSum {
+		if tokenName == AdaTokenName {
+			continue
+		}
+
+		outputTokenAmount := outputsSum[tokenName]
+		totalTokenAmount := tokenAmount
+
+		for _, token := range baseTxOutput.Tokens {
+			if token.TokenName() == tokenName {
+				totalTokenAmount += token.Amount
+
+				break
+			}
+		}
+
+		if totalTokenAmount < outputTokenAmount {
+			return TxOutput{}, fmt.Errorf("invalid token amount: has = %d, required = %d",
+				totalTokenAmount, outputTokenAmount)
+		}
+
+		changeTokenAmount := totalTokenAmount - outputTokenAmount
+		if changeTokenAmount > 0 {
+			newToken, err := NewTokenAmountWithFullName(tokenName, changeTokenAmount, true)
+			if err != nil {
+				return TxOutput{}, err
+			}
+
+			changeTokens = append(changeTokens, newToken)
+		}
+	}
+
+	return TxOutput{
+		Addr:   baseTxOutput.Addr,
+		Amount: changeAmount,
+		Tokens: changeTokens,
+	}, nil
+}
