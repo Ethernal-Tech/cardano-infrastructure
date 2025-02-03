@@ -3,8 +3,6 @@ package wallet
 import (
 	"context"
 	"fmt"
-
-	"github.com/Ethernal-Tech/cardano-infrastructure/common"
 )
 
 const defaultTimeToLiveInc = 200
@@ -37,62 +35,78 @@ type TxInputs struct {
 }
 
 func GetUTXOsForAmount(
-	ctx context.Context,
-	retriever IUTxORetriever,
-	addr string,
-	tokenNames []string,
-	exactSum map[string]uint64,
-	atLeastSum map[string]uint64,
+	utxos []Utxo,
+	desiredSumLovelace uint64,
+	maxInputs int,
 ) (TxInputs, error) {
-	utxos, err := common.ExecuteWithRetry(ctx, func(ctx context.Context) ([]Utxo, error) {
-		return retriever.GetUtxos(ctx, addr)
-	})
-	if err != nil {
-		return TxInputs{}, err
+	findMinUtxo := func(utxos []Utxo) (Utxo, int) {
+		minUtxo := utxos[0]
+		idx := 0
+
+		for i, utxo := range utxos[1:] {
+			if utxo.Amount < minUtxo.Amount {
+				minUtxo = utxo
+				idx = i + 1
+			}
+		}
+
+		return minUtxo, idx
+	}
+
+	utxos2TxInputs := func(utxos []Utxo) []TxInput {
+		inputs := make([]TxInput, len(utxos))
+		for i, x := range utxos {
+			inputs[i] = TxInput{
+				Hash:  x.Hash,
+				Index: x.Index,
+			}
+		}
+
+		return inputs
 	}
 
 	// Loop through utxos to find first input with enough tokens
 	// If we don't have this UTXO we need to use more of them
 	//nolint:prealloc
 	var (
-		currentSum       = map[string]uint64{}
-		chosenUTXOs      []TxInput
-		notGoodTokenName string
+		currentSum  = map[string]uint64{}
+		chosenUTXOs []Utxo
+		tokenName   = AdaTokenName
 	)
 
 	for _, utxo := range utxos {
-		currentSum[AdaTokenName] += utxo.Amount
+		currentSum[tokenName] += utxo.Amount
 
 		for _, token := range utxo.Tokens {
 			currentSum[token.TokenName()] += token.Amount
 		}
 
-		chosenUTXOs = append(chosenUTXOs, TxInput{
-			Hash:  utxo.Hash,
-			Index: utxo.Index,
-		})
+		chosenUTXOs = append(chosenUTXOs, utxo)
 
-		isOk := true
+		if len(chosenUTXOs) > maxInputs {
+			lastIdx := len(chosenUTXOs) - 1
+			minChosenUTXO, minChosenUTXOIdx := findMinUtxo(chosenUTXOs)
 
-		for _, tokenName := range tokenNames {
-			if currentSum[tokenName] != exactSum[tokenName] && currentSum[tokenName] < atLeastSum[tokenName] {
-				isOk = false
-				notGoodTokenName = tokenName
+			chosenUTXOs[minChosenUTXOIdx] = chosenUTXOs[lastIdx]
+			chosenUTXOs = chosenUTXOs[:lastIdx]
+			currentSum[tokenName] -= minChosenUTXO.Amount
 
-				break
+			for _, token := range minChosenUTXO.Tokens {
+				currentSum[token.TokenName()] -= token.Amount
 			}
 		}
 
-		if isOk {
+		if currentSum[tokenName] >= desiredSumLovelace {
 			return TxInputs{
-				Inputs: chosenUTXOs,
+				Inputs: utxos2TxInputs(chosenUTXOs),
 				Sum:    currentSum,
 			}, nil
 		}
 	}
 
-	return TxInputs{}, fmt.Errorf("not enough funds for the transaction: (available, exact, at least) = (%d, %d, %d)",
-		currentSum[notGoodTokenName], exactSum[notGoodTokenName], atLeastSum[notGoodTokenName])
+	return TxInputs{}, fmt.Errorf(
+		"not enough funds for the transaction: (available, desired) = (%d, %d)",
+		currentSum[tokenName], desiredSumLovelace)
 }
 
 func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (uint64, error) {
