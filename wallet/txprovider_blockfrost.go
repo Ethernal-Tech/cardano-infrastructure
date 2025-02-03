@@ -11,6 +11,10 @@ import (
 	"strconv"
 )
 
+const (
+	blockfrostAuthHeaderKey = "project_id"
+)
+
 type blockFrostQueryUtxoResponse struct {
 	Address     string `json:"address"`
 	Hash        string `json:"tx_hash"`
@@ -23,17 +27,23 @@ type blockFrostQueryUtxoResponse struct {
 }
 
 type TxProviderBlockFrost struct {
-	url       string
-	projectID string
+	url           string
+	projectID     string
+	authHeaderKey string
 }
 
 var _ ITxProvider = (*TxProviderBlockFrost)(nil)
 
 func NewTxProviderBlockFrost(url string, projectID string) *TxProviderBlockFrost {
 	return &TxProviderBlockFrost{
-		projectID: projectID,
-		url:       url,
+		projectID:     projectID,
+		url:           url,
+		authHeaderKey: blockfrostAuthHeaderKey,
 	}
+}
+
+func (b *TxProviderBlockFrost) SetAuthHeaderKey(key string) {
+	b.authHeaderKey = key
 }
 
 func (b *TxProviderBlockFrost) Dispose() {
@@ -48,8 +58,7 @@ func (b *TxProviderBlockFrost) GetProtocolParameters(ctx context.Context) ([]byt
 
 	// Set the Content-Type header to application/json
 	req.Header.Set("Content-Type", "application/cbor")
-	req.Header.Set("project_id", b.projectID)
-	req.Header.Set("dmtr-api-key", b.projectID)
+	req.Header.Set(b.authHeaderKey, b.projectID)
 
 	// Make the HTTP request
 	resp, err := new(http.Client).Do(req)
@@ -81,8 +90,7 @@ func (b *TxProviderBlockFrost) GetUtxos(ctx context.Context, addr string) ([]Utx
 
 	// Set the Content-Type header to application/json
 	req.Header.Set("Content-Type", "application/cbor")
-	req.Header.Set("project_id", b.projectID)
-	req.Header.Set("dmtr-api-key", b.projectID)
+	req.Header.Set(b.authHeaderKey, b.projectID)
 
 	// Make the HTTP request
 	resp, err := new(http.Client).Do(req)
@@ -156,8 +164,7 @@ func (b *TxProviderBlockFrost) GetTip(ctx context.Context) (QueryTipData, error)
 
 	// Set the Content-Type header to application/json
 	req.Header.Set("Content-Type", "application/cbor")
-	req.Header.Set("project_id", b.projectID)
-	req.Header.Set("dmtr-api-key", b.projectID)
+	req.Header.Set(b.authHeaderKey, b.projectID)
 
 	// Make the HTTP request
 	resp, err := new(http.Client).Do(req)
@@ -188,31 +195,7 @@ func (b *TxProviderBlockFrost) GetTip(ctx context.Context) (QueryTipData, error)
 }
 
 func (b *TxProviderBlockFrost) SubmitTx(ctx context.Context, txSigned []byte) error {
-	// Create a request with the JSON payload
-	req, err := http.NewRequestWithContext(ctx, "POST", b.url+"/tx/submit", bytes.NewBuffer(txSigned))
-	if err != nil {
-		return err
-	}
-
-	// Set the Content-Type header to application/json
-	req.Header.Set("Content-Type", "application/cbor")
-	req.Header.Set("project_id", b.projectID)
-	req.Header.Set("dmtr-api-key", b.projectID)
-
-	// Make the HTTP request
-	resp, err := new(http.Client).Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close()
-
-	// Check the HTTP status code
-	if resp.StatusCode != http.StatusOK {
-		return getErrorFromResponse(resp)
-	}
-
-	return nil
+	return blockfrostSubmitTx(ctx, b.url+"/tx/submit", b.authHeaderKey, b.projectID, txSigned)
 }
 
 func (b *TxProviderBlockFrost) GetTxByHash(ctx context.Context, hash string) (map[string]interface{}, error) {
@@ -223,8 +206,7 @@ func (b *TxProviderBlockFrost) GetTxByHash(ctx context.Context, hash string) (ma
 	}
 
 	// Set the Content-Type header to application/json
-	req.Header.Set("project_id", b.projectID)
-	req.Header.Set("dmtr-api-key", b.projectID)
+	req.Header.Set(b.authHeaderKey, b.projectID)
 
 	// Make the HTTP request
 	resp, err := new(http.Client).Do(req)
@@ -246,6 +228,33 @@ func (b *TxProviderBlockFrost) GetTxByHash(ctx context.Context, hash string) (ma
 	}
 
 	return bfResponse, nil
+}
+
+func blockfrostSubmitTx(ctx context.Context, endpointUrl, authHeader, authKey string, txSigned []byte) error {
+	// Create a request with the JSON payload
+	req, err := http.NewRequestWithContext(ctx, "POST", endpointUrl, bytes.NewBuffer(txSigned))
+	if err != nil {
+		return err
+	}
+
+	// Set the Content-Type header to application/json
+	req.Header.Set("Content-Type", "application/cbor")
+	req.Header.Set(authHeader, authKey)
+
+	// Make the HTTP request
+	resp, err := new(http.Client).Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	// Check the HTTP status code
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return getErrorFromResponse(resp)
+	}
+
+	return nil
 }
 
 func convertProtocolParameters(bytes []byte) ([]byte, error) {
