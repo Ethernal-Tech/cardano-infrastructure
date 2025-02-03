@@ -18,7 +18,7 @@ func NewTxProviderDemeter(
 	blockfrostURL, blockfrostAPIKey, submitAPIURL, submitAPIKey string,
 ) *TxProviderDemeter {
 	blockfrost := NewTxProviderBlockFrost(blockfrostURL, blockfrostAPIKey)
-	blockfrost.SetAuthHeaderKey(demeterAuthHeaderKey)
+	blockfrost.authHeaderKey = demeterAuthHeaderKey
 
 	return &TxProviderDemeter{
 		TxProviderBlockFrost: *blockfrost,
