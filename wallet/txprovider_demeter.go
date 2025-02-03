@@ -28,5 +28,5 @@ func NewTxProviderDemeter(
 }
 
 func (b *TxProviderDemeter) SubmitTx(ctx context.Context, txSigned []byte) error {
-	return blockfrostSubmitTx(ctx, b.submitAPIURL+"api/submit/tx", b.authHeaderKey, b.submitAPIKey, txSigned)
+	return blockfrostSubmitTx(ctx, b.submitAPIURL+"/api/submit/tx", b.authHeaderKey, b.submitAPIKey, txSigned)
 }
