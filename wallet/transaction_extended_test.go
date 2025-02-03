@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -116,14 +117,18 @@ func TestCreateTxOutputChange(t *testing.T) {
 			token1.TokenName(): 20,
 			token2.TokenName(): 30,
 		})
+
 		require.NoError(t, err)
-		require.Equal(t, TxOutput{
-			Addr:   address,
-			Amount: 490,
-			Tokens: []TokenAmount{
-				NewTokenAmount(token1.PolicyID, token1.Name, 680),
-				NewTokenAmount(token2.PolicyID, token2.Name, 870),
-			},
-		}, res)
+
+		sort.Slice(res.Tokens, func(i, j int) bool {
+			return res.Tokens[i].String() < res.Tokens[j].String()
+		})
+
+		require.Equal(t, address, res.Addr)
+		require.Equal(t, uint64(490), res.Amount)
+		require.Equal(t, []TokenAmount{
+			NewTokenAmount(token1.PolicyID, token1.Name, 680),
+			NewTokenAmount(token2.PolicyID, token2.Name, 870),
+		}, res.Tokens)
 	})
 }
