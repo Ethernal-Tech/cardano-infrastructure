@@ -140,6 +140,16 @@ func (b *TxBuilder) AddOutputs(outputs ...TxOutput) *TxBuilder {
 	return b
 }
 
+func (b *TxBuilder) ReplaceOutput(index int, output TxOutput) *TxBuilder {
+	if index < 0 {
+		index = len(b.outputs) + index
+	}
+
+	b.outputs[index] = output
+
+	return b
+}
+
 func (b *TxBuilder) UpdateOutputAmount(index int, amount uint64, tokenAmounts ...uint64) *TxBuilder {
 	if index < 0 {
 		index = len(b.outputs) + index
