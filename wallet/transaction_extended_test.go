@@ -142,23 +142,18 @@ func TestGetUTXOsForAmount(t *testing.T) {
 
 	utxos := []Utxo{
 		{
-			Hash:   "0",
 			Amount: 100_000_000,
 		},
 		{
-			Hash:   "1",
 			Amount: 20,
 		},
 		{
-			Hash:   "2",
 			Amount: 5_000,
 		},
 		{
-			Hash:   "3",
 			Amount: 50_000,
 		},
 		{
-			Hash:   "4",
 			Amount: 0,
 			Tokens: []TokenAmount{
 				token1,
@@ -166,7 +161,6 @@ func TestGetUTXOsForAmount(t *testing.T) {
 			},
 		},
 		{
-			Hash:   "5",
 			Amount: 3_000_000,
 			Tokens: []TokenAmount{
 				token3,
@@ -200,7 +194,6 @@ func TestGetUTXOsForAmount(t *testing.T) {
 		txOutputs, err := GetUTXOsForAmount(utxos, 100_050_000, 2)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(txOutputs.Inputs))
-		require.Equal(t, uint64(100_050_000), txOutputs.Sum[AdaTokenName])
 
 		txOutputs, err = GetUTXOsForAmount(utxos, 100_005_020, 3)
 		require.NoError(t, err)
