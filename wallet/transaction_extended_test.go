@@ -159,6 +159,9 @@ func TestGetUTXOsForAmount(t *testing.T) {
 		},
 		{
 			Amount: 5_000,
+			Tokens: []TokenAmount{
+				token2_2,
+			},
 		},
 		{
 			Amount: 50_000,
@@ -172,7 +175,6 @@ func TestGetUTXOsForAmount(t *testing.T) {
 			Tokens: []TokenAmount{
 				token1,
 				token2,
-				token2_2,
 			},
 		},
 		{
@@ -196,10 +198,30 @@ func TestGetUTXOsForAmount(t *testing.T) {
 		require.Empty(t, txOutputs)
 	})
 
+	t.Run("not enough token funds", func(t *testing.T) {
+		t.Parallel()
+
+		txOutputs, err := GetUTXOsForAmount(utxos, token1.TokenName(), 4*token1.Amount, 3)
+		require.ErrorContains(t, err, "not enough funds for the transaction")
+		require.Empty(t, txOutputs)
+
+		txOutputs, err = GetUTXOsForAmount(utxos, token3.TokenName(), 3*token3.Amount, 6)
+		require.ErrorContains(t, err, "not enough funds for the transaction")
+		require.Empty(t, txOutputs)
+	})
+
 	t.Run("negative max inputs", func(t *testing.T) {
 		t.Parallel()
 
 		txOutputs, err := GetUTXOsForAmount(utxos, AdaTokenName, 100_050_000, -1)
+		require.ErrorContains(t, err, "utxos limit reached")
+		require.Empty(t, txOutputs)
+	})
+
+	t.Run("negative token max inputs", func(t *testing.T) {
+		t.Parallel()
+
+		txOutputs, err := GetUTXOsForAmount(utxos, token2.TokenName(), token2.Amount, -1)
 		require.ErrorContains(t, err, "utxos limit reached")
 		require.Empty(t, txOutputs)
 	})
@@ -226,9 +248,9 @@ func TestGetUTXOsForAmount(t *testing.T) {
 		require.Equal(t, 2, len(txOutputs.Inputs))
 		require.Equal(t, 2*token1.Amount+token1_2.Amount, txOutputs.Sum[token1.TokenName()])
 
-		txOutputs, err = GetUTXOsForAmount(utxos, token2.TokenName(), 3*token2.Amount+token2_2.Amount, 3)
+		txOutputs, err = GetUTXOsForAmount(utxos, token2.TokenName(), 3*token2.Amount+token2_2.Amount, 4)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(txOutputs.Inputs))
+		require.Equal(t, 4, len(txOutputs.Inputs))
 		require.Equal(t, 3*token2.Amount+token2_2.Amount, txOutputs.Sum[token2.TokenName()])
 	})
 
