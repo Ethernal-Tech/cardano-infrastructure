@@ -137,33 +137,49 @@ func TestGetUTXOsForAmount(t *testing.T) {
 	t.Parallel()
 
 	token1, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.4b6173685f546f6b656e", 11_000_039, true)
+	token1_2, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.4b6173685f546f6b656e", 20_000, true)
 	token2, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.Route3", 236_872_039, false)
+	token2_2, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.Route3", 100_000, false)
 	token3, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.Route345", 12_236_872_039, false)
+	token3_2, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.Route345", 250_000_000, false)
 
 	utxos := []Utxo{
 		{
 			Amount: 100_000_000,
+			Tokens: []TokenAmount{
+				token1,
+				token1_2,
+			},
 		},
 		{
 			Amount: 20,
+			Tokens: []TokenAmount{
+				token2,
+			},
 		},
 		{
 			Amount: 5_000,
 		},
 		{
 			Amount: 50_000,
+			Tokens: []TokenAmount{
+				token2,
+				token3,
+			},
 		},
 		{
 			Amount: 0,
 			Tokens: []TokenAmount{
 				token1,
 				token2,
+				token2_2,
 			},
 		},
 		{
 			Amount: 3_000_000,
 			Tokens: []TokenAmount{
 				token3,
+				token3_2,
 			},
 		},
 	}
@@ -194,11 +210,26 @@ func TestGetUTXOsForAmount(t *testing.T) {
 		txOutputs, err := GetUTXOsForAmount(utxos, AdaTokenName, 100_050_000, 2)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(txOutputs.Inputs))
+		require.Equal(t, uint64(100_050_000), txOutputs.Sum[AdaTokenName])
 
 		txOutputs, err = GetUTXOsForAmount(utxos, AdaTokenName, 100_005_020, 3)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(txOutputs.Inputs))
 		require.Equal(t, uint64(100_005_020), txOutputs.Sum[AdaTokenName])
+	})
+
+	t.Run("pass with exact token amount", func(t *testing.T) {
+		t.Parallel()
+
+		txOutputs, err := GetUTXOsForAmount(utxos, token1.TokenName(), 2*token1.Amount+token1_2.Amount, 2)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(txOutputs.Inputs))
+		require.Equal(t, 2*token1.Amount+token1_2.Amount, txOutputs.Sum[token1.TokenName()])
+
+		txOutputs, err = GetUTXOsForAmount(utxos, token2.TokenName(), 3*token2.Amount+token2_2.Amount, 3)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(txOutputs.Inputs))
+		require.Equal(t, 3*token2.Amount+token2_2.Amount, txOutputs.Sum[token2.TokenName()])
 	})
 
 	t.Run("pass with change", func(t *testing.T) {
@@ -213,6 +244,20 @@ func TestGetUTXOsForAmount(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(txOutputs.Inputs))
 		require.Equal(t, uint64(100_000_000), txOutputs.Sum[AdaTokenName])
+	})
+
+	t.Run("pass with token change", func(t *testing.T) {
+		t.Parallel()
+
+		txOutputs, err := GetUTXOsForAmount(utxos, token1.TokenName(), 2*token1.Amount+5_000, 2)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(txOutputs.Inputs))
+		require.Equal(t, 2*token1.Amount+token1_2.Amount, txOutputs.Sum[token1.TokenName()])
+
+		txOutputs, err = GetUTXOsForAmount(utxos, token3.TokenName(), 2*token3.Amount+100_000_000, 2)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(txOutputs.Inputs))
+		require.Equal(t, 2*token3.Amount+token3_2.Amount, txOutputs.Sum[token3.TokenName()])
 	})
 
 	t.Run("pass without reaching max inputs limit", func(t *testing.T) {
@@ -224,17 +269,12 @@ func TestGetUTXOsForAmount(t *testing.T) {
 		require.Equal(t, uint64(100_005_020), txOutputs.Sum[AdaTokenName])
 	})
 
-	t.Run("pass with change", func(t *testing.T) {
+	t.Run("pass with tokens without reaching max inputs limit", func(t *testing.T) {
 		t.Parallel()
 
-		txOutputs, err := GetUTXOsForAmount(utxos, AdaTokenName, 100_005_010, 3)
-		require.NoError(t, err)
-		require.Equal(t, 3, len(txOutputs.Inputs))
-		require.Equal(t, uint64(100_005_020), txOutputs.Sum[AdaTokenName])
-
-		txOutputs, err = GetUTXOsForAmount(utxos, AdaTokenName, 3_020_000, 2)
+		txOutputs, err := GetUTXOsForAmount(utxos, token1.TokenName(), 11_020_039, 2)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(txOutputs.Inputs))
-		require.Equal(t, uint64(100_000_000), txOutputs.Sum[AdaTokenName])
+		require.Equal(t, uint64(11_020_039), txOutputs.Sum[token1.TokenName()])
 	})
 }

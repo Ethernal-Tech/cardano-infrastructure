@@ -77,7 +77,7 @@ func GetUTXOsForAmount(
 	)
 
 	for _, utxo := range utxos {
-		currentSum[tokenName] += utxo.Amount
+		currentSum[AdaTokenName] += utxo.Amount
 
 		for _, token := range utxo.Tokens {
 			currentSum[token.TokenName()] += token.Amount
@@ -91,7 +91,7 @@ func GetUTXOsForAmount(
 
 			chosenUTXOs[minChosenUTXOIdx] = chosenUTXOs[lastIdx]
 			chosenUTXOs = chosenUTXOs[:lastIdx]
-			currentSum[tokenName] -= minChosenUTXO.Amount
+			currentSum[AdaTokenName] -= minChosenUTXO.Amount
 
 			for _, token := range minChosenUTXO.Tokens {
 				currentSum[token.TokenName()] -= token.Amount
