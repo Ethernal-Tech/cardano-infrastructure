@@ -132,3 +132,102 @@ func TestCreateTxOutputChange(t *testing.T) {
 		}, res.Tokens)
 	})
 }
+
+func TestGetUTXOsForAmount(t *testing.T) {
+	t.Parallel()
+
+	token1, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.4b6173685f546f6b656e", 11_000_039, true)
+	token2, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.Route3", 236_872_039, false)
+	token3, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.Route345", 12_236_872_039, false)
+
+	utxos := []Utxo{
+		{
+			Hash:   "0",
+			Amount: 100_000_000,
+		},
+		{
+			Hash:   "1",
+			Amount: 20,
+		},
+		{
+			Hash:   "2",
+			Amount: 5_000,
+		},
+		{
+			Hash:   "3",
+			Amount: 50_000,
+		},
+		{
+			Hash:   "4",
+			Amount: 0,
+			Tokens: []TokenAmount{
+				token1,
+				token2,
+			},
+		},
+		{
+			Hash:   "5",
+			Amount: 3_000_000,
+			Tokens: []TokenAmount{
+				token3,
+			},
+		},
+	}
+
+	t.Run("not enough funds", func(t *testing.T) {
+		t.Parallel()
+
+		txOutputs, err := GetUTXOsForAmount(utxos, 190_000_000_000, 2)
+		require.ErrorContains(t, err, "not enough funds for the transaction")
+		require.Empty(t, txOutputs)
+
+		txOutputs, err = GetUTXOsForAmount(utxos, 190_000_000_000, 6)
+		require.ErrorContains(t, err, "not enough funds for the transaction")
+		require.Empty(t, txOutputs)
+	})
+
+	t.Run("negative max inputs", func(t *testing.T) {
+		t.Parallel()
+
+		txOutputs, err := GetUTXOsForAmount(utxos, 100_050_000, -1)
+		require.ErrorContains(t, err, "not enough funds for the transaction")
+		require.Empty(t, txOutputs)
+	})
+
+	t.Run("pass with exact amount", func(t *testing.T) {
+		t.Parallel()
+
+		txOutputs, err := GetUTXOsForAmount(utxos, 100_050_000, 2)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(txOutputs.Inputs))
+		require.Equal(t, uint64(100_050_000), txOutputs.Sum[AdaTokenName])
+
+		txOutputs, err = GetUTXOsForAmount(utxos, 100_005_020, 3)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(txOutputs.Inputs))
+		require.Equal(t, uint64(100_005_020), txOutputs.Sum[AdaTokenName])
+	})
+
+	t.Run("pass with change", func(t *testing.T) {
+		t.Parallel()
+
+		txOutputs, err := GetUTXOsForAmount(utxos, 100_005_010, 3)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(txOutputs.Inputs))
+		require.Equal(t, uint64(100_005_020), txOutputs.Sum[AdaTokenName])
+
+		txOutputs, err = GetUTXOsForAmount(utxos, 3_020_000, 2)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(txOutputs.Inputs))
+		require.Equal(t, uint64(100_000_000), txOutputs.Sum[AdaTokenName])
+	})
+
+	t.Run("pass without reaching max inputs limit", func(t *testing.T) {
+		t.Parallel()
+
+		txOutputs, err := GetUTXOsForAmount(utxos, 100_005_020, 4)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(txOutputs.Inputs))
+		require.Equal(t, uint64(100_005_020), txOutputs.Sum[AdaTokenName])
+	})
+}
