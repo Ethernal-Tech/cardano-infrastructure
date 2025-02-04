@@ -3,6 +3,7 @@ package wallet
 import (
 	"context"
 	"fmt"
+	"sort"
 )
 
 const defaultTimeToLiveInc = 200
@@ -73,6 +74,11 @@ func GetUTXOsForAmount(
 		chosenUTXOs []Utxo
 		tokenName   = AdaTokenName
 	)
+
+	// less tokens first
+	sort.Slice(utxos, func(i, j int) bool {
+		return len(utxos[i].Tokens) < len(utxos[j].Tokens)
+	})
 
 	for _, utxo := range utxos {
 		currentSum[tokenName] += utxo.Amount
