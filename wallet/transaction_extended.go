@@ -37,16 +37,19 @@ type TxInputs struct {
 
 func GetUTXOsForAmount(
 	utxos []Utxo,
-	desiredSumLovelace uint64,
+	tokenName string,
+	desiredSum uint64,
 	maxInputs int,
 ) (TxInputs, error) {
 	findMinUtxo := func(utxos []Utxo) (Utxo, int) {
 		minUtxo := utxos[0]
+		minAmount := GetTokenAmountFromUtxo(minUtxo, tokenName)
 		idx := 0
 
 		for i, utxo := range utxos[1:] {
-			if utxo.Amount < minUtxo.Amount {
+			if newAmount := GetTokenAmountFromUtxo(utxo, tokenName); newAmount < minAmount {
 				minUtxo = utxo
+				minAmount = newAmount
 				idx = i + 1
 			}
 		}
@@ -72,7 +75,6 @@ func GetUTXOsForAmount(
 	var (
 		currentSum  = map[string]uint64{}
 		chosenUTXOs []Utxo
-		tokenName   = AdaTokenName
 	)
 
 	// less tokens first
@@ -102,7 +104,7 @@ func GetUTXOsForAmount(
 			}
 		}
 
-		if currentSum[tokenName] >= desiredSumLovelace {
+		if currentSum[tokenName] >= desiredSum {
 			return TxInputs{
 				Inputs: utxos2TxInputs(chosenUTXOs),
 				Sum:    currentSum,
@@ -110,9 +112,15 @@ func GetUTXOsForAmount(
 		}
 	}
 
+	if GetUtxosSum(utxos)[tokenName] >= desiredSum {
+		return TxInputs{}, fmt.Errorf(
+			"utxos limit reached (%d), try to consolidate utxos: (total, desired) = (%d, %d)",
+			maxInputs, currentSum[tokenName], desiredSum)
+	}
+
 	return TxInputs{}, fmt.Errorf(
 		"not enough funds for the transaction: (available, desired) = (%d, %d)",
-		currentSum[tokenName], desiredSumLovelace)
+		currentSum[tokenName], desiredSum)
 }
 
 func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (uint64, error) {
@@ -125,12 +133,9 @@ func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (ui
 
 	for tokenName, amount := range userTokenSum {
 		if tokenName != AdaTokenName {
-			tokenAmount, err := NewTokenAmountWithFullName(tokenName, amount, false)
+			tokenAmount, err := NewTokenAmountWithFullName(tokenName, amount, true)
 			if err != nil {
-				tokenAmount, err = NewTokenAmountWithFullName(tokenName, amount, true)
-				if err != nil {
-					return 0, err
-				}
+				return 0, err
 			}
 
 			txOutput.Tokens = append(txOutput.Tokens, tokenAmount)
@@ -197,4 +202,18 @@ func CreateTxOutputChange(
 		Amount: changeAmount,
 		Tokens: changeTokens,
 	}, nil
+}
+
+func GetTokenAmountFromUtxo(utxo Utxo, tokenName string) uint64 {
+	if tokenName == AdaTokenName {
+		return utxo.Amount
+	}
+
+	for _, tok := range utxo.Tokens {
+		if tok.TokenName() == tokenName {
+			return tok.Amount
+		}
+	}
+
+	return 0
 }

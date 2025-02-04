@@ -43,26 +43,26 @@ func TestGetTokenCostSum(t *testing.T) {
 
 	result, err := GetTokenCostSum(txBuilder, address, utxos)
 	require.NoError(t, err)
-	require.Equal(t, uint64(1293000), result)
+	require.Equal(t, uint64(1189560), result)
 
 	utxos[1].Tokens[0].Amount = 1 // changing token amount will change the output
 
 	result, err = GetTokenCostSum(txBuilder, address, utxos)
 	require.NoError(t, err)
-	require.Equal(t, uint64(1275760), result)
+	require.Equal(t, uint64(1172320), result)
 
 	utxos[2].Tokens[0].Amount = 3 // changing token amount will change the output
 
 	result, err = GetTokenCostSum(txBuilder, address, utxos)
 	require.NoError(t, err)
-	require.Equal(t, uint64(1241280), result)
+	require.Equal(t, uint64(1137840), result)
 
 	utxos[0].Amount = 3
 	utxos[1].Amount = 300_021_416_931_256_900 // changing lovelace amounts won't make any difference
 
 	result, err = GetTokenCostSum(txBuilder, address, utxos)
 	require.NoError(t, err)
-	require.Equal(t, uint64(1241280), result)
+	require.Equal(t, uint64(1137840), result)
 }
 
 func TestCreateTxOutputChange(t *testing.T) {
@@ -171,11 +171,11 @@ func TestGetUTXOsForAmount(t *testing.T) {
 	t.Run("not enough funds", func(t *testing.T) {
 		t.Parallel()
 
-		txOutputs, err := GetUTXOsForAmount(utxos, 190_000_000_000, 2)
+		txOutputs, err := GetUTXOsForAmount(utxos, AdaTokenName, 190_000_000_000, 2)
 		require.ErrorContains(t, err, "not enough funds for the transaction")
 		require.Empty(t, txOutputs)
 
-		txOutputs, err = GetUTXOsForAmount(utxos, 190_000_000_000, 6)
+		txOutputs, err = GetUTXOsForAmount(utxos, AdaTokenName, 190_000_000_000, 6)
 		require.ErrorContains(t, err, "not enough funds for the transaction")
 		require.Empty(t, txOutputs)
 	})
@@ -183,19 +183,19 @@ func TestGetUTXOsForAmount(t *testing.T) {
 	t.Run("negative max inputs", func(t *testing.T) {
 		t.Parallel()
 
-		txOutputs, err := GetUTXOsForAmount(utxos, 100_050_000, -1)
-		require.ErrorContains(t, err, "not enough funds for the transaction")
+		txOutputs, err := GetUTXOsForAmount(utxos, AdaTokenName, 100_050_000, -1)
+		require.ErrorContains(t, err, "utxos limit reached")
 		require.Empty(t, txOutputs)
 	})
 
 	t.Run("pass with exact amount", func(t *testing.T) {
 		t.Parallel()
 
-		txOutputs, err := GetUTXOsForAmount(utxos, 100_050_000, 2)
+		txOutputs, err := GetUTXOsForAmount(utxos, AdaTokenName, 100_050_000, 2)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(txOutputs.Inputs))
 
-		txOutputs, err = GetUTXOsForAmount(utxos, 100_005_020, 3)
+		txOutputs, err = GetUTXOsForAmount(utxos, AdaTokenName, 100_005_020, 3)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(txOutputs.Inputs))
 		require.Equal(t, uint64(100_005_020), txOutputs.Sum[AdaTokenName])
@@ -204,12 +204,12 @@ func TestGetUTXOsForAmount(t *testing.T) {
 	t.Run("pass with change", func(t *testing.T) {
 		t.Parallel()
 
-		txOutputs, err := GetUTXOsForAmount(utxos, 100_005_010, 3)
+		txOutputs, err := GetUTXOsForAmount(utxos, AdaTokenName, 100_005_010, 3)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(txOutputs.Inputs))
 		require.Equal(t, uint64(100_005_020), txOutputs.Sum[AdaTokenName])
 
-		txOutputs, err = GetUTXOsForAmount(utxos, 3_020_000, 2)
+		txOutputs, err = GetUTXOsForAmount(utxos, AdaTokenName, 3_020_000, 2)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(txOutputs.Inputs))
 		require.Equal(t, uint64(100_000_000), txOutputs.Sum[AdaTokenName])
@@ -218,9 +218,23 @@ func TestGetUTXOsForAmount(t *testing.T) {
 	t.Run("pass without reaching max inputs limit", func(t *testing.T) {
 		t.Parallel()
 
-		txOutputs, err := GetUTXOsForAmount(utxos, 100_005_020, 4)
+		txOutputs, err := GetUTXOsForAmount(utxos, AdaTokenName, 100_005_020, 4)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(txOutputs.Inputs))
 		require.Equal(t, uint64(100_005_020), txOutputs.Sum[AdaTokenName])
+	})
+
+	t.Run("pass with change", func(t *testing.T) {
+		t.Parallel()
+
+		txOutputs, err := GetUTXOsForAmount(utxos, AdaTokenName, 100_005_010, 3)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(txOutputs.Inputs))
+		require.Equal(t, uint64(100_005_020), txOutputs.Sum[AdaTokenName])
+
+		txOutputs, err = GetUTXOsForAmount(utxos, AdaTokenName, 3_020_000, 2)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(txOutputs.Inputs))
+		require.Equal(t, uint64(100_000_000), txOutputs.Sum[AdaTokenName])
 	})
 }
