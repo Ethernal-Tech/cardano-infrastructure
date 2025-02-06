@@ -49,6 +49,7 @@ func (b *TxProviderBlockFrost) GetProtocolParameters(ctx context.Context) ([]byt
 	// Set the Content-Type header to application/json
 	req.Header.Set("Content-Type", "application/cbor")
 	req.Header.Set("project_id", b.projectID)
+	req.Header.Set("dmtr-api-key", b.projectID)
 
 	// Make the HTTP request
 	resp, err := new(http.Client).Do(req)
@@ -81,6 +82,7 @@ func (b *TxProviderBlockFrost) GetUtxos(ctx context.Context, addr string) ([]Utx
 	// Set the Content-Type header to application/json
 	req.Header.Set("Content-Type", "application/cbor")
 	req.Header.Set("project_id", b.projectID)
+	req.Header.Set("dmtr-api-key", b.projectID)
 
 	// Make the HTTP request
 	resp, err := new(http.Client).Do(req)
@@ -154,6 +156,7 @@ func (b *TxProviderBlockFrost) GetTip(ctx context.Context) (QueryTipData, error)
 	// Set the Content-Type header to application/json
 	req.Header.Set("Content-Type", "application/cbor")
 	req.Header.Set("project_id", b.projectID)
+	req.Header.Set("dmtr-api-key", b.projectID)
 
 	// Make the HTTP request
 	resp, err := new(http.Client).Do(req)
@@ -193,6 +196,7 @@ func (b *TxProviderBlockFrost) SubmitTx(ctx context.Context, txSigned []byte) er
 	// Set the Content-Type header to application/json
 	req.Header.Set("Content-Type", "application/cbor")
 	req.Header.Set("project_id", b.projectID)
+	req.Header.Set("dmtr-api-key", b.projectID)
 
 	// Make the HTTP request
 	resp, err := new(http.Client).Do(req)
@@ -219,6 +223,7 @@ func (b *TxProviderBlockFrost) GetTxByHash(ctx context.Context, hash string) (ma
 
 	// Set the Content-Type header to application/json
 	req.Header.Set("project_id", b.projectID)
+	req.Header.Set("dmtr-api-key", b.projectID)
 
 	// Make the HTTP request
 	resp, err := new(http.Client).Do(req)

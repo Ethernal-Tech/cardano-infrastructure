@@ -75,6 +75,7 @@ func TestCreateTxOutputChange(t *testing.T) {
 	t1, _ := NewTokenWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.4b6173685f546f6b656e", true)
 	t2, _ := NewTokenWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.Route3", false)
 	address := "addr_test1vqjysa7p4mhu0l25qknwznvj0kghtr29ud7zp732ezwtzec0w8g3u"
+
 	token1 := NewTokenAmount(t1, 200)
 	token2 := NewTokenAmount(t2, 300)
 
