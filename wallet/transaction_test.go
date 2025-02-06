@@ -234,23 +234,55 @@ func Test_TxBuilder_CheckOutputs(t *testing.T) {
 	require.Error(t, b.CheckOutputs(), errors.New("output (x4, 3) amount not specified"))
 }
 
-func TestCreateTxWitness(t *testing.T) {
+func TestCreateTxWitnessAndAssembleTxWitnesses(t *testing.T) {
 	t.Parallel()
 
 	const (
-		vkey        = "93eef6c081498a80b2dd7bb39654edbe7219c6262e102cf45c7105be0400bb7d"
-		skey        = "a2f90889dd525397c2478e9e611c1790ca61b1edeebf73e1887f929585f8b2aa"
-		witnessData = "82582093eef6c081498a80b2dd7bb39654edbe7219c6262e102cf45c7105be0400bb7d58405614996e84da65a3f774883a4cb29dc84667107078c96d2dac7186f587ea5faa6c027d235926f7deeffcf32dafcc2bafa90d680d727ddcc9ceb4a803cdd8030f"
+		skey        = "58800800c832ac40041bcbd83fc7b6be8f9a93c508d06f767518bad3266d62c3ad497d022a84b1b6663e0c3c62955c43bdfc333b3434ea232ab4e8c41d6b99c7ee12c73cd59dbfba2e07577ad69621e964d404c7bef56f69e1691438abd373561999899ccba5b358e8e3af736263283a472bb941c185ff4b523f532800766f1427c2"
+		witnessData = "825820c73cd59dbfba2e07577ad69621e964d404c7bef56f69e1691438abd37356199958408233a747b14fc78ba32fbe8501b842d3290c591a565f589dbeec1c1e8b3dfe27de19002784c6c7020871fd07a5dd70e1003b6d1449255985c823464123085a00"
+		txRaw       = "84a500818258201f55818892cc447cbf9fc27e04899ea98795538889555d3846a8071f4fdb75eb01018282581d70c4aab1955b120811d634e3a1b282ea090537d9e753842e8f46c280041a00200b2082583900712c77c7e146b95a569f2f7edf1dd81df2545edecb132701f17f84d4694c18049dcafc175d262c06eac9f52b86f205e38e8bfca6e6a545611a055e8308021a0002e908031a0152a319075820cb1b53bb62ee65e8ae893d04331dcc70d745298a32fcedf5ff9cc7a12d8471e3a0f5d90103a100a101a5616466766563746f726266611a0010c8e06173837828616464725f74657374317170636a63613738753972746a6b6a6b6e756868616863616d71776c793478287a376d6d39337866637037396c636634726666737671663877326c73743436663376716d34766e61781c6674736d6571746375773330373264653439673473737a333437377a61746662726964676562747881a26161827828766563746f725f7465737431766772677868347333356135706476306463347a6771333363726e33781934656d6e6b326537766e656e73663474657a7133746b6d396d616d1a000f4240"
+		txWitness   = "84a500818258201f55818892cc447cbf9fc27e04899ea98795538889555d3846a8071f4fdb75eb01018282581d70c4aab1955b120811d634e3a1b282ea090537d9e753842e8f46c280041a00200b2082583900712c77c7e146b95a569f2f7edf1dd81df2545edecb132701f17f84d4694c18049dcafc175d262c06eac9f52b86f205e38e8bfca6e6a545611a055e8308021a0002e908031a0152a319075820cb1b53bb62ee65e8ae893d04331dcc70d745298a32fcedf5ff9cc7a12d8471e3a10081825820c73cd59dbfba2e07577ad69621e964d404c7bef56f69e1691438abd37356199958408233a747b14fc78ba32fbe8501b842d3290c591a565f589dbeec1c1e8b3dfe27de19002784c6c7020871fd07a5dd70e1003b6d1449255985c823464123085a00f5d90103a100a101a5616466766563746f726266611a0010c8e06173837828616464725f74657374317170636a63613738753972746a6b6a6b6e756868616863616d71776c793478287a376d6d39337866637037396c636634726666737671663877326c73743436663376716d34766e61781c6674736d6571746375773330373264653439673473737a333437377a61746662726964676562747881a26161827828766563746f725f7465737431766772677868347333356135706476306463347a6771333363726e33781934656d6e6b326537766e656e73663474657a7133746b6d396d616d1a000f4240"
 	)
 
-	vkeyBytes, _ := hex.DecodeString(vkey)
-	skeyBytes, _ := hex.DecodeString(skey)
-	wallet := NewWallet(vkeyBytes, skeyBytes)
-
-	bytes, err := CreateTxWitness("8810020F", wallet)
+	skeyBytes, err := GetKeyBytes(skey)
 	require.NoError(t, err)
 
-	require.Equal(t, witnessData, hex.EncodeToString(bytes))
+	txRawBytes, err := hex.DecodeString(txRaw)
+	require.NoError(t, err)
+
+	wallet := NewWallet(skeyBytes, nil)
+
+	txBuilder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	require.NoError(t, err)
+
+	defer txBuilder.Dispose()
+
+	txWitnessBytes, err := txBuilder.CreateTxWitness(txRawBytes, wallet)
+	require.NoError(t, err)
+
+	require.Equal(t, witnessData, hex.EncodeToString(txWitnessBytes))
+
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+
+	txHash, err := cliUtils.GetTxHash(txRawBytes)
+	require.NoError(t, err)
+
+	witness := TxWitnessRaw(txWitnessBytes)
+
+	signature, vkey, err := witness.GetSignatureAndVKey()
+	require.NoError(t, err)
+
+	require.Equal(t, vkey, wallet.VerificationKey)
+
+	txHashBytes, err := hex.DecodeString(txHash)
+	require.NoError(t, err)
+
+	require.NoError(t, VerifyMessage(txHashBytes, wallet.VerificationKey, signature))
+
+	txFinal, err := txBuilder.AssembleTxWitnesses(txRawBytes, [][]byte{txWitnessBytes})
+	require.NoError(t, err)
+
+	require.Equal(t, txWitness, hex.EncodeToString(txFinal))
 }
 
 func TestCalculateMinUtxo(t *testing.T) {
@@ -271,31 +303,51 @@ func TestCalculateMinUtxo(t *testing.T) {
 			tokenAmount1, tokenAmount2, tokenAmount3,
 		},
 	}
+
 	txBuilder, err := NewTxBuilder(ResolveCardanoCliBinary(MainNetNetwork))
 	require.NoError(t, err)
+
 	defer txBuilder.Dispose()
+
 	txBuilder.SetProtocolParameters(protocolParameters)
+
 	minUtxo, err := txBuilder.CalculateMinUtxo(output)
 	require.NoError(t, err)
+
 	require.Equal(t, uint64(1189560), minUtxo)
+
 	output.Tokens[0].Amount = 2 // tokens amount does make a difference
+
 	minUtxo, err = txBuilder.CalculateMinUtxo(output)
 	require.NoError(t, err)
+
 	require.Equal(t, uint64(1172320), minUtxo)
+
 	output.Tokens[1].Amount = 3 // tokens amount does make a difference
+
 	minUtxo, err = txBuilder.CalculateMinUtxo(output)
 	require.NoError(t, err)
+
 	require.Equal(t, uint64(1155080), minUtxo)
+
 	output.Tokens = output.Tokens[:len(output.Tokens)-1]
+
 	minUtxo, err = txBuilder.CalculateMinUtxo(output)
 	require.NoError(t, err)
+
 	require.Equal(t, uint64(1077500), minUtxo)
+
 	output.Tokens = nil
+
 	minUtxo, err = txBuilder.CalculateMinUtxo(output)
 	require.NoError(t, err)
+
 	require.Equal(t, uint64(849070), minUtxo)
+
 	output.Amount = 3_600_000_348_100_893_234 // lovelace amount does not make a difference
+
 	minUtxo, err = txBuilder.CalculateMinUtxo(output)
 	require.NoError(t, err)
+
 	require.Equal(t, uint64(849070), minUtxo)
 }

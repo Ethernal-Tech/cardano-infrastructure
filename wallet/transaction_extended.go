@@ -34,6 +34,89 @@ type TxInputs struct {
 	Sum    map[string]uint64
 }
 
+func GetUTXOsForAmount(
+	utxos []Utxo,
+	tokenName string,
+	desiredSum uint64,
+	maxInputs int,
+) (TxInputs, error) {
+	findMinUtxo := func(utxos []Utxo) (Utxo, int) {
+		minUtxo := utxos[0]
+		minAmount := GetTokenAmountFromUtxo(minUtxo, tokenName)
+		idx := 0
+
+		for i, utxo := range utxos[1:] {
+			if newAmount := GetTokenAmountFromUtxo(utxo, tokenName); newAmount < minAmount {
+				minUtxo = utxo
+				minAmount = newAmount
+				idx = i + 1
+			}
+		}
+
+		return minUtxo, idx
+	}
+
+	utxos2TxInputs := func(utxos []Utxo) []TxInput {
+		inputs := make([]TxInput, len(utxos))
+		for i, x := range utxos {
+			inputs[i] = TxInput{
+				Hash:  x.Hash,
+				Index: x.Index,
+			}
+		}
+
+		return inputs
+	}
+
+	// Loop through utxos to find first input with enough tokens
+	// If we don't have this UTXO we need to use more of them
+	//nolint:prealloc
+	var (
+		currentSum  = map[string]uint64{}
+		chosenUTXOs []Utxo
+	)
+
+	for _, utxo := range utxos {
+		currentSum[AdaTokenName] += utxo.Amount
+
+		for _, token := range utxo.Tokens {
+			currentSum[token.TokenName()] += token.Amount
+		}
+
+		chosenUTXOs = append(chosenUTXOs, utxo)
+
+		if len(chosenUTXOs) > maxInputs {
+			lastIdx := len(chosenUTXOs) - 1
+			minChosenUTXO, minChosenUTXOIdx := findMinUtxo(chosenUTXOs)
+
+			chosenUTXOs[minChosenUTXOIdx] = chosenUTXOs[lastIdx]
+			chosenUTXOs = chosenUTXOs[:lastIdx]
+			currentSum[AdaTokenName] -= minChosenUTXO.Amount
+
+			for _, token := range minChosenUTXO.Tokens {
+				currentSum[token.TokenName()] -= token.Amount
+			}
+		}
+
+		if currentSum[tokenName] >= desiredSum {
+			return TxInputs{
+				Inputs: utxos2TxInputs(chosenUTXOs),
+				Sum:    currentSum,
+			}, nil
+		}
+	}
+
+	if GetUtxosSum(utxos)[tokenName] >= desiredSum {
+		return TxInputs{}, fmt.Errorf(
+			"utxos limit reached (%d), try to consolidate utxos: (total, desired) = (%d, %d)",
+			maxInputs, currentSum[tokenName], desiredSum)
+	}
+
+	return TxInputs{}, fmt.Errorf(
+		"not enough funds for the transaction: (available, desired) = (%d, %d)",
+		currentSum[tokenName], desiredSum)
+}
+
 func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (uint64, error) {
 	userTokenSum := GetUtxosSum(utxos)
 
@@ -44,12 +127,9 @@ func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (ui
 
 	for tokenName, amount := range userTokenSum {
 		if tokenName != AdaTokenName {
-			token, err := NewTokenWithFullName(tokenName, false)
+			token, err := NewTokenWithFullName(tokenName, true)
 			if err != nil {
-				token, err = NewTokenWithFullName(tokenName, true)
-				if err != nil {
-					return 0, err
-				}
+				return 0, err
 			}
 
 			tokenAmount := NewTokenAmount(token, amount)
@@ -57,10 +137,12 @@ func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (ui
 			txOutput.Tokens = append(txOutput.Tokens, tokenAmount)
 		}
 	}
+
 	retSum, err := txBuilder.CalculateMinUtxo(txOutput)
 	if err != nil {
 		return 0, err
 	}
+
 	return retSum, nil
 }
 
@@ -116,4 +198,18 @@ func CreateTxOutputChange(
 		Amount: changeAmount,
 		Tokens: changeTokens,
 	}, nil
+}
+
+func GetTokenAmountFromUtxo(utxo Utxo, tokenName string) uint64 {
+	if tokenName == AdaTokenName {
+		return utxo.Amount
+	}
+
+	for _, tok := range utxo.Tokens {
+		if tok.TokenName() == tokenName {
+			return tok.Amount
+		}
+	}
+
+	return 0
 }

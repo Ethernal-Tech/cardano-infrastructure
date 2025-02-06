@@ -133,6 +133,7 @@ func IsRetryableError(err error) bool {
 		"tx with the same nonce is already present",
 		"rejected future tx due to low slots",
 		"transaction underpriced",
+		"status code 429", // blockfrost rate limiter
 		"status code 500", // ogmios "status code 500" error
 	}
 	errStr := err.Error()
