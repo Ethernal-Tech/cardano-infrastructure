@@ -94,7 +94,7 @@ func (txSnd *TxSender) CreateBridgingTx(
 	bridgingFee uint64,
 	exchangeRate ExchangeRate,
 ) ([]byte, string, *BridgingRequestMetadata, error) {
-	metadata, err := txSnd.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers, bridgingFee, exchangeRate)
+	metadata, err := txSnd.CreateMetadata(ctx, senderAddr, srcChainID, dstChainID, receivers, bridgingFee, exchangeRate)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -128,7 +128,7 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	bridgingFee uint64,
 	exchangeRate ExchangeRate,
 ) (uint64, *BridgingRequestMetadata, error) {
-	metadata, err := txSnd.CreateMetadata(senderAddr, srcChainID, dstChainID, receivers, bridgingFee, exchangeRate)
+	metadata, err := txSnd.CreateMetadata(ctx, senderAddr, srcChainID, dstChainID, receivers, bridgingFee, exchangeRate)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -201,6 +201,7 @@ func (txSnd *TxSender) SubmitTx(
 }
 
 func (txSnd *TxSender) CreateMetadata(
+	ctx context.Context,
 	senderAddr string,
 	srcChainID string,
 	dstChainID string,
@@ -264,7 +265,7 @@ func (txSnd *TxSender) CreateMetadata(
 			}
 
 			if !paramsSetSrc {
-				params, err := srcConfig.TxProvider.GetProtocolParameters(context.Background())
+				params, err := srcConfig.TxProvider.GetProtocolParameters(ctx)
 				if err != nil {
 					return nil, err
 				}
@@ -301,7 +302,7 @@ func (txSnd *TxSender) CreateMetadata(
 			}
 
 			if !paramsSetDst {
-				params, err := dstConfig.TxProvider.GetProtocolParameters(context.Background())
+				params, err := dstConfig.TxProvider.GetProtocolParameters(ctx)
 				if err != nil {
 					return nil, err
 				}
