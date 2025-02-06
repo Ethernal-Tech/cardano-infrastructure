@@ -44,22 +44,26 @@ func TestGetTokenCostSum(t *testing.T) {
 			},
 		},
 	}
+
 	result, err := GetTokenCostSum(txBuilder, address, utxos)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1293000), result)
 
 	utxos[1].Tokens[0].Amount = 1 // changing token amount will change the output
+
 	result, err = GetTokenCostSum(txBuilder, address, utxos)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1275760), result)
 
 	utxos[2].Tokens[0].Amount = 3 // changing token amount will change the output
+
 	result, err = GetTokenCostSum(txBuilder, address, utxos)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1241280), result)
 
 	utxos[0].Amount = 3
 	utxos[1].Amount = 300_021_416_931_256_900 // changing lovelace amounts won't make any difference
+
 	result, err = GetTokenCostSum(txBuilder, address, utxos)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1241280), result)
