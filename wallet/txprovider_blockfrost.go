@@ -42,10 +42,6 @@ func NewTxProviderBlockFrost(url string, projectID string) *TxProviderBlockFrost
 	}
 }
 
-func (b *TxProviderBlockFrost) SetAuthHeaderKey(key string) {
-	b.authHeaderKey = key
-}
-
 func (b *TxProviderBlockFrost) Dispose() {
 }
 
@@ -197,6 +193,33 @@ func (b *TxProviderBlockFrost) SubmitTx(ctx context.Context, txSigned []byte) er
 	return blockfrostSubmitTx(ctx, b.url+"/tx/submit", b.authHeaderKey, b.projectID, txSigned)
 }
 
+func blockfrostSubmitTx(ctx context.Context, endpointURL, authHeader, authKey string, txSigned []byte) error {
+	// Create a request with the JSON payload
+	req, err := http.NewRequestWithContext(ctx, "POST", endpointURL, bytes.NewBuffer(txSigned))
+	if err != nil {
+		return err
+	}
+
+	// Set the Content-Type header to application/json
+	req.Header.Set("Content-Type", "application/cbor")
+	req.Header.Set(authHeader, authKey)
+
+	// Make the HTTP request
+	resp, err := new(http.Client).Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	// Check the HTTP status code
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return getErrorFromResponse(resp)
+	}
+
+	return nil
+}
+
 func (b *TxProviderBlockFrost) GetTxByHash(ctx context.Context, hash string) (map[string]interface{}, error) {
 	// Create a request with the JSON payload
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/txs/%s", b.url, hash), nil)
@@ -227,33 +250,6 @@ func (b *TxProviderBlockFrost) GetTxByHash(ctx context.Context, hash string) (ma
 	}
 
 	return bfResponse, nil
-}
-
-func blockfrostSubmitTx(ctx context.Context, endpointURL, authHeader, authKey string, txSigned []byte) error {
-	// Create a request with the JSON payload
-	req, err := http.NewRequestWithContext(ctx, "POST", endpointURL, bytes.NewBuffer(txSigned))
-	if err != nil {
-		return err
-	}
-
-	// Set the Content-Type header to application/json
-	req.Header.Set("Content-Type", "application/cbor")
-	req.Header.Set(authHeader, authKey)
-
-	// Make the HTTP request
-	resp, err := new(http.Client).Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close()
-
-	// Check the HTTP status code
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		return getErrorFromResponse(resp)
-	}
-
-	return nil
 }
 
 func convertProtocolParameters(bytes []byte) ([]byte, error) {

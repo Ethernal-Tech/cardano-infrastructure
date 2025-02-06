@@ -18,7 +18,7 @@ func NewTxProviderDemeter(
 	blockfrostURL, blockfrostAPIKey, submitAPIURL, submitAPIKey string,
 ) *TxProviderDemeter {
 	blockfrost := NewTxProviderBlockFrost(blockfrostURL, blockfrostAPIKey)
-	blockfrost.SetAuthHeaderKey(demeterAuthHeaderKey)
+	blockfrost.authHeaderKey = demeterAuthHeaderKey
 
 	return &TxProviderDemeter{
 		TxProviderBlockFrost: *blockfrost,
@@ -28,5 +28,5 @@ func NewTxProviderDemeter(
 }
 
 func (b *TxProviderDemeter) SubmitTx(ctx context.Context, txSigned []byte) error {
-	return blockfrostSubmitTx(ctx, b.submitAPIURL+"api/submit/tx", b.authHeaderKey, b.submitAPIKey, txSigned)
+	return blockfrostSubmitTx(ctx, b.submitAPIURL+"/api/submit/tx", b.authHeaderKey, b.submitAPIKey, txSigned)
 }
