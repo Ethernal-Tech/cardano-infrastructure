@@ -228,6 +228,28 @@ func (txSnd *TxSender) CreateMetadata(
 	srcCurrencyLovelaceSum := feeSrcCurrencyLovelaceAmount
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
 
+	srcMinUtxo := srcConfig.MinUtxoValue
+
+	dstBuilder, err := cardanowallet.NewTxBuilder(dstConfig.CardanoCliBinary)
+	if err != nil {
+		return nil, err
+	}
+
+	defer dstBuilder.Dispose()
+
+	srcBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+	if err != nil {
+		return nil, err
+	}
+
+	defer srcBuilder.Dispose()
+
+	paramsSetDst := false
+	paramsSetSrc := false
+
+	nativeToken := cardanowallet.Token{}
+	nativeTokenSrc := cardanowallet.Token{}
+
 	for i, x := range receivers {
 		switch x.BridgingType {
 		case BridgingTypeNativeTokenOnSource:
@@ -240,18 +262,82 @@ func (txSnd *TxSender) CreateMetadata(
 				Amount:             x.Amount,
 				IsNativeTokenOnSrc: metadataBoolTrue,
 			}
+
+			if !paramsSetSrc {
+				params, err := srcConfig.TxProvider.GetProtocolParameters(context.Background())
+				if err != nil {
+					return nil, err
+				}
+
+				srcBuilder.SetProtocolParameters(params)
+
+				tokenName := getNativeTokenNameForDstChainID(srcConfig.NativeTokens, dstChainID)
+				nativeTokenSrc, err = cardanowallet.NewTokenWithFullName(tokenName, true)
+				if err != nil {
+					return nil, err
+				}
+
+				paramsSetSrc = true
+			}
+
+			potentialTokenCost, err := cardanowallet.GetTokenCostSum(srcBuilder,
+				x.Addr, []cardanowallet.Utxo{
+					{
+						Amount: 1_000_000,
+						Tokens: []cardanowallet.TokenAmount{
+							cardanowallet.NewTokenAmount(nativeTokenSrc, x.Amount),
+						},
+					},
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			srcMinUtxo = max(srcMinUtxo, potentialTokenCost)
 		case BridgingTypeCurrencyOnSource:
 			if x.Amount < srcConfig.MinUtxoValue {
 				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, srcConfig.MinUtxoValue)
 			}
 
-			srcAdditionalInfo := mul(dstConfig.MinUtxoValue, exchangeRateOnSrc)
+			if !paramsSetDst {
+				params, err := dstConfig.TxProvider.GetProtocolParameters(context.Background())
+				if err != nil {
+					return nil, err
+				}
+
+				dstBuilder.SetProtocolParameters(params)
+
+				tokenName := getNativeTokenNameForDstChainID(dstConfig.NativeTokens, srcChainID)
+				nativeToken, err = cardanowallet.NewTokenWithFullName(tokenName, true)
+				if err != nil {
+					return nil, err
+				}
+
+				paramsSetDst = true
+			}
+
+			potentialTokenCost, err := cardanowallet.GetTokenCostSum(dstBuilder,
+				x.Addr, []cardanowallet.Utxo{
+					{
+						Amount: 1_000_000,
+						Tokens: []cardanowallet.TokenAmount{
+							cardanowallet.NewTokenAmount(nativeToken, x.Amount),
+						},
+					},
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			srcAdditionalInfo := mul(max(dstConfig.MinUtxoValue, potentialTokenCost), exchangeRateOnSrc)
 			srcCurrencyLovelaceSum += srcAdditionalInfo + x.Amount
 			txs[i] = BridgingRequestMetadataTransaction{
 				Address: addrToMetaDataAddr(x.Addr),
 				Amount:  x.Amount,
 				Additional: &BridgingRequestMetadataCurrencyInfo{
-					DestAmount: dstConfig.MinUtxoValue,
+					DestAmount: max(dstConfig.MinUtxoValue, potentialTokenCost),
 					SrcAmount:  srcAdditionalInfo,
 				},
 			}
@@ -270,9 +356,9 @@ func (txSnd *TxSender) CreateMetadata(
 
 	feeDstCurrencyLovelaceAmount := bridgingFee
 
-	if srcCurrencyLovelaceSum < srcConfig.MinUtxoValue {
-		feeSrcCurrencyLovelaceAmount += srcConfig.MinUtxoValue - srcCurrencyLovelaceSum
-		feeDstCurrencyLovelaceAmount += mul(srcConfig.MinUtxoValue-srcCurrencyLovelaceSum, exchangeRateOnDst)
+	if srcCurrencyLovelaceSum < srcMinUtxo {
+		feeSrcCurrencyLovelaceAmount += srcMinUtxo - srcCurrencyLovelaceSum
+		feeDstCurrencyLovelaceAmount += mul(srcMinUtxo-srcCurrencyLovelaceSum, exchangeRateOnDst)
 	}
 
 	return &BridgingRequestMetadata{
@@ -381,12 +467,59 @@ func (txSnd *TxSender) populateTxBuilder(
 		return nil, err
 	}
 
+	builder.SetProtocolParameters(protocolParams)
+
+	srcMinUtxo := srcConfig.MinUtxoValue
+
+	srcNativeTokens := getNativeTokensFromUtxos(utxos)
+
+	// calculate minUtxo for change output
+	if len(srcNativeTokens) > 0 {
+		potentialTokenCost, err := cardanowallet.GetTokenCostSum(builder,
+			senderAddr, []cardanowallet.Utxo{
+				{
+					Amount: outputCurrencyLovelace,
+					Tokens: srcNativeTokens,
+				},
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		srcMinUtxo = max(srcMinUtxo, potentialTokenCost)
+	}
+
+	// calculate minUtxo for multisig output
+	if outputNativeToken > 0 {
+		nativeTokenSrc, err := cardanowallet.NewTokenWithFullName(srcNativeTokenFullName, true)
+		if err != nil {
+			return nil, err
+		}
+
+		potentialTokenCost, err := cardanowallet.GetTokenCostSum(builder,
+			receiverAddr, []cardanowallet.Utxo{
+				{
+					Amount: outputCurrencyLovelace,
+					Tokens: []cardanowallet.TokenAmount{
+						cardanowallet.NewTokenAmount(nativeTokenSrc, outputNativeToken),
+					},
+				},
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		outputCurrencyLovelace = max(outputCurrencyLovelace, potentialTokenCost)
+	}
+
 	ttlSlotNumberInc := setOrDefault(srcConfig.TTLSlotNumberInc, defaultTTLSlotNumberInc)
 	potentialFee := setOrDefault(srcConfig.PotentialFee, defaultPotentialFee)
 
 	outputNativeTokens := []cardanowallet.TokenAmount(nil)
 	conditions := map[string]uint64{
-		cardanowallet.AdaTokenName: outputCurrencyLovelace + potentialFee + srcConfig.MinUtxoValue,
+		cardanowallet.AdaTokenName: outputCurrencyLovelace + potentialFee + srcMinUtxo,
 	}
 	nativeToken := cardanowallet.Token{}
 
@@ -430,7 +563,6 @@ func (txSnd *TxSender) populateTxBuilder(
 	}
 
 	builder.SetMetaData(metadata).
-		SetProtocolParameters(protocolParams).
 		SetTimeToLive(queryTip.Slot+ttlSlotNumberInc).
 		SetTestNetMagic(srcConfig.TestNetMagic).
 		AddInputs(inputs.Inputs...).
@@ -537,4 +669,14 @@ func WithSortedUtxos(sortedUtxos bool) TxSenderOption {
 	return func(txSnd *TxSender) {
 		txSnd.sortedUtxos = sortedUtxos
 	}
+}
+
+func getNativeTokensFromUtxos(utxos []cardanowallet.Utxo) []cardanowallet.TokenAmount {
+	tokens := make([]cardanowallet.TokenAmount, 0)
+
+	for _, utxo := range utxos {
+		tokens = append(tokens, utxo.Tokens...)
+	}
+
+	return tokens
 }

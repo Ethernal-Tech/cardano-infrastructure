@@ -44,17 +44,12 @@ func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (ui
 
 	for tokenName, amount := range userTokenSum {
 		if tokenName != AdaTokenName {
-			token, err := NewTokenWithFullName(tokenName, false)
+			token, err := NewTokenWithFullName(tokenName, true)
 			if err != nil {
-				token, err = NewTokenWithFullName(tokenName, true)
-				if err != nil {
-					return 0, err
-				}
+				return 0, err
 			}
 
-			tokenAmount := NewTokenAmount(token, amount)
-
-			txOutput.Tokens = append(txOutput.Tokens, tokenAmount)
+			txOutput.Tokens = append(txOutput.Tokens, NewTokenAmount(token, amount))
 		}
 	}
 	retSum, err := txBuilder.CalculateMinUtxo(txOutput)
