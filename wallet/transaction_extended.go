@@ -132,9 +132,7 @@ func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (ui
 				return 0, err
 			}
 
-			tokenAmount := NewTokenAmount(token, amount)
-
-			txOutput.Tokens = append(txOutput.Tokens, tokenAmount)
+			txOutput.Tokens = append(txOutput.Tokens, NewTokenAmount(token, amount))
 		}
 	}
 
