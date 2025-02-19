@@ -11,8 +11,9 @@ import (
 
 func TestCreateMetaData(t *testing.T) {
 	const (
-		bridgingFeeAmount = uint64(110)
-		senderAddr        = "addr1_xghghg3sdss"
+		bridgingFeeAmount  = uint64(110)
+		operationFeeAmount = uint64(50)
+		senderAddr         = "addr1_xghghg3sdss"
 	)
 
 	configs := map[string]ChainConfig{
@@ -25,8 +26,6 @@ func TestCreateMetaData(t *testing.T) {
 			MinUtxoValue:         20,
 		},
 	}
-
-	exchangeRate := NewExchangeRate(NewExchangeRateEntry("prime", "vector", 2.0))
 
 	t.Run("valid", func(t *testing.T) {
 		txSnd := NewTxSender(configs)
@@ -47,16 +46,14 @@ func TestCreateMetaData(t *testing.T) {
 				Addr:         "addr1_ac",
 				Amount:       uint64(33),
 			},
-		}, bridgingFeeAmount, exchangeRate)
+		}, bridgingFeeAmount, operationFeeAmount)
 
 		require.NoError(t, err)
 		assert.Equal(t, common.SplitString(senderAddr, splitStringLength), metadata.SenderAddr)
 		assert.Equal(t, bridgingMetaDataType, metadata.BridgingTxType)
 		assert.Equal(t, "vector", metadata.DestinationChainID)
-		assert.Equal(t, BridgingRequestMetadataCurrencyInfo{
-			SrcAmount:  55,
-			DestAmount: 110,
-		}, metadata.FeeAmount)
+		assert.Equal(t, bridgingFeeAmount, metadata.BridgingFee)
+		assert.Equal(t, operationFeeAmount, metadata.OperationFee)
 		assert.Equal(t, []BridgingRequestMetadataTransaction{
 			{
 				Address: common.SplitString("addr1_aa", splitStringLength),
@@ -65,10 +62,6 @@ func TestCreateMetaData(t *testing.T) {
 			{
 				Address: common.SplitString("addr1_ab", splitStringLength),
 				Amount:  uint64(61),
-				Additional: &BridgingRequestMetadataCurrencyInfo{
-					SrcAmount:  10,
-					DestAmount: 20,
-				},
 			},
 			{
 				Address:            common.SplitString("addr1_ac", splitStringLength),
@@ -96,16 +89,14 @@ func TestCreateMetaData(t *testing.T) {
 				Addr:         "addr1_ab",
 				Amount:       uint64(200),
 			},
-		}, bridgingFeeAmount, exchangeRate)
+		}, bridgingFeeAmount, operationFeeAmount)
 
 		require.NoError(t, err)
 		assert.Equal(t, common.SplitString(senderAddr, splitStringLength), metadata.SenderAddr)
 		assert.Equal(t, bridgingMetaDataType, metadata.BridgingTxType)
 		assert.Equal(t, "vector", metadata.DestinationChainID)
-		assert.Equal(t, BridgingRequestMetadataCurrencyInfo{
-			SrcAmount:  550,
-			DestAmount: 1100,
-		}, metadata.FeeAmount)
+		assert.Equal(t, bridgingFeeAmount, metadata.BridgingFee)
+		assert.Equal(t, operationFeeAmount, metadata.OperationFee)
 		assert.Equal(t, []BridgingRequestMetadataTransaction{
 			{
 				Address:            common.SplitString("addr1_ab", splitStringLength),
@@ -119,7 +110,7 @@ func TestCreateMetaData(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
 		_, err := txSnd.CreateMetadata(
-			context.Background(), senderAddr, "prime", "vector1", []BridgingTxReceiver{}, bridgingFeeAmount, exchangeRate)
+			context.Background(), senderAddr, "prime", "vector1", []BridgingTxReceiver{}, bridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "destination chain ")
 	})
 
@@ -127,7 +118,7 @@ func TestCreateMetaData(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
 		_, err := txSnd.CreateMetadata(
-			context.Background(), senderAddr, "prime1", "vector", []BridgingTxReceiver{}, bridgingFeeAmount, exchangeRate)
+			context.Background(), senderAddr, "prime1", "vector", []BridgingTxReceiver{}, bridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "source chain ")
 	})
 
@@ -139,7 +130,7 @@ func TestCreateMetaData(t *testing.T) {
 				BridgingType: BridgingTypeNativeTokenOnSource,
 				Amount:       19,
 			},
-		}, bridgingFeeAmount, exchangeRate)
+		}, bridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
 	})
 
@@ -151,7 +142,7 @@ func TestCreateMetaData(t *testing.T) {
 				BridgingType: BridgingTypeCurrencyOnSource,
 				Amount:       9,
 			},
-		}, bridgingFeeAmount, exchangeRate)
+		}, bridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
 	})
 
@@ -163,7 +154,7 @@ func TestCreateMetaData(t *testing.T) {
 				BridgingType: BridgingTypeCurrencyOnSource,
 				Amount:       9,
 			},
-		}, bridgingFeeAmount-1, exchangeRate)
+		}, bridgingFeeAmount-1, operationFeeAmount)
 		require.ErrorContains(t, err, "bridging fee")
 	})
 
@@ -184,7 +175,7 @@ func TestCreateMetaData(t *testing.T) {
 				BridgingType: BridgingTypeNormal,
 				Amount:       189,
 			},
-		}, bridgingFeeAmount, exchangeRate)
+		}, bridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
 	})
 }

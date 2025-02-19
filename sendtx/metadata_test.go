@@ -8,12 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetOutputAmounts(t *testing.T) {
+func TestMetaDataGetOutputAmounts(t *testing.T) {
 	metadata := &BridgingRequestMetadata{
-		FeeAmount: BridgingRequestMetadataCurrencyInfo{
-			SrcAmount:  uint64(110),
-			DestAmount: uint64(127),
-		},
+		BridgingFee:  120,
+		OperationFee: 200,
 		Transactions: []BridgingRequestMetadataTransaction{
 			{
 				Address: common.SplitString("ffa000", splitStringLength),
@@ -27,17 +25,13 @@ func TestGetOutputAmounts(t *testing.T) {
 			{
 				Address: common.SplitString("ffa00055a", splitStringLength),
 				Amount:  150,
-				Additional: &BridgingRequestMetadataCurrencyInfo{
-					DestAmount: uint64(301),
-					SrcAmount:  uint64(20),
-				},
 			},
 		},
 	}
 
-	v1, v2 := GetOutputAmounts(metadata)
+	v1, v2 := metadata.GetOutputAmounts()
 
-	assert.Equal(t, uint64(110+200+20+150), v1)
+	assert.Equal(t, uint64(120+200+200+150), v1)
 	assert.Equal(t, uint64(420), v2)
 }
 
