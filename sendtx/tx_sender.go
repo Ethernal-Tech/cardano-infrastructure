@@ -218,11 +218,11 @@ func (txSnd *TxSender) CreateMetadata(
 		return nil, fmt.Errorf("destination chain %s config not found", dstChainID)
 	}
 
-	if bridgingFee < dstConfig.MinBridgingFeeAmount {
+	if bridgingFee < srcConfig.MinBridgingFeeAmount {
 		return nil, fmt.Errorf("bridging fee is less than: %d", dstConfig.MinBridgingFeeAmount)
 	}
 
-	if operationFee < dstConfig.MinOperationFeeAmount {
+	if operationFee < srcConfig.MinOperationFeeAmount {
 		return nil, fmt.Errorf("operation fee is less than: %d", dstConfig.MinOperationFeeAmount)
 	}
 

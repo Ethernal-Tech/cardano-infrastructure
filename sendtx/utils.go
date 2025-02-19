@@ -43,10 +43,6 @@ func WaitForTx(
 	return errors.Join(errs...)
 }
 
-func mul(a uint64, b float64) uint64 {
-	return uint64(float64(a) * b)
-}
-
 func setOrDefault[T comparable](val, def T) T {
 	var zero T
 
