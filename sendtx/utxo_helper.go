@@ -33,8 +33,10 @@ func GetUTXOsForAmounts(
 	currentSumTotal := map[string]uint64{}
 	choosenCount := 0
 
-	for _, utxo := range utxos {
-		utxos[choosenCount] = utxo
+	for i, utxo := range utxos {
+		// move the current UTXO to the end of the selected UTXOs list
+		// while ensuring that all existing UTXOs remain in the list
+		utxos[choosenCount], utxos[i] = utxo, utxos[choosenCount]
 		choosenCount++
 		currentSum[cardanowallet.AdaTokenName] += utxo.Amount
 		currentSumTotal[cardanowallet.AdaTokenName] += utxo.Amount
