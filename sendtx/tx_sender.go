@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 
 	infracommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
@@ -58,7 +57,6 @@ type TxSender struct {
 	chainConfigMap    map[string]ChainConfig
 	retryOptions      []infracommon.RetryConfigOption
 	utxosTransformer  IUtxosTransformer
-	sortedUtxos       bool
 }
 
 type TxSenderOption func(*TxSender)
@@ -396,7 +394,9 @@ func (txSnd *TxSender) populateTxBuilder(
 		outputCurrencyLovelace = max(outputCurrencyLovelace, potentialTokenCost)
 	}
 
-	utxos, err := txSnd.getUtxos(ctx, srcConfig, senderAddr)
+	utxos, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]cardanowallet.Utxo, error) {
+		return srcConfig.TxProvider.GetUtxos(ctx, senderAddr)
+	}, txSnd.retryOptions...)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -497,25 +497,6 @@ func (txSnd *TxSender) populateTimeToLive(
 	return nil
 }
 
-func (txSnd *TxSender) getUtxos(
-	ctx context.Context, srcConfig ChainConfig, addr string,
-) ([]cardanowallet.Utxo, error) {
-	utxos, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]cardanowallet.Utxo, error) {
-		return srcConfig.TxProvider.GetUtxos(ctx, addr)
-	}, txSnd.retryOptions...)
-	if err != nil {
-		return nil, err
-	}
-
-	if txSnd.sortedUtxos {
-		sort.Slice(utxos, func(i, j int) bool {
-			return utxos[i].Amount > utxos[j].Amount
-		})
-	}
-
-	return utxos, err
-}
-
 func getNativeTokenNameForDstChainID(
 	nativeTokenDsts []TokenExchangeConfig, dstChainID string,
 ) string {
@@ -561,11 +542,5 @@ func WithMaxInputsPerTx(maxInputsPerTx int) TxSenderOption {
 func WithRetryOptions(retryOptions []infracommon.RetryConfigOption) TxSenderOption {
 	return func(txSnd *TxSender) {
 		txSnd.retryOptions = retryOptions
-	}
-}
-
-func WithSortedUtxos(sortedUtxos bool) TxSenderOption {
-	return func(txSnd *TxSender) {
-		txSnd.sortedUtxos = sortedUtxos
 	}
 }
