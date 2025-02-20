@@ -78,6 +78,20 @@ type Utxo struct {
 	Tokens []TokenAmount `json:"tokens,omitempty"`
 }
 
+func (utxo Utxo) GetTokenAmount(tokenName string) uint64 {
+	if tokenName == AdaTokenName {
+		return utxo.Amount
+	}
+
+	for _, token := range utxo.Tokens {
+		if token.TokenName() == tokenName {
+			return token.Amount
+		}
+	}
+
+	return 0
+}
+
 type QueryTipData struct {
 	Block           uint64 `json:"block"`
 	Epoch           uint64 `json:"epoch"`

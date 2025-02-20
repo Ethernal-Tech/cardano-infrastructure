@@ -33,8 +33,10 @@ func GetUTXOsForAmounts(
 	currentSumTotal := map[string]uint64{}
 	choosenCount := 0
 
-	for _, utxo := range utxos {
-		utxos[choosenCount] = utxo
+	for i, utxo := range utxos {
+		// move the current UTXO to the end of the selected UTXOs list
+		// while ensuring that all existing UTXOs remain in the list
+		utxos[choosenCount], utxos[i] = utxo, utxos[choosenCount]
 		choosenCount++
 		currentSum[cardanowallet.AdaTokenName] += utxo.Amount
 		currentSumTotal[cardanowallet.AdaTokenName] += utxo.Amount
@@ -126,35 +128,12 @@ func findMinUtxo(
 
 	idx := 0
 	minUtxo := utxos[0]
-
-	// two lops, one for ada and one for tokens
-	if replaceTokenName == cardanowallet.AdaTokenName {
-		for i, utxo := range utxos[1:] {
-			if utxo.Amount < minUtxo.Amount {
-				minUtxo = utxo
-				idx = i + 1
-			}
-		}
-
-		return minUtxo, idx
-	}
-
-	getTokensAmount := func(utxo cardanowallet.Utxo, tokenName string) uint64 {
-		for _, token := range utxo.Tokens {
-			if token.TokenName() == tokenName {
-				return token.Amount
-			}
-		}
-
-		return 0
-	}
-	minCmpAmount := getTokensAmount(minUtxo, replaceTokenName)
+	minCmpAmount := minUtxo.GetTokenAmount(replaceTokenName)
 
 	for i, utxo := range utxos[1:] {
-		amountTokens := getTokensAmount(utxo, replaceTokenName)
-		if amountTokens < minCmpAmount || (amountTokens == minCmpAmount && utxo.Amount < minUtxo.Amount) {
-			minCmpAmount = amountTokens
+		if amount := utxo.GetTokenAmount(replaceTokenName); amount < minCmpAmount {
 			minUtxo = utxo
+			minCmpAmount = amount
 			idx = i + 1
 		}
 	}

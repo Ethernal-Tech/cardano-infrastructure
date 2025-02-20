@@ -3,6 +3,9 @@ package sendtx
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
+	infracommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 )
 
 type BridgingRequestType string
@@ -11,38 +14,29 @@ const (
 	metadataMapKey                           = 1
 	metadataBoolTrue                         = 1
 	bridgingMetaDataType BridgingRequestType = "bridge"
+
+	splitStringLength = 40
 )
 
-type BridgingRequestMetadataCurrencyInfo struct {
-	SrcAmount  uint64 `cbor:"sa" json:"sa"`
-	DestAmount uint64 `cbor:"da" json:"da"`
-}
-
-// IsNativeTokenOnSrc - is the user trying to bridge native tokens (WAda, WApex), or native currency (Ada, APEX)
-// Additional will be counted towards the bridging fee shown to the user, but it will actually be assigned to
-// the user on destination chain, because of the technical limitation for creating utxos on source and destination
-// Additional will be nil for reactor
-// If source is native currency then:
-// Additional.DestAmount is minUtxoAmount on destination chain
-// Additional.SrcAmount is Additional.DestAmount * exchangeRate
-// If source is native token then:
-// Additional.SrcAmount is up to minUtxoAmount on source chain
-// Additional.DestAmount is Additional.SrcAmount * exchangeRate
+// BridgingRequestMetadataTransaction represents a single transaction in a bridging request.
+// IsNativeTokenOnSrc is true if the user is bridging native tokens (e.g., WSADA, WSAPEX) ...
+// ... and false if bridging native currency (e.g., ADA, APEX).
 type BridgingRequestMetadataTransaction struct {
-	Address            []string                             `cbor:"a" json:"a"`
-	IsNativeTokenOnSrc byte                                 `cbor:"nt" json:"nt"` // bool is not supported by cardano!
-	Amount             uint64                               `cbor:"m" json:"m"`
-	Additional         *BridgingRequestMetadataCurrencyInfo `cbor:"ad,omitempty" json:"ad,omitempty"`
+	Address            []string `cbor:"a" json:"a"`
+	IsNativeTokenOnSrc byte     `cbor:"nt" json:"nt"` // bool is not supported by Cardano!
+	Amount             uint64   `cbor:"m" json:"m"`
 }
 
-// FeeAmount.DestAmount is minBridgingFee on destination chain
-// FeeAmount.SrcAmount is FeeAmount.DestAmount * exchangeRate
+// BridgingRequestMetadata represents metadata for a bridging request
+// BridgingFee fee for fee multisig address
+// OperationFee fee for bridging currency to native tokens and other operational costs
 type BridgingRequestMetadata struct {
 	BridgingTxType     BridgingRequestType                  `cbor:"t" json:"t"`
 	DestinationChainID string                               `cbor:"d" json:"d"`
 	SenderAddr         []string                             `cbor:"s" json:"s"`
 	Transactions       []BridgingRequestMetadataTransaction `cbor:"tx" json:"tx"`
-	FeeAmount          BridgingRequestMetadataCurrencyInfo  `cbor:"fa" json:"fa"`
+	BridgingFee        uint64                               `cbor:"fa" json:"fa"`
+	OperationFee       uint64                               `cbor:"of" json:"of"`
 }
 
 func (brm BridgingRequestMetadata) Marshal() ([]byte, error) {
@@ -57,20 +51,14 @@ func (brm BridgingRequestMetadata) Marshal() ([]byte, error) {
 }
 
 // GetOutputAmounts returns amount needed for outputs in lovelace and native tokens
-func GetOutputAmounts(metadata *BridgingRequestMetadata) (outputCurrencyLovelace uint64, outputNativeToken uint64) {
-	outputCurrencyLovelace = metadata.FeeAmount.SrcAmount
+func (brm *BridgingRequestMetadata) GetOutputAmounts() (outputCurrencyLovelace uint64, outputNativeToken uint64) {
+	outputCurrencyLovelace = brm.BridgingFee + brm.OperationFee
 
-	for _, x := range metadata.Transactions {
+	for _, x := range brm.Transactions {
 		if x.IsNativeTokenOnSource() {
-			// WADA/WAPEX to ADA/APEX
-			outputNativeToken += x.Amount
+			outputNativeToken += x.Amount // WSADA/WSAPEX to ADA/APEX
 		} else {
-			// ADA/APEX to WADA/WAPEX or reactor
-			outputCurrencyLovelace += x.Amount
-		}
-
-		if x.Additional != nil {
-			outputCurrencyLovelace += x.Additional.SrcAmount
+			outputCurrencyLovelace += x.Amount // ADA/APEX to WSADA/WSAPEX or Reactor tokens
 		}
 	}
 
@@ -79,4 +67,10 @@ func GetOutputAmounts(metadata *BridgingRequestMetadata) (outputCurrencyLovelace
 
 func (brmt BridgingRequestMetadataTransaction) IsNativeTokenOnSource() bool {
 	return brmt.IsNativeTokenOnSrc != 0
+}
+
+func addrToMetaDataAddr(addr string) []string {
+	addr = strings.TrimPrefix(strings.TrimPrefix(addr, "0x"), "0X")
+
+	return infracommon.SplitString(addr, splitStringLength)
 }

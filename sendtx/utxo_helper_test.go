@@ -1,6 +1,7 @@
 package sendtx
 
 import (
+	"fmt"
 	"testing"
 
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
@@ -56,8 +57,22 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 		},
 	}
 
+	checkAllAreThere := func(t *testing.T, utxos []cardanowallet.Utxo) {
+		t.Helper()
+
+		mp := map[string]bool{}
+
+		for _, utxo := range utxos {
+			mp[fmt.Sprintf("%s_%d", utxo.Hash, utxo.Index)] = true
+		}
+
+		require.Equal(t, len(utxos), len(mp))
+	}
+
 	t.Run("exact amount", func(t *testing.T) {
-		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+		utxosNew := append([]cardanowallet.Utxo{}, utxos...)
+
+		txInputs, err := GetUTXOsForAmounts(utxosNew, map[string]uint64{
 			cardanowallet.AdaTokenName: 610,
 		}, 4, 1)
 
@@ -80,10 +95,14 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 				Hash: "5",
 			},
 		}, txInputs.Inputs)
+
+		checkAllAreThere(t, utxosNew)
 	})
 
 	t.Run("greater amount", func(t *testing.T) {
-		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+		utxosNew := append([]cardanowallet.Utxo{}, utxos...)
+
+		txInputs, err := GetUTXOsForAmounts(utxosNew, map[string]uint64{
 			cardanowallet.AdaTokenName: 710,
 		}, 3, 1)
 
@@ -103,10 +122,14 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 				Hash: "6",
 			},
 		}, txInputs.Inputs)
+
+		checkAllAreThere(t, utxosNew)
 	})
 
 	t.Run("greater tokens", func(t *testing.T) {
-		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+		utxosNew := append([]cardanowallet.Utxo{}, utxos...)
+
+		txInputs, err := GetUTXOsForAmounts(utxosNew, map[string]uint64{
 			cardanowallet.AdaTokenName: 200,
 			"1.31":                     410,
 		}, 2, 1)
@@ -124,10 +147,14 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 				Hash: "7",
 			},
 		}, txInputs.Inputs)
+
+		checkAllAreThere(t, utxosNew)
 	})
 
 	t.Run("exact tokens", func(t *testing.T) {
-		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+		utxosNew := append([]cardanowallet.Utxo{}, utxos...)
+
+		txInputs, err := GetUTXOsForAmounts(utxosNew, map[string]uint64{
 			cardanowallet.AdaTokenName: 200,
 			"1.31":                     700,
 		}, 3, 1)
@@ -148,24 +175,34 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 				Hash: "8",
 			},
 		}, txInputs.Inputs)
+
+		checkAllAreThere(t, utxosNew)
 	})
 
 	t.Run("try to consolidate utxos", func(t *testing.T) {
-		_, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+		utxosNew := append([]cardanowallet.Utxo{}, utxos...)
+
+		_, err := GetUTXOsForAmounts(utxosNew, map[string]uint64{
 			cardanowallet.AdaTokenName: 200,
 			"1.31":                     500,
 		}, 1, 1)
 
 		require.ErrorContains(t, err, "limit reached")
+
+		checkAllAreThere(t, utxosNew)
 	})
 
 	t.Run("not enough tokens", func(t *testing.T) {
-		_, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+		utxosNew := append([]cardanowallet.Utxo{}, utxos...)
+
+		_, err := GetUTXOsForAmounts(utxosNew, map[string]uint64{
 			cardanowallet.AdaTokenName: 300,
 			"1.31":                     1000,
 		}, 3, 1)
 
 		require.ErrorContains(t, err, "not enough funds")
+
+		checkAllAreThere(t, utxosNew)
 	})
 
 	t.Run("with tryAtLeastInputs", func(t *testing.T) {
@@ -191,7 +228,7 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 			},
 		}
 
-		txInputs, err := GetUTXOsForAmounts(append([]cardanowallet.Utxo{}, utxos...), map[string]uint64{
+		txInputs, err := GetUTXOsForAmounts(utxos, map[string]uint64{
 			cardanowallet.AdaTokenName: 1000,
 		}, 5, 4)
 
@@ -214,5 +251,7 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 				Hash: "4",
 			},
 		}, txInputs.Inputs)
+
+		checkAllAreThere(t, utxos)
 	})
 }
