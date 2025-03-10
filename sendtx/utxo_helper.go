@@ -9,7 +9,10 @@ import (
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
 )
 
-var ErrUTXOsLimitReached = errors.New("utxos limit reached, consolidation is required")
+var (
+	ErrUTXOsLimitReached   = errors.New("utxos limit reached, consolidation is required")
+	ErrUTXOsCouldNotSelect = errors.New("couldn't select UTXOs")
+)
 
 // GetUTXOsForAmounts selects UTXOs that fulfill specified token amount conditions while adhering
 // to a maximum input limit per transaction.
@@ -75,8 +78,9 @@ func GetUTXOsForAmounts(
 	}
 
 	return cardanowallet.TxInputs{}, fmt.Errorf(
-		"not enough funds for the transaction: available = %s; conditions = %s",
-		mapStrUInt64ToStr(currentSum), mapStrUInt64ToStr(conditions))
+		"%w: available = %s; conditions = %s",
+		ErrUTXOsCouldNotSelect, mapStrUInt64ToStr(currentSum), mapStrUInt64ToStr(conditions),
+	)
 }
 
 func utxos2TxInputs(utxos []cardanowallet.Utxo) []cardanowallet.TxInput {

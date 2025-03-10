@@ -200,7 +200,7 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 			"1.31":                     1000,
 		}, 3, 1)
 
-		require.ErrorContains(t, err, "not enough funds")
+		require.ErrorIs(t, err, ErrUTXOsCouldNotSelect)
 
 		checkAllAreThere(t, utxosNew)
 	})
