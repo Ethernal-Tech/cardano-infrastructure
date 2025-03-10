@@ -1,17 +1,11 @@
 package sendtx
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
-)
-
-var (
-	ErrUTXOsLimitReached   = errors.New("utxos limit reached, consolidation is required")
-	ErrUTXOsCouldNotSelect = errors.New("couldn't select UTXOs")
 )
 
 // GetUTXOsForAmounts selects UTXOs that fulfill specified token amount conditions while adhering
@@ -74,12 +68,12 @@ func GetUTXOsForAmounts(
 	if isSumSatisfiesCondition(currentSumTotal, conditions) {
 		return cardanowallet.TxInputs{}, fmt.Errorf(
 			"%w: max inputs: %d; total available = %s; conditions = %s",
-			ErrUTXOsLimitReached, maxInputs, mapStrUInt64ToStr(currentSumTotal), mapStrUInt64ToStr(conditions))
+			cardanowallet.ErrUTXOsLimitReached, maxInputs, mapStrUInt64ToStr(currentSumTotal), mapStrUInt64ToStr(conditions))
 	}
 
 	return cardanowallet.TxInputs{}, fmt.Errorf(
 		"%w: available = %s; conditions = %s",
-		ErrUTXOsCouldNotSelect, mapStrUInt64ToStr(currentSum), mapStrUInt64ToStr(conditions),
+		cardanowallet.ErrUTXOsCouldNotSelect, mapStrUInt64ToStr(currentSum), mapStrUInt64ToStr(conditions),
 	)
 }
 

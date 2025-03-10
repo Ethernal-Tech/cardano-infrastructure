@@ -187,7 +187,7 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 			"1.31":                     500,
 		}, 1, 1)
 
-		require.ErrorIs(t, err, ErrUTXOsLimitReached)
+		require.ErrorIs(t, err, cardanowallet.ErrUTXOsLimitReached)
 
 		checkAllAreThere(t, utxosNew)
 	})
@@ -200,7 +200,7 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 			"1.31":                     1000,
 		}, 3, 1)
 
-		require.ErrorIs(t, err, ErrUTXOsCouldNotSelect)
+		require.ErrorIs(t, err, cardanowallet.ErrUTXOsCouldNotSelect)
 
 		checkAllAreThere(t, utxosNew)
 	})
