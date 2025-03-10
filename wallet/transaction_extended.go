@@ -116,13 +116,11 @@ func GetUTXOsForAmount(
 
 	if utxosSum[tokenName] >= desiredSum {
 		return TxInputs{}, fmt.Errorf(
-			"%w: max inputs: %d; total available = %d; conditions = %d",
-			ErrUTXOsLimitReached, maxInputs, utxosSum[tokenName], desiredSum)
+			"%w: %d vs %d", ErrUTXOsLimitReached, utxosSum[tokenName], desiredSum)
 	}
 
 	return TxInputs{}, fmt.Errorf(
-		"%w: (available, desired) = (%d, %d)",
-		ErrUTXOsCouldNotSelect, utxosSum[tokenName], desiredSum)
+		"%w: %d vs %d", ErrUTXOsCouldNotSelect, currentSum[tokenName], desiredSum)
 }
 
 func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (uint64, error) {

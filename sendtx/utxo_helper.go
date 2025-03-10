@@ -67,14 +67,12 @@ func GetUTXOsForAmounts(
 
 	if isSumSatisfiesCondition(currentSumTotal, conditions) {
 		return cardanowallet.TxInputs{}, fmt.Errorf(
-			"%w: max inputs: %d; total available = %s; conditions = %s",
-			cardanowallet.ErrUTXOsLimitReached, maxInputs, mapStrUInt64ToStr(currentSumTotal), mapStrUInt64ToStr(conditions))
+			"%w: %s vs %s", cardanowallet.ErrUTXOsLimitReached,
+			mapStrUInt64ToStr(currentSumTotal), mapStrUInt64ToStr(conditions))
 	}
 
 	return cardanowallet.TxInputs{}, fmt.Errorf(
-		"%w: available = %s; conditions = %s",
-		cardanowallet.ErrUTXOsCouldNotSelect, mapStrUInt64ToStr(currentSum), mapStrUInt64ToStr(conditions),
-	)
+		"%w: %s vs %s", cardanowallet.ErrUTXOsCouldNotSelect, mapStrUInt64ToStr(currentSum), mapStrUInt64ToStr(conditions))
 }
 
 func utxos2TxInputs(utxos []cardanowallet.Utxo) []cardanowallet.TxInput {
