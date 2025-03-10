@@ -187,7 +187,7 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 			"1.31":                     500,
 		}, 1, 1)
 
-		require.ErrorContains(t, err, "limit reached")
+		require.ErrorIs(t, err, ErrUTXOsLimitReached)
 
 		checkAllAreThere(t, utxosNew)
 	})
