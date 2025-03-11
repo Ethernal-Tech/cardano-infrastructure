@@ -200,15 +200,27 @@ func TestGetUTXOsForAmount(t *testing.T) {
 		},
 	}
 
+	t.Run("consolidation required", func(t *testing.T) {
+		t.Parallel()
+
+		txOutputs, err := GetUTXOsForAmount(utxos, AdaTokenName, 103_050_000, 2)
+		require.ErrorIs(t, err, ErrUTXOsLimitReached)
+		require.Empty(t, txOutputs)
+
+		txOutputs, err = GetUTXOsForAmount(utxos, tokenAmount2.TokenName(), 2*tokenAmount2.Amount+tokenAmount2_2.Amount, 2)
+		require.ErrorIs(t, err, ErrUTXOsLimitReached)
+		require.Empty(t, txOutputs)
+	})
+
 	t.Run("not enough funds", func(t *testing.T) {
 		t.Parallel()
 
 		txOutputs, err := GetUTXOsForAmount(utxos, AdaTokenName, 190_000_000_000, 2)
-		require.ErrorContains(t, err, "not enough funds for the transaction")
+		require.ErrorIs(t, err, ErrUTXOsCouldNotSelect)
 		require.Empty(t, txOutputs)
 
 		txOutputs, err = GetUTXOsForAmount(utxos, AdaTokenName, 190_000_000_000, 6)
-		require.ErrorContains(t, err, "not enough funds for the transaction")
+		require.ErrorIs(t, err, ErrUTXOsCouldNotSelect)
 		require.Empty(t, txOutputs)
 	})
 
@@ -216,11 +228,11 @@ func TestGetUTXOsForAmount(t *testing.T) {
 		t.Parallel()
 
 		txOutputs, err := GetUTXOsForAmount(utxos, tokenAmount1.TokenName(), 4*tokenAmount1.Amount, 3)
-		require.ErrorContains(t, err, "not enough funds for the transaction")
+		require.ErrorIs(t, err, ErrUTXOsCouldNotSelect)
 		require.Empty(t, txOutputs)
 
 		txOutputs, err = GetUTXOsForAmount(utxos, tokenAmount3.TokenName(), 3*tokenAmount3.Amount, 6)
-		require.ErrorContains(t, err, "not enough funds for the transaction")
+		require.ErrorIs(t, err, ErrUTXOsCouldNotSelect)
 		require.Empty(t, txOutputs)
 	})
 

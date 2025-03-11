@@ -2,7 +2,13 @@ package wallet
 
 import (
 	"context"
+	"errors"
 	"fmt"
+)
+
+var (
+	ErrUTXOsLimitReached   = errors.New("utxos limit reached, consolidation is required")
+	ErrUTXOsCouldNotSelect = errors.New("couldn't select UTXOs")
 )
 
 const defaultTimeToLiveInc = 200
@@ -106,15 +112,15 @@ func GetUTXOsForAmount(
 		}
 	}
 
-	if GetUtxosSum(utxos)[tokenName] >= desiredSum {
+	utxosSum := GetUtxosSum(utxos)
+
+	if utxosSum[tokenName] >= desiredSum {
 		return TxInputs{}, fmt.Errorf(
-			"utxos limit reached (%d), try to consolidate utxos: (total, desired) = (%d, %d)",
-			maxInputs, currentSum[tokenName], desiredSum)
+			"%w: %d vs %d", ErrUTXOsLimitReached, utxosSum[tokenName], desiredSum)
 	}
 
 	return TxInputs{}, fmt.Errorf(
-		"not enough funds for the transaction: (available, desired) = (%d, %d)",
-		currentSum[tokenName], desiredSum)
+		"%w: %d vs %d", ErrUTXOsCouldNotSelect, currentSum[tokenName], desiredSum)
 }
 
 func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (uint64, error) {
