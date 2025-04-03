@@ -13,10 +13,10 @@ import (
 )
 
 type RotatingLoggerConfig struct {
-	MaxSize    int  `json:"maxSize"`
-	MaxBackups int  `json:"maxBackups"`
-	MaxAge     int  `json:"maxAge"`
-	Compress   bool `json:"compress"`
+	MaxSizeInMB  int  `json:"maxSize"`
+	MaxBackups   int  `json:"maxBackups"`
+	MaxAgeInDays int  `json:"maxAge"`
+	Compress     bool `json:"compress"`
 }
 
 type LoggerConfig struct {
@@ -55,9 +55,9 @@ func newRotatingLogger(config LoggerConfig) (hclog.Logger, error) {
 
 	lumber := &lumberjack.Logger{
 		Filename:   logFilePathTrimmed,
-		MaxSize:    config.RotatingLogerConfig.MaxSize,
+		MaxSize:    config.RotatingLogerConfig.MaxSizeInMB,
 		MaxBackups: config.RotatingLogerConfig.MaxBackups,
-		MaxAge:     config.RotatingLogerConfig.MaxAge,
+		MaxAge:     config.RotatingLogerConfig.MaxAgeInDays,
 		Compress:   config.RotatingLogerConfig.Compress,
 	}
 
