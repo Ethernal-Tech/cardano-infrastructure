@@ -1,8 +1,6 @@
 module github.com/Ethernal-Tech/cardano-infrastructure
 
-go 1.22
-
-toolchain go1.23.1
+go 1.23.1
 
 require (
 	github.com/blinklabs-io/gouroboros v0.103.1
