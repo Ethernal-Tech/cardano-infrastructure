@@ -13,9 +13,9 @@ import (
 )
 
 type RotatingLoggerConfig struct {
-	MaxSizeInMB  int  `json:"maxSize"`
+	MaxSizeInMB  int  `json:"maxSizeInMB"`
 	MaxBackups   int  `json:"maxBackups"`
-	MaxAgeInDays int  `json:"maxAge"`
+	MaxAgeInDays int  `json:"maxAgeInDays"`
 	Compress     bool `json:"compress"`
 }
 
@@ -48,36 +48,34 @@ func NewLogger(config LoggerConfig) (hclog.Logger, error) {
 }
 
 func newRotatingLogger(config LoggerConfig) (hclog.Logger, error) {
-	logFilePathTrimmed, _, err := createLogDir(config.LogFilePath)
+	logFilePath, _, err := createLogDir(config.LogFilePath)
 	if err != nil {
 		return nil, err
-	}
-
-	lumber := &lumberjack.Logger{
-		Filename:   logFilePathTrimmed,
-		MaxSize:    config.RotatingLogerConfig.MaxSizeInMB,
-		MaxBackups: config.RotatingLogerConfig.MaxBackups,
-		MaxAge:     config.RotatingLogerConfig.MaxAgeInDays,
-		Compress:   config.RotatingLogerConfig.Compress,
 	}
 
 	return hclog.New(&hclog.LoggerOptions{
 		Name:       config.Name,
 		Level:      config.LogLevel,
-		Output:     lumber,
 		JSONFormat: config.JSONLogFormat,
+		Output: &lumberjack.Logger{
+			Filename:   logFilePath,
+			MaxSize:    config.RotatingLogerConfig.MaxSizeInMB,
+			MaxBackups: config.RotatingLogerConfig.MaxBackups,
+			MaxAge:     config.RotatingLogerConfig.MaxAgeInDays,
+			Compress:   config.RotatingLogerConfig.Compress,
+		},
 	}), nil
 }
 
 func getLogFileWriter(logFilePath string, appendFile bool) (*os.File, error) {
-	logFilePathTrimmed, logFileDirectory, err := createLogDir(logFilePath)
+	logFilePath, logFileDirectory, err := createLogDir(logFilePath)
 	if err != nil {
 		return nil, err
 	}
 
 	if !appendFile {
 		suffix := strings.Replace(strings.Replace(time.Now().UTC().Format(time.RFC3339), ":", "_", -1), "-", "_", -1)
-		logFileName := filepath.Base(logFilePathTrimmed)
+		logFileName := filepath.Base(logFilePath)
 
 		if parts := strings.SplitN(logFileName, ".", 2); len(parts) == 1 {
 			logFileName = fmt.Sprintf("%s_%s", parts[0], suffix)
@@ -85,16 +83,16 @@ func getLogFileWriter(logFilePath string, appendFile bool) (*os.File, error) {
 			logFileName = fmt.Sprintf("%s_%s.%s", parts[0], suffix, parts[1])
 		}
 
-		logFilePathTrimmed = filepath.Join(logFileDirectory, logFileName)
+		logFilePath = filepath.Join(logFileDirectory, logFileName)
 	}
 
-	return os.OpenFile(logFilePathTrimmed, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0660)
+	return os.OpenFile(logFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0660)
 }
 
 func createLogDir(logFilePath string) (string, string, error) {
 	logFilePathTrimmed := strings.Trim(logFilePath, " ")
 	if logFilePathTrimmed == "" {
-		return "", "", fmt.Errorf("log file path is empty")
+		return "", "", nil
 	}
 
 	logFileDirectory := filepath.Dir(logFilePathTrimmed)
