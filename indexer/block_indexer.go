@@ -362,23 +362,6 @@ func (bi *BlockIndexer) createTx(
 		}
 	}
 
-	switch realTx := ledgerTx.(type) {
-	case *ledger.AllegraTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.AlonzoTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.BabbageTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.ByronTransaction:
-		// not supported
-	case *ledger.ConwayTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.MaryTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.ShelleyTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	}
-
 	return tx, nil
 }
 
