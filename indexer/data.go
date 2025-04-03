@@ -1,9 +1,11 @@
 package indexer
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -293,4 +295,22 @@ func LedgerAddressToString(addr ledger.Address) string {
 	}
 
 	return ourAddr.String()
+}
+
+func SortTxInputOutputs(txInputsOutputs []*TxInputOutput) []*TxInputOutput {
+	sort.Slice(txInputsOutputs, func(i, j int) bool {
+		first, second := txInputsOutputs[i], txInputsOutputs[j]
+
+		if first.Output.Slot != second.Output.Slot {
+			return first.Output.Slot < second.Output.Slot
+		}
+
+		if cmp := bytes.Compare(first.Input.Hash[:], second.Input.Hash[:]); cmp != 0 {
+			return cmp < 0
+		}
+
+		return first.Input.Index < second.Input.Index
+	})
+
+	return txInputsOutputs
 }

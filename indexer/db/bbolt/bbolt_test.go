@@ -360,8 +360,20 @@ func TestDatabase(t *testing.T) {
 				Amount:  200,
 			},
 		}
+		good4 := &indexer.TxInputOutput{
+			Input: indexer.TxInput{
+				Hash:  indexer.Hash{111, 2},
+				Index: 14,
+			},
+			Output: indexer.TxOutput{
+				Slot:    200,
+				Address: addr,
+				Amount:  200,
+			},
+		}
 
 		txOutputs := []*indexer.TxInputOutput{
+			good4,
 			good3,
 			{
 				Input: indexer.TxInput{
@@ -397,7 +409,7 @@ func TestDatabase(t *testing.T) {
 		result, err := db.GetAllTxOutputs(addr, true)
 
 		require.NoError(t, err)
-		require.Equal(t, []*indexer.TxInputOutput{good1, good2, good3}, result)
+		require.Equal(t, []*indexer.TxInputOutput{good1, good2, good3, good4}, result)
 	})
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -114,10 +113,6 @@ func TestGetTokensFromSumMap(t *testing.T) {
 	}
 
 	res, err := GetTokensFromSumMap(sum)
-
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].TokenName() < res[j].TokenName()
-	})
 
 	require.NoError(t, err)
 	require.Equal(t, tokens, res)

@@ -1,10 +1,8 @@
 package indexerbbolt
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"sort"
 
 	core "github.com/Ethernal-Tech/cardano-infrastructure/indexer"
 	"go.etcd.io/bbolt"
@@ -216,13 +214,7 @@ func (bd *BBoltDatabase) GetAllTxOutputs(address string, onlyNotUsed bool) ([]*c
 		return nil, err
 	}
 
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Output.Slot < result[j].Output.Slot ||
-			result[i].Output.Slot == result[j].Output.Slot &&
-				bytes.Compare(result[i].Input.Hash[:], result[j].Input.Hash[:]) < 0
-	})
-
-	return result, nil
+	return core.SortTxInputOutputs(result), nil
 }
 
 func (bd *BBoltDatabase) OpenTx() core.DBTransactionWriter {
