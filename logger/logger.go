@@ -91,10 +91,6 @@ func getLogFileWriter(logFilePath string, appendFile bool) (*os.File, error) {
 
 func createLogDir(logFilePath string) (string, string, error) {
 	logFilePathTrimmed := strings.Trim(logFilePath, " ")
-	if logFilePathTrimmed == "" {
-		return "", "", nil
-	}
-
 	logFileDirectory := filepath.Dir(logFilePathTrimmed)
 
 	if err := common.CreateDirSafe(logFileDirectory, 0770); err != nil {
