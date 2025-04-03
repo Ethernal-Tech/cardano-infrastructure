@@ -101,7 +101,7 @@ func (bi *BlockIndexer) RollBackwardFunc(point common.Point) error {
 	}
 
 	// we have confirmed a block that should NOT have been confirmed!
-	// recovering from this error is not easy.
+	// recovering from this error is difficult and requires manual database changes
 	return errors.Join(errBlockSyncerFatal,
 		fmt.Errorf("roll backward block not found. new = (%d, %s) vs latest = (%d, %s)",
 			point.Slot, pointHash,
