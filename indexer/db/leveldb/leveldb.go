@@ -169,7 +169,10 @@ func (lvldb *LevelDBDatabase) GetAllTxOutputs(address string, onlyNotUsed bool) 
 			continue
 		}
 
-		input, _ := core.NewTxInputFromBytes(iter.Key())
+		input, err := core.NewTxInputFromBytes(iter.Key())
+		if err != nil {
+			return nil, err
+		}
 
 		result = append(result, &core.TxInputOutput{
 			Input:  input,
