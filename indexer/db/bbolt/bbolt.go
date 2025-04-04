@@ -200,7 +200,10 @@ func (bd *BBoltDatabase) GetAllTxOutputs(address string, onlyNotUsed bool) ([]*c
 				continue
 			}
 
-			input, _ := core.NewTxInputFromBytes(k)
+			input, err := core.NewTxInputFromBytes(k)
+			if err != nil {
+				return err
+			}
 
 			result = append(result, &core.TxInputOutput{
 				Input:  input,
