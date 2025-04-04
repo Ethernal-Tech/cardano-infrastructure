@@ -100,7 +100,8 @@ func (bi *BlockIndexer) RollBackwardFunc(point common.Point) error {
 		return nil
 	}
 
-	// we have confirmed some block that should not be confirmed!!!! TODO: what to do in this case?
+	// we have confirmed a block that should NOT have been confirmed!
+	// recovering from this error is difficult and requires manual database changes
 	return errors.Join(errBlockSyncerFatal,
 		fmt.Errorf("roll backward block not found. new = (%d, %s) vs latest = (%d, %s)",
 			point.Slot, pointHash,
@@ -360,23 +361,6 @@ func (bi *BlockIndexer) createTx(
 				ledgerBlockHeader.SlotNumber(), LedgerAddressToString(out.Address()), out)
 			tx.Outputs[j] = &txOutput
 		}
-	}
-
-	switch realTx := ledgerTx.(type) {
-	case *ledger.AllegraTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.AlonzoTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.BabbageTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.ByronTransaction:
-		// not supported
-	case *ledger.ConwayTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.MaryTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
-	case *ledger.ShelleyTransaction:
-		tx.Witnesses = NewWitnesses(realTx.WitnessSet.VkeyWitnesses)
 	}
 
 	return tx, nil
