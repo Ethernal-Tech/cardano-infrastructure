@@ -21,7 +21,7 @@ func Test_getLogFileWriter(t *testing.T) {
 
 	t.Run("empty", func(t *testing.T) {
 		f, err := getLogFileWriter(" ", true)
-		require.NoError(t, err)
+		require.Error(t, err)
 		require.Nil(t, f)
 	})
 

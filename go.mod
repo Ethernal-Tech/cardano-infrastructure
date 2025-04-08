@@ -1,8 +1,6 @@
 module github.com/Ethernal-Tech/cardano-infrastructure
 
-go 1.22
-
-toolchain go1.23.1
+go 1.23.1
 
 require (
 	github.com/blinklabs-io/gouroboros v0.103.1
@@ -16,6 +14,7 @@ require (
 	go.etcd.io/bbolt v1.3.9
 	golang.org/x/crypto v0.28.0
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (

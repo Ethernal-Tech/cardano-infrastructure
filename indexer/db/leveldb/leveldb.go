@@ -1,11 +1,9 @@
 package indexerleveldb
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 
 	core "github.com/Ethernal-Tech/cardano-infrastructure/indexer"
 
@@ -171,7 +169,10 @@ func (lvldb *LevelDBDatabase) GetAllTxOutputs(address string, onlyNotUsed bool) 
 			continue
 		}
 
-		input, _ := core.NewTxInputFromBytes(iter.Key())
+		input, err := core.NewTxInputFromBytes(iter.Key())
+		if err != nil {
+			return nil, err
+		}
 
 		result = append(result, &core.TxInputOutput{
 			Input:  input,
@@ -179,13 +180,7 @@ func (lvldb *LevelDBDatabase) GetAllTxOutputs(address string, onlyNotUsed bool) 
 		})
 	}
 
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Output.Slot < result[j].Output.Slot ||
-			result[i].Output.Slot == result[j].Output.Slot &&
-				bytes.Compare(result[i].Input.Hash[:], result[j].Input.Hash[:]) < 0
-	})
-
-	return result, nil
+	return core.SortTxInputOutputs(result), nil
 }
 
 func (lvldb *LevelDBDatabase) OpenTx() core.DBTransactionWriter {

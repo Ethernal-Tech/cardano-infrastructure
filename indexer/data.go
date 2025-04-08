@@ -1,9 +1,11 @@
 package indexer
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -59,7 +61,6 @@ type Tx struct {
 	Inputs    []*TxInputOutput `json:"inp"`
 	Outputs   []*TxOutput      `json:"out"`
 	Fee       uint64           `json:"fee"`
-	Witnesses []Witness        `json:"ws"`
 	Valid     bool             `json:"valid"`
 }
 
@@ -293,4 +294,28 @@ func LedgerAddressToString(addr ledger.Address) string {
 	}
 
 	return ourAddr.String()
+}
+
+// SortTxInputOutputs sorts a slice of TxInputOutput pointers based on the following priority:
+//  1. Inputs with lower Output.Slot values come first — this is critical because inputs added earlier must be processed first
+//  2. If Slot values are equal, inputs are sorted lexicographically by their Input.Hash
+//  3. If both Slot and Hash are equal, inputs are sorted by Input.Index
+//
+// The returned slice reflects this ordering and ensures deterministic processing of inputs in the correct chronological order.
+func SortTxInputOutputs(txInputsOutputs []*TxInputOutput) []*TxInputOutput {
+	sort.Slice(txInputsOutputs, func(i, j int) bool {
+		first, second := txInputsOutputs[i], txInputsOutputs[j]
+
+		if first.Output.Slot != second.Output.Slot {
+			return first.Output.Slot < second.Output.Slot
+		}
+
+		if cmp := bytes.Compare(first.Input.Hash[:], second.Input.Hash[:]); cmp != 0 {
+			return cmp < 0
+		}
+
+		return first.Input.Index < second.Input.Index
+	})
+
+	return txInputsOutputs
 }
