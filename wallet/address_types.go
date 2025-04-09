@@ -339,14 +339,26 @@ func (addrParser cardanoByronAddressParser) ToString(bytes []byte) string {
 }
 
 func (addrParser cardanoByronAddressParser) ToCardanoAddressInfo(bytes []byte) CardanoAddressInfo {
+	const cborMetaDataNumber = 24
+
 	var rawAddr struct {
 		_        struct{} `cbor:",toarray"`
 		Tag      cbor.Tag
 		Checksum uint32
 	}
 
-	_ = cbor.Unmarshal(bytes, &rawAddr)
-	rawTag, _ := rawAddr.Tag.Content.([]byte)
+	if err := cbor.Unmarshal(bytes, &rawAddr); err != nil {
+		return CardanoAddressInfo{
+			AddressType: UnsupportedAddress,
+		}
+	}
+
+	rawTag, ok := rawAddr.Tag.Content.([]byte)
+	if !ok || rawAddr.Tag.Number != cborMetaDataNumber {
+		return CardanoAddressInfo{
+			AddressType: UnsupportedAddress,
+		}
+	}
 
 	var byron struct {
 		_      struct{} `cbor:",toarray"`
