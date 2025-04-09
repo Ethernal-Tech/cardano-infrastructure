@@ -364,9 +364,11 @@ func (addrParser cardanoByronAddressParser) ToCardanoAddressInfo(bytes []byte) C
 		}
 	}
 
+	netInfo := byron.Attrs.Network
+
 	network := MainNetNetwork
-	if len(byron.Attrs.Network) == 1 && byron.Attrs.Network[0] == 1 ||
-		len(byron.Attrs.Network) == 5 && binary.BigEndian.Uint32(byron.Attrs.Network[1:]) == uint32(TestNetProtocolMagic) {
+	if len(netInfo) == 1 && (netInfo[0] == byte(PreProdProtocolMagic) || netInfo[0] == byte(PreviewProtocolMagic)) ||
+		len(netInfo) == 5 && binary.BigEndian.Uint32(netInfo[1:]) != uint32(MainNetProtocolMagic) {
 		network = TestNetNetwork
 	}
 
