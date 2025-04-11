@@ -90,11 +90,11 @@ func (txSnd *TxSender) CreateBridgingTx(
 	receivers []BridgingTxReceiver,
 	bridgingFee uint64,
 	operationFee uint64,
-) ([]byte, string, *BridgingRequestMetadata, error) {
+) ([]byte, string, *BridgingRequestMetadata, uint64, error) {
 	metadata, err := txSnd.CreateMetadata(
 		ctx, senderAddr, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, 0, err
 	}
 
 	srcConfig := txSnd.chainConfigMap[srcChainID]
@@ -103,17 +103,17 @@ func (txSnd *TxSender) CreateBridgingTx(
 
 	metaDataRaw, err := metadata.Marshal()
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, 0, err
 	}
 
-	txRaw, txHash, err := txSnd.createTx(
+	txRaw, txHash, minUtxoAmount, err := txSnd.createTx(
 		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr,
 		metaDataRaw, outputCurrencyLovelace, outputNativeToken, srcNativeTokenFullName)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, 0, err
 	}
 
-	return txRaw, txHash, metadata, nil
+	return txRaw, txHash, metadata, minUtxoAmount, nil
 }
 
 // CalculateBridgingTxFee returns calculated fee for bridging tx
@@ -125,11 +125,11 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	receivers []BridgingTxReceiver,
 	bridgingFee uint64,
 	operationFee uint64,
-) (uint64, *BridgingRequestMetadata, error) {
+) (uint64, uint64, *BridgingRequestMetadata, error) {
 	metadata, err := txSnd.CreateMetadata(
 		ctx, senderAddr, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
 	if err != nil {
-		return 0, nil, err
+		return 0, 0, nil, err
 	}
 
 	srcConfig := txSnd.chainConfigMap[srcChainID]
@@ -138,17 +138,17 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 
 	metaDataRaw, err := metadata.Marshal()
 	if err != nil {
-		return 0, nil, err
+		return 0, 0, nil, err
 	}
 
-	fee, err := txSnd.calculateFee(
+	fee, minUtxoAmount, err := txSnd.calculateFee(
 		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr,
 		metaDataRaw, outputCurrencyLovelace, outputNativeTokenAmount, srcNativeTokenFullName)
 	if err != nil {
-		return 0, nil, err
+		return 0, 0, nil, err
 	}
 
-	return fee, metadata, nil
+	return fee, minUtxoAmount, metadata, nil
 }
 
 // CreateTxGeneric creates generic tx to one recipient and returns cbor of raw transaction data, tx hash and error
@@ -161,10 +161,10 @@ func (txSnd *TxSender) CreateTxGeneric(
 	outputCurrencyLovelace uint64,
 	outputNativeTokenAmount uint64,
 	srcNativeTokenFullName string,
-) ([]byte, string, error) {
+) ([]byte, string, uint64, error) {
 	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
 	if !existsSrc {
-		return nil, "", fmt.Errorf("chain %s config not found", srcChainID)
+		return nil, "", 0, fmt.Errorf("chain %s config not found", srcChainID)
 	}
 
 	return txSnd.createTx(
@@ -280,24 +280,29 @@ func (txSnd *TxSender) calculateFee(ctx context.Context,
 	outputCurrencyLovelace uint64,
 	outputNativeTokenAmount uint64,
 	srcNativeTokenFullName string,
-) (uint64, error) {
+) (uint64, uint64, error) {
 	builder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	defer builder.Dispose()
 
-	_, _, err = txSnd.populateTxBuilder(
+	_, minUtxoAmount, err := txSnd.populateTxBuilder(
 		ctx, builder, srcConfig,
 		senderAddr, receiverAddr,
 		metadata, outputCurrencyLovelace,
 		outputNativeTokenAmount, srcNativeTokenFullName)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	return builder.CalculateFee(1)
+	fee, err := builder.CalculateFee(1)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return fee, minUtxoAmount, nil
 }
 
 func (txSnd *TxSender) createTx(
@@ -309,10 +314,10 @@ func (txSnd *TxSender) createTx(
 	outputCurrencyLovelace uint64,
 	outputNativeToken uint64,
 	srcNativeTokenFullName string,
-) ([]byte, string, error) {
+) ([]byte, string, uint64, error) {
 	builder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
 	if err != nil {
-		return nil, "", err
+		return nil, "", 0, err
 	}
 
 	defer builder.Dispose()
@@ -323,12 +328,12 @@ func (txSnd *TxSender) createTx(
 		metadata, outputCurrencyLovelace,
 		outputNativeToken, srcNativeTokenFullName)
 	if err != nil {
-		return nil, "", err
+		return nil, "", 0, err
 	}
 
 	feeCurrencyLovelace, err := builder.CalculateFee(1)
 	if err != nil {
-		return nil, "", err
+		return nil, "", 0, err
 	}
 
 	builder.SetFee(feeCurrencyLovelace)
@@ -336,7 +341,7 @@ func (txSnd *TxSender) createTx(
 	change := changeCurrencyLovelace - feeCurrencyLovelace
 	// handle overflow or insufficient amount
 	if change != 0 && (change > changeCurrencyLovelace || change < minUtxoAmount) {
-		return []byte{}, "",
+		return []byte{}, "", 0,
 			fmt.Errorf("insufficient remaining amount %d for fee %d, or minimum UTXO (%d) not satisfied",
 				changeCurrencyLovelace, feeCurrencyLovelace, minUtxoAmount)
 	}
@@ -347,7 +352,12 @@ func (txSnd *TxSender) createTx(
 		builder.RemoveOutput(-1)
 	}
 
-	return builder.Build()
+	txRaw, txHash, err := builder.Build()
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	return txRaw, txHash, minUtxoAmount, nil
 }
 
 func (txSnd *TxSender) populateTxBuilder(
