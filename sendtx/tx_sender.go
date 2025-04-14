@@ -59,6 +59,19 @@ type TxSender struct {
 	utxosTransformer  IUtxosTransformer
 }
 
+type TxInfo struct {
+	TxRaw                 []byte
+	TxHash                string
+	ChangeMinUtxoAmount   uint64
+	ReceiverMinUtxoAmount uint64
+}
+
+type TxFeeInfo struct {
+	Fee                   uint64
+	ChangeMinUtxoAmount   uint64
+	ReceiverMinUtxoAmount uint64
+}
+
 type TxSenderOption func(*TxSender)
 
 func NewTxSender(
@@ -90,11 +103,11 @@ func (txSnd *TxSender) CreateBridgingTx(
 	receivers []BridgingTxReceiver,
 	bridgingFee uint64,
 	operationFee uint64,
-) ([]byte, string, *BridgingRequestMetadata, uint64, error) {
+) (*TxInfo, *BridgingRequestMetadata, error) {
 	metadata, err := txSnd.CreateMetadata(
 		ctx, senderAddr, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
 	if err != nil {
-		return nil, "", nil, 0, err
+		return nil, nil, err
 	}
 
 	srcConfig := txSnd.chainConfigMap[srcChainID]
@@ -103,17 +116,17 @@ func (txSnd *TxSender) CreateBridgingTx(
 
 	metaDataRaw, err := metadata.Marshal()
 	if err != nil {
-		return nil, "", nil, 0, err
+		return nil, nil, err
 	}
 
-	txRaw, txHash, minUtxoAmount, err := txSnd.createTx(
+	txInfo, err := txSnd.createTx(
 		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr,
 		metaDataRaw, outputCurrencyLovelace, outputNativeToken, srcNativeTokenFullName)
 	if err != nil {
-		return nil, "", nil, 0, err
+		return nil, nil, err
 	}
 
-	return txRaw, txHash, metadata, minUtxoAmount, nil
+	return txInfo, metadata, nil
 }
 
 // CalculateBridgingTxFee returns calculated fee for bridging tx
@@ -125,11 +138,11 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	receivers []BridgingTxReceiver,
 	bridgingFee uint64,
 	operationFee uint64,
-) (uint64, uint64, *BridgingRequestMetadata, error) {
+) (*TxFeeInfo, *BridgingRequestMetadata, error) {
 	metadata, err := txSnd.CreateMetadata(
 		ctx, senderAddr, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
 	if err != nil {
-		return 0, 0, nil, err
+		return nil, nil, err
 	}
 
 	srcConfig := txSnd.chainConfigMap[srcChainID]
@@ -138,17 +151,17 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 
 	metaDataRaw, err := metadata.Marshal()
 	if err != nil {
-		return 0, 0, nil, err
+		return nil, nil, err
 	}
 
-	fee, minUtxoAmount, err := txSnd.calculateFee(
+	txFeeInfo, err := txSnd.calculateFee(
 		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr,
 		metaDataRaw, outputCurrencyLovelace, outputNativeTokenAmount, srcNativeTokenFullName)
 	if err != nil {
-		return 0, 0, nil, err
+		return nil, nil, err
 	}
 
-	return fee, minUtxoAmount, metadata, nil
+	return txFeeInfo, metadata, nil
 }
 
 // CreateTxGeneric creates generic tx to one recipient and returns cbor of raw transaction data, tx hash and error
@@ -161,10 +174,10 @@ func (txSnd *TxSender) CreateTxGeneric(
 	outputCurrencyLovelace uint64,
 	outputNativeTokenAmount uint64,
 	srcNativeTokenFullName string,
-) ([]byte, string, uint64, error) {
+) (*TxInfo, error) {
 	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
 	if !existsSrc {
-		return nil, "", 0, fmt.Errorf("chain %s config not found", srcChainID)
+		return nil, fmt.Errorf("chain %s config not found", srcChainID)
 	}
 
 	return txSnd.createTx(
@@ -280,29 +293,33 @@ func (txSnd *TxSender) calculateFee(ctx context.Context,
 	outputCurrencyLovelace uint64,
 	outputNativeTokenAmount uint64,
 	srcNativeTokenFullName string,
-) (uint64, uint64, error) {
+) (*TxFeeInfo, error) {
 	builder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
 	if err != nil {
-		return 0, 0, err
+		return nil, err
 	}
 
 	defer builder.Dispose()
 
-	_, _, receiverMinUtxo, err := txSnd.populateTxBuilder(
+	_, changeMinUtxoAmount, receiverMinUtxoAmount, err := txSnd.populateTxBuilder(
 		ctx, builder, srcConfig,
 		senderAddr, receiverAddr,
 		metadata, outputCurrencyLovelace,
 		outputNativeTokenAmount, srcNativeTokenFullName)
 	if err != nil {
-		return 0, 0, err
+		return nil, err
 	}
 
 	fee, err := builder.CalculateFee(1)
 	if err != nil {
-		return 0, 0, err
+		return nil, err
 	}
 
-	return fee, receiverMinUtxo, nil
+	return &TxFeeInfo{
+		Fee:                   fee,
+		ChangeMinUtxoAmount:   changeMinUtxoAmount,
+		ReceiverMinUtxoAmount: receiverMinUtxoAmount,
+	}, nil
 }
 
 func (txSnd *TxSender) createTx(
@@ -314,26 +331,26 @@ func (txSnd *TxSender) createTx(
 	outputCurrencyLovelace uint64,
 	outputNativeToken uint64,
 	srcNativeTokenFullName string,
-) ([]byte, string, uint64, error) {
+) (*TxInfo, error) {
 	builder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
 	if err != nil {
-		return nil, "", 0, err
+		return nil, err
 	}
 
 	defer builder.Dispose()
 
-	changeCurrencyLovelace, changeMinUtxoAmount, receiverMinUtxo, err := txSnd.populateTxBuilder(
+	changeCurrencyLovelace, changeMinUtxoAmount, receiverMinUtxoAmount, err := txSnd.populateTxBuilder(
 		ctx, builder, srcConfig,
 		senderAddr, receiverAddr,
 		metadata, outputCurrencyLovelace,
 		outputNativeToken, srcNativeTokenFullName)
 	if err != nil {
-		return nil, "", 0, err
+		return nil, err
 	}
 
 	feeCurrencyLovelace, err := builder.CalculateFee(1)
 	if err != nil {
-		return nil, "", 0, err
+		return nil, err
 	}
 
 	builder.SetFee(feeCurrencyLovelace)
@@ -341,7 +358,7 @@ func (txSnd *TxSender) createTx(
 	change := changeCurrencyLovelace - feeCurrencyLovelace
 	// handle overflow or insufficient amount
 	if change != 0 && (change > changeCurrencyLovelace || change < changeMinUtxoAmount) {
-		return []byte{}, "", 0,
+		return nil,
 			fmt.Errorf("insufficient remaining amount %d for fee %d, or minimum UTXO (%d) not satisfied",
 				changeCurrencyLovelace, feeCurrencyLovelace, changeMinUtxoAmount)
 	}
@@ -354,10 +371,15 @@ func (txSnd *TxSender) createTx(
 
 	txRaw, txHash, err := builder.Build()
 	if err != nil {
-		return nil, "", 0, err
+		return nil, err
 	}
 
-	return txRaw, txHash, receiverMinUtxo, nil
+	return &TxInfo{
+		TxRaw:                 txRaw,
+		TxHash:                txHash,
+		ChangeMinUtxoAmount:   changeMinUtxoAmount,
+		ReceiverMinUtxoAmount: receiverMinUtxoAmount,
+	}, nil
 }
 
 func (txSnd *TxSender) populateTxBuilder(
