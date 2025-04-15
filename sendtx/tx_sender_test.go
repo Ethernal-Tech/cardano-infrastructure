@@ -30,7 +30,7 @@ func TestCreateMetaData(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
 		metadata, err := txSnd.CreateMetadata(
-			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
+			senderAddr, "prime", "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNormal,
 					Addr:         "addr1_aa",
@@ -84,7 +84,7 @@ func TestCreateMetaData(t *testing.T) {
 		})
 
 		metadata, err := txSnd.CreateMetadata(
-			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
+			senderAddr, "prime", "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNativeTokenOnSource,
 					Addr:         "addr1_ab",
@@ -111,7 +111,7 @@ func TestCreateMetaData(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
 		_, err := txSnd.CreateMetadata(
-			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
+			senderAddr, "prime", "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNativeTokenOnSource,
 					Amount:       19,
@@ -124,7 +124,7 @@ func TestCreateMetaData(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
 		_, err := txSnd.CreateMetadata(
-			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
+			senderAddr, "prime", "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeCurrencyOnSource,
 					Amount:       9,
@@ -146,7 +146,7 @@ func TestCreateMetaData(t *testing.T) {
 		})
 
 		_, err := txSnd.CreateMetadata(
-			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
+			senderAddr, "prime", "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNormal,
 					Amount:       189,
