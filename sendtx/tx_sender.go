@@ -40,6 +40,8 @@ func NewTxSender(
 }
 
 // CreateBridgingTx creates bridging tx and returns cbor of raw transaction data, tx hash and error
+//
+//nolint:dupl
 func (txSnd *TxSender) CreateBridgingTx(
 	ctx context.Context,
 	srcChainID string,
@@ -80,6 +82,8 @@ func (txSnd *TxSender) CreateBridgingTx(
 }
 
 // CalculateBridgingTxFee returns calculated fee for bridging tx
+//
+//nolint:dupl
 func (txSnd *TxSender) CalculateBridgingTxFee(
 	ctx context.Context,
 	srcChainID string,

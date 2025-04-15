@@ -23,10 +23,10 @@ func TestCreateMetaData(t *testing.T) {
 	)
 
 	configs := map[string]ChainConfig{
-		"prime": ChainConfig{
+		"prime": {
 			MinUtxoValue: 55,
 		},
-		"vector": ChainConfig{
+		"vector": {
 			MinUtxoValue: 20,
 		},
 	}
@@ -331,7 +331,6 @@ func (m *txProviderMock) GetProtocolParameters(ctx context.Context) ([]byte, err
 
 func (m *txProviderMock) GetTxByHash(ctx context.Context, hash string) (map[string]interface{}, error) {
 	return nil, nil
-
 }
 
 func (m *txProviderMock) GetTip(ctx context.Context) (cardanowallet.QueryTipData, error) {
