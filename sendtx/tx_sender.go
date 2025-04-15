@@ -261,7 +261,7 @@ func (txSnd *TxSender) prepareBridgingTx(
 	receivers []BridgingTxReceiver,
 	bridgingFee uint64,
 	operationFee uint64,
-) (*BridgingTxPreparedData, error) {
+) (*bridgingTxPreparedData, error) {
 	srcConfig, _, err := txSnd.getConfigs(srcChainID, dstChainID)
 	if err != nil {
 		return nil, err
@@ -300,7 +300,7 @@ func (txSnd *TxSender) prepareBridgingTx(
 		bridgingFee += outputLovelace - outputLovelaceBase
 	}
 
-	return &BridgingTxPreparedData{
+	return &bridgingTxPreparedData{
 		TxBuilder:         txBuilder,
 		SrcConfig:         srcConfig,
 		OutputLovelace:    outputLovelace,
