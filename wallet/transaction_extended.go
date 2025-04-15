@@ -123,16 +123,38 @@ func GetUTXOsForAmount(
 		"%w: %d vs %d", ErrUTXOsCouldNotSelect, currentSum[tokenName], desiredSum)
 }
 
-func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (uint64, error) {
-	userTokenSum := GetUtxosSum(utxos)
+func SubtractTokensFromSumMap(
+	sumMap map[string]uint64,
+	tokens []TokenAmount,
+) map[string]uint64 {
+	for _, token := range tokens {
+		tokenName := token.TokenName()
 
-	txOutput := TxOutput{
-		Addr:   userAddress,
-		Amount: userTokenSum[AdaTokenName],
+		if value, exists := sumMap[tokenName]; exists && value > token.Amount {
+			sumMap[tokenName] = value - token.Amount
+		} else {
+			// If there are not enough tokens, remove it from the map.
+			// This function does not need to return an error in case the value is insufficient,
+			// because an error will be raised when attempting to retrieve inputs for the transaction.
+			delete(sumMap, tokenName)
+		}
 	}
 
-	for tokenName, amount := range userTokenSum {
-		if tokenName != AdaTokenName {
+	return sumMap
+}
+
+func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (uint64, error) {
+	return GetTokenCostSumFromSumMap(txBuilder, userAddress, GetUtxosSum(utxos))
+}
+
+func GetTokenCostSumFromSumMap(txBuilder *TxBuilder, userAddress string, sumMap map[string]uint64) (uint64, error) {
+	txOutput := TxOutput{
+		Addr:   userAddress,
+		Amount: sumMap[AdaTokenName],
+	}
+
+	for tokenName, amount := range sumMap {
+		if tokenName != AdaTokenName && amount > 0 {
 			token, err := NewTokenWithFullName(tokenName, true)
 			if err != nil {
 				return 0, err

@@ -326,3 +326,28 @@ func TestGetUTXOsForAmount(t *testing.T) {
 		require.Equal(t, uint64(11_020_039), txOutputs.Sum[tokenAmount1.TokenName()])
 	})
 }
+
+func TestSubtractTokensFromSumMap(t *testing.T) {
+	tokens := []TokenAmount{
+		NewTokenAmount(NewToken("pid", "ADA"), 100),
+		NewTokenAmount(NewToken("pid", "WADA"), 200),
+		NewTokenAmount(NewToken("pid", "APEX"), 300),
+		NewTokenAmount(NewToken("pid", "WAPEX"), 400),
+	}
+	mp := map[string]uint64{
+		AdaTokenName:          100,
+		tokens[0].TokenName(): 100,
+		tokens[1].TokenName(): 350,
+		tokens[2].TokenName(): 250,
+		tokens[3].TokenName(): 1000,
+		"dummy":               1000,
+	}
+
+	mp = SubtractTokensFromSumMap(mp, tokens)
+
+	require.Len(t, mp, 4)
+	require.Equal(t, uint64(100), mp[AdaTokenName])
+	require.Equal(t, uint64(150), mp[tokens[1].TokenName()])
+	require.Equal(t, uint64(600), mp[tokens[3].TokenName()])
+	require.Equal(t, uint64(1000), mp["dummy"])
+}

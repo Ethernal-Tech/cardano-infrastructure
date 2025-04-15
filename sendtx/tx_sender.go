@@ -439,7 +439,10 @@ func (txSnd *TxSender) populateTxBuilder(
 	}
 
 	// calculate minUtxo for change output
-	potentialChangeTokenCost, err := cardanowallet.GetTokenCostSum(builder, senderAddr, utxos)
+	potentialChangeTokenCost, err := cardanowallet.GetTokenCostSumFromSumMap(
+		builder,
+		senderAddr,
+		cardanowallet.SubtractTokensFromSumMap(cardanowallet.GetUtxosSum(utxos), srcNativeTokenOutputs))
 	if err != nil {
 		return 0, 0, 0, err
 	}
