@@ -60,7 +60,7 @@ func (txSnd *TxSender) CreateBridgingTx(
 	defer data.TxBuilder.Dispose()
 
 	metadata, err := txSnd.CreateMetadata(
-		senderAddr, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
+		senderAddr, srcChainID, dstChainID, receivers, data.BridgingFee, operationFee)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -102,7 +102,7 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	defer data.TxBuilder.Dispose()
 
 	metadata, err := txSnd.CreateMetadata(
-		senderAddr, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
+		senderAddr, srcChainID, dstChainID, receivers, data.BridgingFee, operationFee)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -415,7 +415,7 @@ func (txSnd *TxSender) populateTxBuilder(
 	)
 
 	if outputNativeToken != nil && outputNativeToken.Amount > 0 {
-		outputNativeTokenFullName = outputNativeToken.String() // take the name used for maps
+		outputNativeTokenFullName = outputNativeToken.TokenName() // take the name used for maps
 		outputNativeTokenAmounts = append(outputNativeTokenAmounts, *outputNativeToken)
 	}
 
