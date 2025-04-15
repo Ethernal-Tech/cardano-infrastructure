@@ -102,44 +102,16 @@ func (txSnd *TxSender) CreateBridgingTx(
 	bridgingFee uint64,
 	operationFee uint64,
 ) (*TxInfo, *BridgingRequestMetadata, error) {
-	srcConfig, dstConfig, err := txSnd.getConfigs(srcChainID, dstChainID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if err := checkFees(&srcConfig, bridgingFee, operationFee); err != nil {
-		return nil, nil, err
-	}
-
-	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+	txBuilder, srcConfig, metadata, metadataRaw, outputLovelace, outputNativeToken, err := txSnd.initBridgingTx(
+		srcChainID, dstChainID, senderAddr, receivers, bridgingFee, operationFee)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	defer txBuilder.Dispose()
 
-	outputLovelace, feeDiff, outputNativeToken, err := getOutputsFromReceivers(
-		txBuilder, &srcConfig, dstChainID, receivers)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	bridgingFee += feeDiff
-	outputLovelace += bridgingFee + operationFee
-
-	metadata, err := txSnd.createMetadata(
-		senderAddr, &srcConfig, &dstConfig, dstChainID, receivers, bridgingFee, operationFee)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	metaDataRaw, err := metadata.Marshal()
-	if err != nil {
-		return nil, nil, err
-	}
-
 	txInfo, err := txSnd.createTx(
-		ctx, txBuilder, &srcConfig, senderAddr, srcConfig.MultiSigAddr, metaDataRaw, outputLovelace, outputNativeToken)
+		ctx, txBuilder, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadataRaw, outputLovelace, outputNativeToken)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -157,44 +129,16 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	bridgingFee uint64,
 	operationFee uint64,
 ) (*TxFeeInfo, *BridgingRequestMetadata, error) {
-	srcConfig, dstConfig, err := txSnd.getConfigs(srcChainID, dstChainID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if err := checkFees(&srcConfig, bridgingFee, operationFee); err != nil {
-		return nil, nil, err
-	}
-
-	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+	txBuilder, srcConfig, metadata, metadataRaw, outputLovelace, outputNativeToken, err := txSnd.initBridgingTx(
+		srcChainID, dstChainID, senderAddr, receivers, bridgingFee, operationFee)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	defer txBuilder.Dispose()
 
-	outputLovelace, feeDiff, outputNativeToken, err := getOutputsFromReceivers(
-		txBuilder, &srcConfig, dstChainID, receivers)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	bridgingFee += feeDiff
-	outputLovelace += bridgingFee + operationFee
-
-	metadata, err := txSnd.createMetadata(
-		senderAddr, &srcConfig, &dstConfig, dstChainID, receivers, bridgingFee, operationFee)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	metaDataRaw, err := metadata.Marshal()
-	if err != nil {
-		return nil, nil, err
-	}
-
 	txFeeInfo, err := txSnd.calculateFee(
-		ctx, txBuilder, &srcConfig, senderAddr, srcConfig.MultiSigAddr, metaDataRaw, outputLovelace, outputNativeToken)
+		ctx, txBuilder, srcConfig, senderAddr, srcConfig.MultiSigAddr, metadataRaw, outputLovelace, outputNativeToken)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -259,6 +203,54 @@ func (txSnd *TxSender) SubmitTx(
 	}, txSnd.retryOptions...)
 
 	return err
+}
+
+func (txSnd *TxSender) initBridgingTx(
+	srcChainID string,
+	dstChainID string,
+	senderAddr string,
+	receivers []BridgingTxReceiver,
+	bridgingFee uint64,
+	operationFee uint64,
+) (
+	*cardanowallet.TxBuilder, *ChainConfig,
+	*BridgingRequestMetadata, []byte,
+	uint64, *cardanowallet.TokenAmount, error,
+) {
+	srcConfig, dstConfig, err := txSnd.getConfigs(srcChainID, dstChainID)
+	if err != nil {
+		return nil, nil, nil, nil, 0, nil, err
+	}
+
+	if err := checkFees(&srcConfig, bridgingFee, operationFee); err != nil {
+		return nil, nil, nil, nil, 0, nil, err
+	}
+
+	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+	if err != nil {
+		return nil, nil, nil, nil, 0, nil, err
+	}
+
+	outputLovelace, feeDiff, outputNativeToken, err := getOutputsFromReceivers(
+		txBuilder, &srcConfig, dstChainID, receivers, bridgingFee+operationFee)
+	if err != nil {
+		return nil, nil, nil, nil, 0, nil, err
+	}
+
+	bridgingFee += feeDiff
+
+	metadata, err := txSnd.createMetadata(
+		senderAddr, &srcConfig, &dstConfig, dstChainID, receivers, bridgingFee, operationFee)
+	if err != nil {
+		return nil, nil, nil, nil, 0, nil, err
+	}
+
+	metaDataRaw, err := metadata.Marshal()
+	if err != nil {
+		return nil, nil, nil, nil, 0, nil, err
+	}
+
+	return txBuilder, &srcConfig, metadata, metaDataRaw, outputLovelace, outputNativeToken, nil
 }
 
 func (txSnd *TxSender) calculateFee(
@@ -545,10 +537,11 @@ func (txSnd *TxSender) createMetadata(
 }
 
 func getOutputsFromReceivers(
-	txBuilder *cardanowallet.TxBuilder, config *ChainConfig, dstChainID string, receivers []BridgingTxReceiver,
+	txBuilder *cardanowallet.TxBuilder, config *ChainConfig, dstChainID string,
+	receivers []BridgingTxReceiver, initialOutputLovelace uint64,
 ) (outputLovelace uint64, feeDiff uint64, outputNativeToken *cardanowallet.TokenAmount, err error) {
-	nativeTokenAmount := (*cardanowallet.TokenAmount)(nil)
 	outputLovelaceBase, outputNativeTokenAmount := getOutputAmounts(receivers)
+	outputLovelaceBase += initialOutputLovelace
 
 	if outputNativeTokenAmount > 0 {
 		nativeToken, err := getNativeToken(config.NativeTokens, dstChainID)
@@ -557,16 +550,15 @@ func getOutputsFromReceivers(
 		}
 
 		token := cardanowallet.NewTokenAmount(nativeToken, outputNativeTokenAmount)
-		nativeTokenAmount = &token
+		outputNativeToken = &token
 	}
 
 	outputLovelace, err = fixLovelaceOutput(
-		txBuilder, config, config.MultiSigAddr, nativeTokenAmount, outputLovelaceBase)
+		txBuilder, config, config.MultiSigAddr, outputNativeToken, outputLovelaceBase)
 	if err != nil {
 		return 0, 0, nil, err
 	}
 
-	// add
 	if outputLovelace > outputLovelaceBase {
 		feeDiff = outputLovelace - outputLovelaceBase
 	}
