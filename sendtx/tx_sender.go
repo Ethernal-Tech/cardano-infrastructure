@@ -50,7 +50,7 @@ func (txSnd *TxSender) CreateBridgingTx(
 	operationFee uint64,
 ) (*TxInfo, *BridgingRequestMetadata, error) {
 	data, err := txSnd.prepareBridgingTx(
-		srcChainID, dstChainID, receivers, bridgingFee, operationFee)
+		ctx, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -90,7 +90,7 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	operationFee uint64,
 ) (*TxFeeInfo, *BridgingRequestMetadata, error) {
 	data, err := txSnd.prepareBridgingTx(
-		srcChainID, dstChainID, receivers, bridgingFee, operationFee)
+		ctx, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -140,6 +140,10 @@ func (txSnd *TxSender) CreateTxGeneric(
 	}
 
 	defer txBuilder.Dispose()
+
+	if err := txSnd.populateProtocolParameters(ctx, txBuilder, &srcConfig); err != nil {
+		return nil, err
+	}
 
 	outputLovelace, err = fixLovelaceOutput(
 		txBuilder, &srcConfig, receiverAddr, outputNativeToken, outputLovelace)
@@ -238,6 +242,7 @@ func (txSnd *TxSender) CreateMetadata(
 }
 
 func (txSnd *TxSender) GetBridgingFee(
+	ctx context.Context,
 	srcChainID string,
 	dstChainID string,
 	receivers []BridgingTxReceiver,
@@ -245,7 +250,7 @@ func (txSnd *TxSender) GetBridgingFee(
 	operationFee uint64,
 ) (uint64, error) {
 	data, err := txSnd.prepareBridgingTx(
-		srcChainID, dstChainID, receivers, bridgingFee, operationFee)
+		ctx, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
 	if err != nil {
 		return 0, err
 	}
@@ -256,6 +261,7 @@ func (txSnd *TxSender) GetBridgingFee(
 }
 
 func (txSnd *TxSender) prepareBridgingTx(
+	ctx context.Context,
 	srcChainID string,
 	dstChainID string,
 	receivers []BridgingTxReceiver,
@@ -273,6 +279,10 @@ func (txSnd *TxSender) prepareBridgingTx(
 
 	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := txSnd.populateProtocolParameters(ctx, txBuilder, srcConfig); err != nil {
 		return nil, err
 	}
 
@@ -395,10 +405,6 @@ func (txSnd *TxSender) populateTxBuilder(
 	outputLovelace uint64,
 	outputNativeToken *cardanowallet.TokenAmount,
 ) (uint64, uint64, error) {
-	if err := txSnd.populateProtocolParameters(ctx, txBuilder, config); err != nil {
-		return 0, 0, err
-	}
-
 	var (
 		outputNativeTokenAmounts  []cardanowallet.TokenAmount
 		outputNativeTokenFullName string
@@ -485,12 +491,12 @@ func (txSnd *TxSender) populateTxBuilder(
 }
 
 func (txSnd *TxSender) populateProtocolParameters(
-	ctx context.Context, txBuilder *cardanowallet.TxBuilder, srcConfig *ChainConfig,
+	ctx context.Context, txBuilder *cardanowallet.TxBuilder, config *ChainConfig,
 ) (err error) {
-	protocolParams := srcConfig.ProtocolParameters
+	protocolParams := config.ProtocolParameters
 	if protocolParams == nil {
 		protocolParams, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]byte, error) {
-			return srcConfig.TxProvider.GetProtocolParameters(ctx)
+			return config.TxProvider.GetProtocolParameters(ctx)
 		}, txSnd.retryOptions...)
 		if err != nil {
 			return err

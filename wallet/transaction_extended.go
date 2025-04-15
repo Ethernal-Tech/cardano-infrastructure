@@ -144,12 +144,7 @@ func GetMinUtxoForSumMap(txBuilder *TxBuilder, userAddress string, sumMap map[st
 		}
 	}
 
-	retSum, err := txBuilder.CalculateMinUtxo(txOutput)
-	if err != nil {
-		return 0, err
-	}
-
-	return retSum, nil
+	return txBuilder.CalculateMinUtxo(txOutput)
 }
 
 // CreateTxOutputChange generates a TxOutput representing the change
