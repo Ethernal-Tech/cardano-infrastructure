@@ -436,7 +436,10 @@ func (txSnd *TxSender) populateTxBuilder(
 	potentialChangeTokenCost, err := cardanowallet.GetMinUtxoForSumMap(
 		builder,
 		senderAddr,
-		cardanowallet.SubtractTokensFromSumMap(cardanowallet.GetUtxosSum(utxos), srcNativeTokenOutputs))
+		cardanowallet.SubtractSumMaps(
+			cardanowallet.GetUtxosSum(utxos),
+			cardanowallet.GetTokensSumMap(srcNativeTokenOutputs...),
+		))
 	if err != nil {
 		return 0, 0, 0, err
 	}
