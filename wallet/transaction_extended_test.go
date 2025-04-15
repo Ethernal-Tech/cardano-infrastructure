@@ -358,7 +358,7 @@ func TestGetTokensSumMap(t *testing.T) {
 		NewTokenAmount(NewToken("pid", "WAPEX"), 400),
 		NewTokenAmount(NewToken("pid", "WADA"), 300),
 	}
-	mp := GetTokensSumMap(tokens)
+	mp := GetTokensSumMap(tokens...)
 
 	require.Len(t, mp, 2)
 	require.Equal(t, uint64(500), mp[tokens[0].TokenName()])

@@ -244,7 +244,7 @@ func SubtractTokensFromSumMap(
 }
 
 // GetTokensSumMap converts a slice of TokenAmount into a map where each token name is mapped to its amount.
-func GetTokensSumMap(tokens []TokenAmount) map[string]uint64 {
+func GetTokensSumMap(tokens ...TokenAmount) map[string]uint64 {
 	sumMap := make(map[string]uint64, len(tokens))
 
 	for _, token := range tokens {
