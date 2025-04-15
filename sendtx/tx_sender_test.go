@@ -1,6 +1,7 @@
 package sendtx
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/common"
@@ -133,6 +134,20 @@ func TestCreateMetaData(t *testing.T) {
 		require.ErrorContains(t, err, "amount for receiver ")
 	})
 
+	t.Run("invalid source", func(t *testing.T) {
+		_, err := NewTxSender(configs).CreateMetadata(
+			senderAddr, "prime1", "vector", []BridgingTxReceiver{}, bridgingFeeAmount, operationFeeAmount)
+
+		require.ErrorContains(t, err, "source")
+	})
+
+	t.Run("invalid source", func(t *testing.T) {
+		_, err := NewTxSender(configs).CreateMetadata(
+			senderAddr, "prime", "vector2", []BridgingTxReceiver{}, bridgingFeeAmount, operationFeeAmount)
+
+		require.ErrorContains(t, err, "destination")
+	})
+
 	t.Run("invalid amount reactor", func(t *testing.T) {
 		txSnd := NewTxSender(map[string]ChainConfig{
 			"prime": {
@@ -156,7 +171,7 @@ func TestCreateMetaData(t *testing.T) {
 	})
 }
 
-func TestCheckFees(t *testing.T) {
+func Test_checkFees(t *testing.T) {
 	const (
 		bridgingFeeAmount  = 1_000_005
 		operationFeeAmount = 34
@@ -181,4 +196,63 @@ func TestCheckFees(t *testing.T) {
 		err := checkFees(cfg, bridgingFeeAmount, operationFeeAmount)
 		require.NoError(t, err)
 	})
+}
+
+func Test_getOutputAmounts(t *testing.T) {
+	lovelace, nativeTokens := getOutputAmounts([]BridgingTxReceiver{
+		{
+			BridgingType: BridgingTypeCurrencyOnSource,
+			Amount:       1,
+		},
+		{
+			BridgingType: BridgingTypeNativeTokenOnSource,
+			Amount:       2,
+		},
+		{
+			BridgingType: BridgingTypeCurrencyOnSource,
+			Amount:       3,
+		},
+		{
+			BridgingType: BridgingTypeNormal,
+			Amount:       4,
+		},
+		{
+			BridgingType: BridgingTypeNativeTokenOnSource,
+			Amount:       5,
+		},
+	})
+
+	assert.Equal(t, uint64(8), lovelace)
+	assert.Equal(t, uint64(7), nativeTokens)
+}
+
+func TestGetTokenFromTokenExchangeConfig(t *testing.T) {
+	cfg := []TokenExchangeConfig{
+		{
+			DstChainID: "prime",
+			TokenName:  "pid.ffaabb",
+		},
+		{
+			DstChainID: "nexus",
+			TokenName:  "pid.roko",
+		},
+		{
+			DstChainID: "vector",
+			TokenName:  "pidffaabb",
+		},
+	}
+
+	token, err := GetTokenFromTokenExchangeConfig(cfg, "prime")
+
+	require.NoError(t, err)
+	assert.Equal(t, cfg[0].TokenName, token.String())
+
+	token, err = GetTokenFromTokenExchangeConfig(cfg, "nexus")
+
+	require.NoError(t, err)
+	assert.Equal(t, "pid."+hex.EncodeToString([]byte("roko")), token.String())
+
+	_, err = GetTokenFromTokenExchangeConfig(cfg, "vector")
+
+	assert.Error(t, err)
 }
