@@ -74,3 +74,16 @@ func addrToMetaDataAddr(addr string) []string {
 
 	return infracommon.SplitString(addr, splitStringLength)
 }
+
+// GetOutputAmounts returns amount needed for outputs in lovelace and native tokens
+func getOutputAmounts(receivers []BridgingTxReceiver) (outputCurrencyLovelace uint64, outputNativeToken uint64) {
+	for _, x := range receivers {
+		if x.BridgingType == BridgingTypeNativeTokenOnSource {
+			outputNativeToken += x.Amount // WSADA/WSAPEX to ADA/APEX
+		} else {
+			outputCurrencyLovelace += x.Amount // ADA/APEX to WSADA/WSAPEX or Reactor tokens
+		}
+	}
+
+	return outputCurrencyLovelace, outputNativeToken
+}

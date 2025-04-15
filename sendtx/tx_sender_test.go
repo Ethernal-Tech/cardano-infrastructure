@@ -1,7 +1,6 @@
 package sendtx
 
 import (
-	"context"
 	"testing"
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/common"
@@ -16,37 +15,38 @@ func TestCreateMetaData(t *testing.T) {
 		senderAddr         = "addr1_xghghg3sdss"
 	)
 
+	primeCfg := &ChainConfig{
+		MinUtxoValue: 55,
+	}
+	vectorCfg := &ChainConfig{
+		MinUtxoValue: 20,
+	}
 	configs := map[string]ChainConfig{
-		"prime": {
-			MinBridgingFeeAmount: bridgingFeeAmount,
-			MinUtxoValue:         55,
-		},
-		"vector": {
-			MinBridgingFeeAmount: bridgingFeeAmount,
-			MinUtxoValue:         20,
-		},
+		"prime":  *primeCfg,
+		"vector": *vectorCfg,
 	}
 
 	t.Run("valid", func(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
-		metadata, err := txSnd.CreateMetadata(context.Background(), senderAddr, "prime", "vector", []BridgingTxReceiver{
-			{
-				BridgingType: BridgingTypeNormal,
-				Addr:         "addr1_aa",
-				Amount:       uint64(100),
-			},
-			{
-				BridgingType: BridgingTypeCurrencyOnSource,
-				Addr:         "addr1_ab",
-				Amount:       uint64(61),
-			},
-			{
-				BridgingType: BridgingTypeNativeTokenOnSource,
-				Addr:         "addr1_ac",
-				Amount:       uint64(33),
-			},
-		}, bridgingFeeAmount, operationFeeAmount)
+		metadata, err := txSnd.createMetadata(
+			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
+				{
+					BridgingType: BridgingTypeNormal,
+					Addr:         "addr1_aa",
+					Amount:       uint64(100),
+				},
+				{
+					BridgingType: BridgingTypeCurrencyOnSource,
+					Addr:         "addr1_ab",
+					Amount:       uint64(61),
+				},
+				{
+					BridgingType: BridgingTypeNativeTokenOnSource,
+					Addr:         "addr1_ac",
+					Amount:       uint64(33),
+				},
+			}, bridgingFeeAmount, operationFeeAmount)
 
 		require.NoError(t, err)
 		assert.Equal(t, common.SplitString(senderAddr, splitStringLength), metadata.SenderAddr)
@@ -83,13 +83,14 @@ func TestCreateMetaData(t *testing.T) {
 			},
 		})
 
-		metadata, err := txSnd.CreateMetadata(context.Background(), senderAddr, "prime", "vector", []BridgingTxReceiver{
-			{
-				BridgingType: BridgingTypeNativeTokenOnSource,
-				Addr:         "addr1_ab",
-				Amount:       uint64(200),
-			},
-		}, bridgingFeeAmount, operationFeeAmount)
+		metadata, err := txSnd.createMetadata(
+			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
+				{
+					BridgingType: BridgingTypeNativeTokenOnSource,
+					Addr:         "addr1_ab",
+					Amount:       uint64(200),
+				},
+			}, bridgingFeeAmount, operationFeeAmount)
 
 		require.NoError(t, err)
 		assert.Equal(t, common.SplitString(senderAddr, splitStringLength), metadata.SenderAddr)
@@ -106,56 +107,30 @@ func TestCreateMetaData(t *testing.T) {
 		}, metadata.Transactions)
 	})
 
-	t.Run("invalid destination", func(t *testing.T) {
-		txSnd := NewTxSender(configs)
-
-		_, err := txSnd.CreateMetadata(
-			context.Background(), senderAddr, "prime", "vector1", []BridgingTxReceiver{}, bridgingFeeAmount, operationFeeAmount)
-		require.ErrorContains(t, err, "destination chain ")
-	})
-
-	t.Run("invalid source", func(t *testing.T) {
-		txSnd := NewTxSender(configs)
-
-		_, err := txSnd.CreateMetadata(
-			context.Background(), senderAddr, "prime1", "vector", []BridgingTxReceiver{}, bridgingFeeAmount, operationFeeAmount)
-		require.ErrorContains(t, err, "source chain ")
-	})
-
 	t.Run("invalid amount native token on source", func(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
-		_, err := txSnd.CreateMetadata(context.Background(), senderAddr, "prime", "vector", []BridgingTxReceiver{
-			{
-				BridgingType: BridgingTypeNativeTokenOnSource,
-				Amount:       19,
-			},
-		}, bridgingFeeAmount, operationFeeAmount)
+		_, err := txSnd.createMetadata(
+			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
+				{
+					BridgingType: BridgingTypeNativeTokenOnSource,
+					Amount:       19,
+				},
+			}, bridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
 	})
 
 	t.Run("invalid amount currency on source", func(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
-		_, err := txSnd.CreateMetadata(context.Background(), senderAddr, "prime", "vector", []BridgingTxReceiver{
-			{
-				BridgingType: BridgingTypeCurrencyOnSource,
-				Amount:       9,
-			},
-		}, bridgingFeeAmount, operationFeeAmount)
+		_, err := txSnd.createMetadata(
+			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
+				{
+					BridgingType: BridgingTypeCurrencyOnSource,
+					Amount:       9,
+				},
+			}, bridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
-	})
-
-	t.Run("invalid bridging fee", func(t *testing.T) {
-		txSnd := NewTxSender(configs)
-
-		_, err := txSnd.CreateMetadata(context.Background(), senderAddr, "prime", "vector", []BridgingTxReceiver{
-			{
-				BridgingType: BridgingTypeCurrencyOnSource,
-				Amount:       9,
-			},
-		}, bridgingFeeAmount-1, operationFeeAmount)
-		require.ErrorContains(t, err, "bridging fee")
 	})
 
 	t.Run("invalid amount reactor", func(t *testing.T) {
@@ -170,12 +145,40 @@ func TestCreateMetaData(t *testing.T) {
 			},
 		})
 
-		_, err := txSnd.CreateMetadata(context.Background(), senderAddr, "prime", "vector", []BridgingTxReceiver{
-			{
-				BridgingType: BridgingTypeNormal,
-				Amount:       189,
-			},
-		}, bridgingFeeAmount, operationFeeAmount)
+		_, err := txSnd.createMetadata(
+			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
+				{
+					BridgingType: BridgingTypeNormal,
+					Amount:       189,
+				},
+			}, bridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
+	})
+}
+
+func TestCheckFees(t *testing.T) {
+	const (
+		bridgingFeeAmount  = 1_000_005
+		operationFeeAmount = 34
+	)
+
+	cfg := &ChainConfig{
+		MinBridgingFeeAmount:  bridgingFeeAmount,
+		MinOperationFeeAmount: operationFeeAmount,
+	}
+
+	t.Run("invalid bridging fee", func(t *testing.T) {
+		err := checkFees(cfg, bridgingFeeAmount-1, operationFeeAmount)
+		require.ErrorContains(t, err, "bridging fee")
+	})
+
+	t.Run("invalid operation fee", func(t *testing.T) {
+		err := checkFees(cfg, bridgingFeeAmount, operationFeeAmount-1)
+		require.ErrorContains(t, err, "operation fee")
+	})
+
+	t.Run("good", func(t *testing.T) {
+		err := checkFees(cfg, bridgingFeeAmount, operationFeeAmount)
+		require.NoError(t, err)
 	})
 }

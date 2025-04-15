@@ -60,16 +60,14 @@ type TxSender struct {
 }
 
 type TxInfo struct {
-	TxRaw                 []byte
-	TxHash                string
-	ChangeMinUtxoAmount   uint64
-	ReceiverMinUtxoAmount uint64
+	TxRaw               []byte
+	TxHash              string
+	ChangeMinUtxoAmount uint64
 }
 
 type TxFeeInfo struct {
-	Fee                   uint64
-	ChangeMinUtxoAmount   uint64
-	ReceiverMinUtxoAmount uint64
+	Fee                 uint64
+	ChangeMinUtxoAmount uint64
 }
 
 type TxSenderOption func(*TxSender)
@@ -104,15 +102,36 @@ func (txSnd *TxSender) CreateBridgingTx(
 	bridgingFee uint64,
 	operationFee uint64,
 ) (*TxInfo, *BridgingRequestMetadata, error) {
-	metadata, err := txSnd.CreateMetadata(
-		ctx, senderAddr, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
+	srcConfig, dstConfig, err := txSnd.getConfigs(srcChainID, dstChainID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	srcConfig := txSnd.chainConfigMap[srcChainID]
-	outputCurrencyLovelace, outputNativeToken := metadata.GetOutputAmounts()
-	srcNativeTokenFullName := getNativeTokenNameForDstChainID(srcConfig.NativeTokens, dstChainID)
+	if err := checkFees(&srcConfig, bridgingFee, operationFee); err != nil {
+		return nil, nil, err
+	}
+
+	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer txBuilder.Dispose()
+
+	outputLovelace, feeDiff, outputNativeToken, err := getOutputsFromReceivers(
+		txBuilder, &srcConfig, dstChainID, receivers)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	bridgingFee += feeDiff
+	outputLovelace += bridgingFee + operationFee
+
+	metadata, err := txSnd.createMetadata(
+		senderAddr, &srcConfig, &dstConfig, dstChainID, receivers, bridgingFee, operationFee)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	metaDataRaw, err := metadata.Marshal()
 	if err != nil {
@@ -120,8 +139,7 @@ func (txSnd *TxSender) CreateBridgingTx(
 	}
 
 	txInfo, err := txSnd.createTx(
-		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr,
-		metaDataRaw, outputCurrencyLovelace, outputNativeToken, srcNativeTokenFullName)
+		ctx, txBuilder, &srcConfig, senderAddr, srcConfig.MultiSigAddr, metaDataRaw, outputLovelace, outputNativeToken)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -139,15 +157,36 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	bridgingFee uint64,
 	operationFee uint64,
 ) (*TxFeeInfo, *BridgingRequestMetadata, error) {
-	metadata, err := txSnd.CreateMetadata(
-		ctx, senderAddr, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
+	srcConfig, dstConfig, err := txSnd.getConfigs(srcChainID, dstChainID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	srcConfig := txSnd.chainConfigMap[srcChainID]
-	outputCurrencyLovelace, outputNativeTokenAmount := metadata.GetOutputAmounts()
-	srcNativeTokenFullName := getNativeTokenNameForDstChainID(srcConfig.NativeTokens, dstChainID)
+	if err := checkFees(&srcConfig, bridgingFee, operationFee); err != nil {
+		return nil, nil, err
+	}
+
+	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer txBuilder.Dispose()
+
+	outputLovelace, feeDiff, outputNativeToken, err := getOutputsFromReceivers(
+		txBuilder, &srcConfig, dstChainID, receivers)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	bridgingFee += feeDiff
+	outputLovelace += bridgingFee + operationFee
+
+	metadata, err := txSnd.createMetadata(
+		senderAddr, &srcConfig, &dstConfig, dstChainID, receivers, bridgingFee, operationFee)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	metaDataRaw, err := metadata.Marshal()
 	if err != nil {
@@ -155,8 +194,7 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	}
 
 	txFeeInfo, err := txSnd.calculateFee(
-		ctx, srcConfig, senderAddr, srcConfig.MultiSigAddr,
-		metaDataRaw, outputCurrencyLovelace, outputNativeTokenAmount, srcNativeTokenFullName)
+		ctx, txBuilder, &srcConfig, senderAddr, srcConfig.MultiSigAddr, metaDataRaw, outputLovelace, outputNativeToken)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -171,18 +209,29 @@ func (txSnd *TxSender) CreateTxGeneric(
 	senderAddr string,
 	receiverAddr string,
 	metadata []byte,
-	outputCurrencyLovelace uint64,
-	outputNativeTokenAmount uint64,
-	srcNativeTokenFullName string,
+	outputLovelace uint64,
+	outputNativeToken *cardanowallet.TokenAmount,
 ) (*TxInfo, error) {
 	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
 	if !existsSrc {
 		return nil, fmt.Errorf("chain %s config not found", srcChainID)
 	}
 
+	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+	if err != nil {
+		return nil, err
+	}
+
+	defer txBuilder.Dispose()
+
+	outputLovelace, err = fixLovelaceOutput(
+		txBuilder, &srcConfig, receiverAddr, outputNativeToken, outputLovelace)
+	if err != nil {
+		return nil, err
+	}
+
 	return txSnd.createTx(
-		ctx, srcConfig, senderAddr, receiverAddr, metadata,
-		outputCurrencyLovelace, outputNativeTokenAmount, srcNativeTokenFullName)
+		ctx, txBuilder, &srcConfig, senderAddr, receiverAddr, metadata, outputLovelace, outputNativeToken)
 }
 
 func (txSnd *TxSender) SubmitTx(
@@ -212,33 +261,243 @@ func (txSnd *TxSender) SubmitTx(
 	return err
 }
 
-func (txSnd *TxSender) CreateMetadata(
+func (txSnd *TxSender) calculateFee(
 	ctx context.Context,
+	txBuilder *cardanowallet.TxBuilder,
+	srcConfig *ChainConfig,
 	senderAddr string,
-	srcChainID string,
+	receiverAddr string,
+	metadata []byte,
+	outputLovelace uint64,
+	outputNativeToken *cardanowallet.TokenAmount,
+) (*TxFeeInfo, error) {
+	_, changeMinUtxoAmount, err := txSnd.populateTxBuilder(
+		ctx, txBuilder, srcConfig, senderAddr, receiverAddr, metadata, outputLovelace, outputNativeToken)
+	if err != nil {
+		return nil, err
+	}
+
+	fee, err := txBuilder.CalculateFee(1)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TxFeeInfo{
+		Fee:                 fee,
+		ChangeMinUtxoAmount: changeMinUtxoAmount,
+	}, nil
+}
+
+func (txSnd *TxSender) createTx(
+	ctx context.Context,
+	txBuilder *cardanowallet.TxBuilder,
+	srcConfig *ChainConfig,
+	senderAddr string,
+	receiverAddr string,
+	metadata []byte,
+	outputLovelace uint64,
+	outputNativeToken *cardanowallet.TokenAmount,
+) (*TxInfo, error) {
+	changeCurrencyLovelace, changeMinUtxoAmount, err := txSnd.populateTxBuilder(
+		ctx, txBuilder, srcConfig, senderAddr, receiverAddr, metadata, outputLovelace, outputNativeToken)
+	if err != nil {
+		return nil, err
+	}
+
+	feeCurrencyLovelace, err := txBuilder.CalculateFee(1)
+	if err != nil {
+		return nil, err
+	}
+
+	txBuilder.SetFee(feeCurrencyLovelace)
+
+	change := changeCurrencyLovelace - feeCurrencyLovelace
+	// handle overflow or insufficient amount
+	if change != 0 && (change > changeCurrencyLovelace || change < changeMinUtxoAmount) {
+		return nil,
+			fmt.Errorf("insufficient remaining amount %d for fee %d, or minimum UTXO (%d) not satisfied",
+				changeCurrencyLovelace, feeCurrencyLovelace, changeMinUtxoAmount)
+	}
+
+	if change != 0 {
+		txBuilder.UpdateOutputAmount(-1, change)
+	} else {
+		txBuilder.RemoveOutput(-1)
+	}
+
+	txRaw, txHash, err := txBuilder.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return &TxInfo{
+		TxRaw:               txRaw,
+		TxHash:              txHash,
+		ChangeMinUtxoAmount: changeMinUtxoAmount,
+	}, nil
+}
+
+func (txSnd *TxSender) populateTxBuilder(
+	ctx context.Context,
+	txBuilder *cardanowallet.TxBuilder,
+	config *ChainConfig,
+	senderAddr string,
+	receiverAddr string,
+	metadata []byte,
+	outputLovelace uint64,
+	outputNativeToken *cardanowallet.TokenAmount,
+) (uint64, uint64, error) {
+	if err := txSnd.populateProtocolParameters(ctx, txBuilder, config); err != nil {
+		return 0, 0, err
+	}
+
+	var (
+		outputNativeTokenAmounts  []cardanowallet.TokenAmount
+		outputNativeTokenFullName string
+	)
+
+	if outputNativeToken != nil && outputNativeToken.Amount > 0 {
+		outputNativeTokenFullName = outputNativeToken.String() // take the name used for maps
+		outputNativeTokenAmounts = append(outputNativeTokenAmounts, *outputNativeToken)
+	}
+
+	utxos, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]cardanowallet.Utxo, error) {
+		return config.TxProvider.GetUtxos(ctx, senderAddr)
+	}, txSnd.retryOptions...)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	// calculate minUtxo for change output
+	potentialChangeTokenCost, err := cardanowallet.GetMinUtxoForSumMap(
+		txBuilder,
+		senderAddr,
+		cardanowallet.SubtractSumMaps(
+			cardanowallet.GetUtxosSum(utxos),
+			cardanowallet.GetTokensSumMap(outputNativeTokenAmounts...),
+		))
+	if err != nil {
+		return 0, 0, err
+	}
+
+	srcChangeMinUtxo := max(config.MinUtxoValue, potentialChangeTokenCost)
+	potentialFee := setOrDefault(config.PotentialFee, defaultPotentialFee)
+
+	conditions := map[string]uint64{
+		cardanowallet.AdaTokenName: outputLovelace + potentialFee + srcChangeMinUtxo,
+	}
+
+	if outputNativeToken != nil && outputNativeToken.Amount > 0 {
+		conditions[outputNativeTokenFullName] = outputNativeToken.Amount
+	}
+
+	if txSnd.utxosTransformer != nil {
+		utxos = txSnd.utxosTransformer.TransformUtxos(utxos)
+	}
+
+	inputs, err := GetUTXOsForAmounts(utxos, conditions, txSnd.maxInputsPerTx, 1)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if txSnd.utxosTransformer != nil {
+		txSnd.utxosTransformer.UpdateUtxos(inputs.Inputs)
+	}
+
+	if outputNativeToken != nil && outputNativeToken.Amount > 0 {
+		inputs.Sum[outputNativeTokenFullName] -= outputNativeToken.Amount
+		if inputs.Sum[outputNativeTokenFullName] == 0 {
+			delete(inputs.Sum, outputNativeTokenFullName)
+		}
+	}
+
+	outputRemainingTokens, err := cardanowallet.GetTokensFromSumMap(inputs.Sum)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to create tokens from sum map. err: %w", err)
+	}
+
+	txBuilder.SetMetaData(metadata).
+		SetTestNetMagic(config.TestNetMagic).
+		AddInputs(inputs.Inputs...).
+		AddOutputs(cardanowallet.TxOutput{
+			Addr:   receiverAddr,
+			Amount: outputLovelace,
+			Tokens: outputNativeTokenAmounts,
+		}, cardanowallet.TxOutput{
+			Addr:   senderAddr,
+			Tokens: outputRemainingTokens,
+		})
+
+	// populate ttl at the end because previous operations could take time
+	if err := txSnd.populateTimeToLive(ctx, txBuilder, config); err != nil {
+		return 0, 0, err
+	}
+
+	return inputs.Sum[cardanowallet.AdaTokenName] - outputLovelace, srcChangeMinUtxo, nil
+}
+
+func (txSnd *TxSender) populateProtocolParameters(
+	ctx context.Context, txBuilder *cardanowallet.TxBuilder, srcConfig *ChainConfig,
+) (err error) {
+	protocolParams := srcConfig.ProtocolParameters
+	if protocolParams == nil {
+		protocolParams, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]byte, error) {
+			return srcConfig.TxProvider.GetProtocolParameters(ctx)
+		}, txSnd.retryOptions...)
+		if err != nil {
+			return err
+		}
+	}
+
+	txBuilder.SetProtocolParameters(protocolParams)
+
+	return nil
+}
+
+func (txSnd *TxSender) populateTimeToLive(
+	ctx context.Context, txBuilder *cardanowallet.TxBuilder, config *ChainConfig,
+) error {
+	qtd, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (cardanowallet.QueryTipData, error) {
+		return config.TxProvider.GetTip(ctx)
+	}, txSnd.retryOptions...)
+	if err != nil {
+		return err
+	}
+
+	ttlSlotNumberInc := setOrDefault(config.TTLSlotNumberInc, defaultTTLSlotNumberInc)
+
+	txBuilder.SetTimeToLive(qtd.Slot + ttlSlotNumberInc)
+
+	return nil
+}
+
+func (txSnd *TxSender) getConfigs(
+	srcChainID, dstChainID string,
+) (srcConfig ChainConfig, dstConfig ChainConfig, err error) {
+	var exists bool
+
+	srcConfig, exists = txSnd.chainConfigMap[srcChainID]
+	if !exists {
+		return srcConfig, dstConfig, fmt.Errorf("source chain %s config not found", srcChainID)
+	}
+
+	dstConfig, exists = txSnd.chainConfigMap[dstChainID]
+	if !exists {
+		return srcConfig, dstConfig, fmt.Errorf("destination chain %s config not found", dstChainID)
+	}
+
+	return srcConfig, dstConfig, nil
+}
+
+func (txSnd *TxSender) createMetadata(
+	senderAddr string,
+	srcConfig *ChainConfig,
+	dstConfig *ChainConfig,
 	dstChainID string,
 	receivers []BridgingTxReceiver,
 	bridgingFee uint64,
 	operationFee uint64,
 ) (*BridgingRequestMetadata, error) {
-	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
-	if !existsSrc {
-		return nil, fmt.Errorf("source chain %s config not found", srcChainID)
-	}
-
-	dstConfig, existsDst := txSnd.chainConfigMap[dstChainID]
-	if !existsDst {
-		return nil, fmt.Errorf("destination chain %s config not found", dstChainID)
-	}
-
-	if bridgingFee < srcConfig.MinBridgingFeeAmount {
-		return nil, fmt.Errorf("bridging fee is less than: %d", dstConfig.MinBridgingFeeAmount)
-	}
-
-	if operationFee < srcConfig.MinOperationFeeAmount {
-		return nil, fmt.Errorf("operation fee is less than: %d", dstConfig.MinOperationFeeAmount)
-	}
-
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
 
 	for i, x := range receivers {
@@ -285,283 +544,86 @@ func (txSnd *TxSender) CreateMetadata(
 	}, nil
 }
 
-func (txSnd *TxSender) calculateFee(ctx context.Context,
-	srcConfig ChainConfig,
-	senderAddr string,
-	receiverAddr string,
-	metadata []byte,
-	outputCurrencyLovelace uint64,
-	outputNativeTokenAmount uint64,
-	srcNativeTokenFullName string,
-) (*TxFeeInfo, error) {
-	builder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
-	if err != nil {
-		return nil, err
+func getOutputsFromReceivers(
+	txBuilder *cardanowallet.TxBuilder, config *ChainConfig, dstChainID string, receivers []BridgingTxReceiver,
+) (outputLovelace uint64, feeDiff uint64, outputNativeToken *cardanowallet.TokenAmount, err error) {
+	nativeTokenAmount := (*cardanowallet.TokenAmount)(nil)
+	outputLovelaceBase, outputNativeTokenAmount := getOutputAmounts(receivers)
+
+	if outputNativeTokenAmount > 0 {
+		nativeToken, err := getNativeToken(config.NativeTokens, dstChainID)
+		if err != nil {
+			return 0, 0, nil, err
+		}
+
+		token := cardanowallet.NewTokenAmount(nativeToken, outputNativeTokenAmount)
+		nativeTokenAmount = &token
 	}
 
-	defer builder.Dispose()
-
-	_, changeMinUtxoAmount, receiverMinUtxoAmount, err := txSnd.populateTxBuilder(
-		ctx, builder, srcConfig,
-		senderAddr, receiverAddr,
-		metadata, outputCurrencyLovelace,
-		outputNativeTokenAmount, srcNativeTokenFullName)
+	outputLovelace, err = fixLovelaceOutput(
+		txBuilder, config, config.MultiSigAddr, nativeTokenAmount, outputLovelaceBase)
 	if err != nil {
-		return nil, err
+		return 0, 0, nil, err
 	}
 
-	fee, err := builder.CalculateFee(1)
-	if err != nil {
-		return nil, err
+	// add
+	if outputLovelace > outputLovelaceBase {
+		feeDiff = outputLovelace - outputLovelaceBase
 	}
 
-	return &TxFeeInfo{
-		Fee:                   fee,
-		ChangeMinUtxoAmount:   changeMinUtxoAmount,
-		ReceiverMinUtxoAmount: receiverMinUtxoAmount,
-	}, nil
+	return outputLovelace, feeDiff, outputNativeToken, nil
 }
 
-func (txSnd *TxSender) createTx(
-	ctx context.Context,
-	srcConfig ChainConfig,
-	senderAddr string,
-	receiverAddr string,
-	metadata []byte,
-	outputCurrencyLovelace uint64,
-	outputNativeToken uint64,
-	srcNativeTokenFullName string,
-) (*TxInfo, error) {
-	builder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+func fixLovelaceOutput(
+	txBuilder *cardanowallet.TxBuilder, config *ChainConfig,
+	addr string, token *cardanowallet.TokenAmount, lovelaceOutput uint64,
+) (uint64, error) {
+	if token == nil {
+		return lovelaceOutput, nil
+	}
+
+	// calculate min lovelace amount (min utxo) for receiver output
+	srcReceiverMinUtxo, err := cardanowallet.GetMinUtxoForSumMap(
+		txBuilder, addr, cardanowallet.GetTokensSumMap(*token))
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	defer builder.Dispose()
-
-	changeCurrencyLovelace, changeMinUtxoAmount, receiverMinUtxoAmount, err := txSnd.populateTxBuilder(
-		ctx, builder, srcConfig,
-		senderAddr, receiverAddr,
-		metadata, outputCurrencyLovelace,
-		outputNativeToken, srcNativeTokenFullName)
-	if err != nil {
-		return nil, err
-	}
-
-	feeCurrencyLovelace, err := builder.CalculateFee(1)
-	if err != nil {
-		return nil, err
-	}
-
-	builder.SetFee(feeCurrencyLovelace)
-
-	change := changeCurrencyLovelace - feeCurrencyLovelace
-	// handle overflow or insufficient amount
-	if change != 0 && (change > changeCurrencyLovelace || change < changeMinUtxoAmount) {
-		return nil,
-			fmt.Errorf("insufficient remaining amount %d for fee %d, or minimum UTXO (%d) not satisfied",
-				changeCurrencyLovelace, feeCurrencyLovelace, changeMinUtxoAmount)
-	}
-
-	if change != 0 {
-		builder.UpdateOutputAmount(-1, change)
-	} else {
-		builder.RemoveOutput(-1)
-	}
-
-	txRaw, txHash, err := builder.Build()
-	if err != nil {
-		return nil, err
-	}
-
-	return &TxInfo{
-		TxRaw:                 txRaw,
-		TxHash:                txHash,
-		ChangeMinUtxoAmount:   changeMinUtxoAmount,
-		ReceiverMinUtxoAmount: receiverMinUtxoAmount,
-	}, nil
+	return max(lovelaceOutput, srcReceiverMinUtxo, config.MinUtxoValue), nil
 }
 
-func (txSnd *TxSender) populateTxBuilder(
-	ctx context.Context,
-	builder *cardanowallet.TxBuilder,
-	srcConfig ChainConfig,
-	senderAddr string,
-	receiverAddr string,
-	metadata []byte,
-	outputCurrencyLovelace uint64,
-	outputNativeTokenAmount uint64,
-	srcNativeTokenFullName string,
-) (uint64, uint64, uint64, error) {
-	if err := txSnd.populateProtocolParameters(ctx, builder, srcConfig); err != nil {
-		return 0, 0, 0, err
+func checkFees(config *ChainConfig, bridgingFee, operationFee uint64) error {
+	if bridgingFee < config.MinBridgingFeeAmount {
+		return fmt.Errorf("bridging fee is less than: %d", config.MinBridgingFeeAmount)
 	}
 
-	var (
-		srcNativeTokenOutputs []cardanowallet.TokenAmount
-		srcReceiverMinUtxo    uint64
-	)
-
-	if outputNativeTokenAmount != 0 {
-		srcNativeToken, err := getNativeToken(srcNativeTokenFullName)
-		if err != nil {
-			return 0, 0, 0, err
-		}
-
-		srcNativeTokenFullName = srcNativeToken.String() // take the name used for maps
-		srcNativeTokenOutputs = []cardanowallet.TokenAmount{
-			cardanowallet.NewTokenAmount(srcNativeToken, outputNativeTokenAmount),
-		}
-
-		// calculate min lovelace amount (min utxo) for receiver output
-		srcReceiverMinUtxo, err = cardanowallet.GetMinUtxoForSumMap(
-			builder, receiverAddr, cardanowallet.GetTokensSumMap(srcNativeTokenOutputs...))
-		if err != nil {
-			return 0, 0, 0, err
-		}
-
-		outputCurrencyLovelace = max(outputCurrencyLovelace, srcReceiverMinUtxo, srcConfig.MinUtxoValue)
+	if operationFee < config.MinOperationFeeAmount {
+		return fmt.Errorf("operation fee is less than: %d", config.MinOperationFeeAmount)
 	}
-
-	srcReceiverMinUtxo = max(srcConfig.MinUtxoValue, srcReceiverMinUtxo)
-
-	utxos, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]cardanowallet.Utxo, error) {
-		return srcConfig.TxProvider.GetUtxos(ctx, senderAddr)
-	}, txSnd.retryOptions...)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-
-	// calculate minUtxo for change output
-	potentialChangeTokenCost, err := cardanowallet.GetMinUtxoForSumMap(
-		builder,
-		senderAddr,
-		cardanowallet.SubtractSumMaps(
-			cardanowallet.GetUtxosSum(utxos),
-			cardanowallet.GetTokensSumMap(srcNativeTokenOutputs...),
-		))
-	if err != nil {
-		return 0, 0, 0, err
-	}
-
-	srcChangeMinUtxo := max(srcConfig.MinUtxoValue, potentialChangeTokenCost)
-	potentialFee := setOrDefault(srcConfig.PotentialFee, defaultPotentialFee)
-
-	conditions := map[string]uint64{
-		cardanowallet.AdaTokenName: outputCurrencyLovelace + potentialFee + srcChangeMinUtxo,
-	}
-	if outputNativeTokenAmount != 0 {
-		conditions[srcNativeTokenFullName] = outputNativeTokenAmount
-	}
-
-	if txSnd.utxosTransformer != nil {
-		utxos = txSnd.utxosTransformer.TransformUtxos(utxos)
-	}
-
-	inputs, err := GetUTXOsForAmounts(utxos, conditions, txSnd.maxInputsPerTx, 1)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-
-	if txSnd.utxosTransformer != nil {
-		txSnd.utxosTransformer.UpdateUtxos(inputs.Inputs)
-	}
-
-	if outputNativeTokenAmount != 0 {
-		inputs.Sum[srcNativeTokenFullName] -= outputNativeTokenAmount
-		if inputs.Sum[srcNativeTokenFullName] == 0 {
-			delete(inputs.Sum, srcNativeTokenFullName)
-		}
-	}
-
-	outputRemainingTokens, err := cardanowallet.GetTokensFromSumMap(inputs.Sum)
-	if err != nil {
-		return 0, 0, 0, fmt.Errorf("failed to create tokens from sum map. err: %w", err)
-	}
-
-	builder.SetMetaData(metadata).
-		SetTestNetMagic(srcConfig.TestNetMagic).
-		AddInputs(inputs.Inputs...).
-		AddOutputs(cardanowallet.TxOutput{
-			Addr:   receiverAddr,
-			Amount: outputCurrencyLovelace,
-			Tokens: srcNativeTokenOutputs,
-		}, cardanowallet.TxOutput{
-			Addr:   senderAddr,
-			Tokens: outputRemainingTokens,
-		})
-
-	// populate ttl at the end because previous operations could take time
-	if err := txSnd.populateTimeToLive(ctx, builder, srcConfig); err != nil {
-		return 0, 0, 0, err
-	}
-
-	return inputs.Sum[cardanowallet.AdaTokenName] - outputCurrencyLovelace, srcChangeMinUtxo, srcReceiverMinUtxo, nil
-}
-
-func (txSnd *TxSender) populateProtocolParameters(
-	ctx context.Context, builder *cardanowallet.TxBuilder, srcConfig ChainConfig,
-) (err error) {
-	protocolParams := srcConfig.ProtocolParameters
-	if protocolParams == nil {
-		protocolParams, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]byte, error) {
-			return srcConfig.TxProvider.GetProtocolParameters(ctx)
-		}, txSnd.retryOptions...)
-		if err != nil {
-			return err
-		}
-	}
-
-	builder.SetProtocolParameters(protocolParams)
 
 	return nil
 }
 
-func (txSnd *TxSender) populateTimeToLive(
-	ctx context.Context, builder *cardanowallet.TxBuilder, srcConfig ChainConfig,
-) error {
-	qtd, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (cardanowallet.QueryTipData, error) {
-		return srcConfig.TxProvider.GetTip(ctx)
-	}, txSnd.retryOptions...)
-	if err != nil {
-		return err
-	}
-
-	ttlSlotNumberInc := setOrDefault(srcConfig.TTLSlotNumberInc, defaultTTLSlotNumberInc)
-
-	builder.SetTimeToLive(qtd.Slot + ttlSlotNumberInc)
-
-	return nil
-}
-
-func getNativeTokenNameForDstChainID(
+func getNativeToken(
 	nativeTokenDsts []TokenExchangeConfig, dstChainID string,
-) string {
-	for _, nativeTokenDst := range nativeTokenDsts {
-		if nativeTokenDst.DstChainID == dstChainID {
-			return nativeTokenDst.TokenName
+) (token cardanowallet.Token, err error) {
+	for _, cfg := range nativeTokenDsts {
+		if cfg.DstChainID == dstChainID {
+			token, err = cardanowallet.NewTokenWithFullName(cfg.TokenName, true)
+			if err == nil {
+				return token, nil
+			}
+
+			token, err = cardanowallet.NewTokenWithFullName(cfg.TokenName, false)
+			if err == nil {
+				return token, nil
+			}
+
+			return token, fmt.Errorf("invalid native token name: %w", err)
 		}
 	}
 
-	return ""
-}
-
-func getNativeToken(fullName string) (token cardanowallet.Token, err error) {
-	if fullName == "" {
-		return token, errors.New("native token name not specified")
-	}
-
-	token, err = cardanowallet.NewTokenWithFullName(fullName, true)
-	if err == nil {
-		return token, nil
-	}
-
-	token, err = cardanowallet.NewTokenWithFullName(fullName, false)
-	if err != nil {
-		return token, fmt.Errorf("invalid native token name: %w", err)
-	}
-
-	return token, nil
+	return token, errors.New("native token name not specified")
 }
 
 func WithUtxosTransformer(utxosTransformer IUtxosTransformer) TxSenderOption {
