@@ -224,7 +224,7 @@ func GetTokenAmountFromUtxo(utxo Utxo, tokenName string) uint64 {
 // SubtractSumMaps subtracts the token amounts in map `b` from map `a`.
 // If the resulting amount for a token is less than or equal to zero, it is removed from the `a` map.
 // Tokens present in `b` but not in `a` are ignored.
-// Returns the modified `a` map.
+// It updates `a` in place and returns the modified map.
 func SubtractSumMaps(a, b map[string]uint64) map[string]uint64 {
 	for tokenName, tokenAmount := range a {
 		tokenAmountToSubtract, exists := b[tokenName]
@@ -240,6 +240,16 @@ func SubtractSumMaps(a, b map[string]uint64) map[string]uint64 {
 			// because an error will be raised when attempting to retrieve inputs for the transaction.
 			delete(a, tokenName)
 		}
+	}
+
+	return a
+}
+
+// AddSumMaps adds the token amounts from map `b` to map `a`.
+// It updates `a` in place and returns the modified map.
+func AddSumMaps(a, b map[string]uint64) map[string]uint64 {
+	for tokenName, tokenAmount := range b {
+		a[tokenName] += tokenAmount
 	}
 
 	return a

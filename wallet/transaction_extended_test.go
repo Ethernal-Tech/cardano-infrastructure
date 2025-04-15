@@ -327,6 +327,27 @@ func TestGetUTXOsForAmount(t *testing.T) {
 	})
 }
 
+func TestAddSumMaps(t *testing.T) {
+	a := map[string]uint64{
+		"a": 100,
+		"b": 200,
+		"d": 50,
+	}
+	b := map[string]uint64{
+		"a": 300,
+		"c": 1400,
+		"d": 51,
+	}
+
+	a = AddSumMaps(a, b)
+
+	require.Len(t, a, 4)
+	require.Equal(t, uint64(400), a["a"])
+	require.Equal(t, uint64(200), a["b"])
+	require.Equal(t, uint64(1400), a["c"])
+	require.Equal(t, uint64(101), a["d"])
+}
+
 func TestSubtractSumMaps(t *testing.T) {
 	tokens := []TokenAmount{
 		NewTokenAmount(NewToken("pid", "ADA"), 100),
