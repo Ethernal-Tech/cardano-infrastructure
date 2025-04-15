@@ -426,7 +426,7 @@ func (txSnd *TxSender) populateTxBuilder(
 			return 0, 0, 0, err
 		}
 
-		outputCurrencyLovelace = max(outputCurrencyLovelace, srcReceiverMinUtxo)
+		outputCurrencyLovelace = max(outputCurrencyLovelace, srcReceiverMinUtxo, srcConfig.MinUtxoValue)
 	}
 
 	srcReceiverMinUtxo = max(srcConfig.MinUtxoValue, srcReceiverMinUtxo)
