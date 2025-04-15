@@ -29,7 +29,7 @@ func TestCreateMetaData(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
-		metadata, err := txSnd.createMetadata(
+		metadata, err := txSnd.CreateMetadata(
 			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNormal,
@@ -83,7 +83,7 @@ func TestCreateMetaData(t *testing.T) {
 			},
 		})
 
-		metadata, err := txSnd.createMetadata(
+		metadata, err := txSnd.CreateMetadata(
 			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNativeTokenOnSource,
@@ -110,7 +110,7 @@ func TestCreateMetaData(t *testing.T) {
 	t.Run("invalid amount native token on source", func(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
-		_, err := txSnd.createMetadata(
+		_, err := txSnd.CreateMetadata(
 			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNativeTokenOnSource,
@@ -123,7 +123,7 @@ func TestCreateMetaData(t *testing.T) {
 	t.Run("invalid amount currency on source", func(t *testing.T) {
 		txSnd := NewTxSender(configs)
 
-		_, err := txSnd.createMetadata(
+		_, err := txSnd.CreateMetadata(
 			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeCurrencyOnSource,
@@ -145,7 +145,7 @@ func TestCreateMetaData(t *testing.T) {
 			},
 		})
 
-		_, err := txSnd.createMetadata(
+		_, err := txSnd.CreateMetadata(
 			senderAddr, primeCfg, vectorCfg, "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNormal,

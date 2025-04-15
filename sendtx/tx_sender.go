@@ -205,6 +205,61 @@ func (txSnd *TxSender) SubmitTx(
 	return err
 }
 
+func (txSnd *TxSender) CreateMetadata(
+	senderAddr string,
+	srcConfig *ChainConfig,
+	dstConfig *ChainConfig,
+	dstChainID string,
+	receivers []BridgingTxReceiver,
+	bridgingFee uint64,
+	operationFee uint64,
+) (*BridgingRequestMetadata, error) {
+	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
+
+	for i, x := range receivers {
+		switch x.BridgingType {
+		case BridgingTypeNativeTokenOnSource:
+			if x.Amount < dstConfig.MinUtxoValue {
+				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, dstConfig.MinUtxoValue)
+			}
+
+			txs[i] = BridgingRequestMetadataTransaction{
+				Address:            addrToMetaDataAddr(x.Addr),
+				Amount:             x.Amount,
+				IsNativeTokenOnSrc: metadataBoolTrue,
+			}
+
+		case BridgingTypeCurrencyOnSource:
+			if x.Amount < srcConfig.MinUtxoValue {
+				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, srcConfig.MinUtxoValue)
+			}
+
+			txs[i] = BridgingRequestMetadataTransaction{
+				Address: addrToMetaDataAddr(x.Addr),
+				Amount:  x.Amount,
+			}
+		default:
+			if x.Amount < txSnd.minAmountToBridge {
+				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, txSnd.minAmountToBridge)
+			}
+
+			txs[i] = BridgingRequestMetadataTransaction{
+				Address: addrToMetaDataAddr(x.Addr),
+				Amount:  x.Amount,
+			}
+		}
+	}
+
+	return &BridgingRequestMetadata{
+		BridgingTxType:     bridgingMetaDataType,
+		DestinationChainID: dstChainID,
+		SenderAddr:         addrToMetaDataAddr(senderAddr),
+		Transactions:       txs,
+		BridgingFee:        bridgingFee,
+		OperationFee:       operationFee,
+	}, nil
+}
+
 func (txSnd *TxSender) initBridgingTx(
 	srcChainID string,
 	dstChainID string,
@@ -239,7 +294,7 @@ func (txSnd *TxSender) initBridgingTx(
 
 	bridgingFee += feeDiff
 
-	metadata, err := txSnd.createMetadata(
+	metadata, err := txSnd.CreateMetadata(
 		senderAddr, srcConfig, dstConfig, dstChainID, receivers, bridgingFee, operationFee)
 	if err != nil {
 		return nil, nil, nil, nil, 0, nil, err
@@ -477,61 +532,6 @@ func (txSnd *TxSender) getConfigs(
 	}
 
 	return &srcConfig, &dstConfig, nil
-}
-
-func (txSnd *TxSender) createMetadata(
-	senderAddr string,
-	srcConfig *ChainConfig,
-	dstConfig *ChainConfig,
-	dstChainID string,
-	receivers []BridgingTxReceiver,
-	bridgingFee uint64,
-	operationFee uint64,
-) (*BridgingRequestMetadata, error) {
-	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
-
-	for i, x := range receivers {
-		switch x.BridgingType {
-		case BridgingTypeNativeTokenOnSource:
-			if x.Amount < dstConfig.MinUtxoValue {
-				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, dstConfig.MinUtxoValue)
-			}
-
-			txs[i] = BridgingRequestMetadataTransaction{
-				Address:            addrToMetaDataAddr(x.Addr),
-				Amount:             x.Amount,
-				IsNativeTokenOnSrc: metadataBoolTrue,
-			}
-
-		case BridgingTypeCurrencyOnSource:
-			if x.Amount < srcConfig.MinUtxoValue {
-				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, srcConfig.MinUtxoValue)
-			}
-
-			txs[i] = BridgingRequestMetadataTransaction{
-				Address: addrToMetaDataAddr(x.Addr),
-				Amount:  x.Amount,
-			}
-		default:
-			if x.Amount < txSnd.minAmountToBridge {
-				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, txSnd.minAmountToBridge)
-			}
-
-			txs[i] = BridgingRequestMetadataTransaction{
-				Address: addrToMetaDataAddr(x.Addr),
-				Amount:  x.Amount,
-			}
-		}
-	}
-
-	return &BridgingRequestMetadata{
-		BridgingTxType:     bridgingMetaDataType,
-		DestinationChainID: dstChainID,
-		SenderAddr:         addrToMetaDataAddr(senderAddr),
-		Transactions:       txs,
-		BridgingFee:        bridgingFee,
-		OperationFee:       operationFee,
-	}, nil
 }
 
 func getOutputsFromReceivers(
