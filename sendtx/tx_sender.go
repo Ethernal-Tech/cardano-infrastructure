@@ -222,7 +222,7 @@ func (txSnd *TxSender) initBridgingTx(
 		return nil, nil, nil, nil, 0, nil, err
 	}
 
-	if err := checkFees(&srcConfig, bridgingFee, operationFee); err != nil {
+	if err := checkFees(srcConfig, bridgingFee, operationFee); err != nil {
 		return nil, nil, nil, nil, 0, nil, err
 	}
 
@@ -232,7 +232,7 @@ func (txSnd *TxSender) initBridgingTx(
 	}
 
 	outputLovelace, feeDiff, outputNativeToken, err := getOutputsFromReceivers(
-		txBuilder, &srcConfig, dstChainID, receivers, bridgingFee+operationFee)
+		txBuilder, srcConfig, dstChainID, receivers, bridgingFee+operationFee)
 	if err != nil {
 		return nil, nil, nil, nil, 0, nil, err
 	}
@@ -240,7 +240,7 @@ func (txSnd *TxSender) initBridgingTx(
 	bridgingFee += feeDiff
 
 	metadata, err := txSnd.createMetadata(
-		senderAddr, &srcConfig, &dstConfig, dstChainID, receivers, bridgingFee, operationFee)
+		senderAddr, srcConfig, dstConfig, dstChainID, receivers, bridgingFee, operationFee)
 	if err != nil {
 		return nil, nil, nil, nil, 0, nil, err
 	}
@@ -250,7 +250,7 @@ func (txSnd *TxSender) initBridgingTx(
 		return nil, nil, nil, nil, 0, nil, err
 	}
 
-	return txBuilder, &srcConfig, metadata, metaDataRaw, outputLovelace, outputNativeToken, nil
+	return txBuilder, srcConfig, metadata, metaDataRaw, outputLovelace, outputNativeToken, nil
 }
 
 func (txSnd *TxSender) calculateFee(
@@ -465,20 +465,18 @@ func (txSnd *TxSender) populateTimeToLive(
 
 func (txSnd *TxSender) getConfigs(
 	srcChainID, dstChainID string,
-) (srcConfig ChainConfig, dstConfig ChainConfig, err error) {
-	var exists bool
-
-	srcConfig, exists = txSnd.chainConfigMap[srcChainID]
+) (*ChainConfig, *ChainConfig, error) {
+	srcConfig, exists := txSnd.chainConfigMap[srcChainID]
 	if !exists {
-		return srcConfig, dstConfig, fmt.Errorf("source chain %s config not found", srcChainID)
+		return nil, nil, fmt.Errorf("source chain %s config not found", srcChainID)
 	}
 
-	dstConfig, exists = txSnd.chainConfigMap[dstChainID]
+	dstConfig, exists := txSnd.chainConfigMap[dstChainID]
 	if !exists {
-		return srcConfig, dstConfig, fmt.Errorf("destination chain %s config not found", dstChainID)
+		return nil, nil, fmt.Errorf("destination chain %s config not found", dstChainID)
 	}
 
-	return srcConfig, dstConfig, nil
+	return &srcConfig, &dstConfig, nil
 }
 
 func (txSnd *TxSender) createMetadata(
@@ -568,20 +566,20 @@ func getOutputsFromReceivers(
 
 func fixLovelaceOutput(
 	txBuilder *cardanowallet.TxBuilder, config *ChainConfig,
-	addr string, token *cardanowallet.TokenAmount, lovelaceOutput uint64,
+	addr string, token *cardanowallet.TokenAmount, lovelaceOutputBase uint64,
 ) (uint64, error) {
 	if token == nil {
-		return lovelaceOutput, nil
+		return lovelaceOutputBase, nil
 	}
 
 	// calculate min lovelace amount (min utxo) for receiver output
-	srcReceiverMinUtxo, err := cardanowallet.GetMinUtxoForSumMap(
+	calculatedMinUntxo, err := cardanowallet.GetMinUtxoForSumMap(
 		txBuilder, addr, cardanowallet.GetTokensSumMap(*token))
 	if err != nil {
 		return 0, err
 	}
 
-	return max(lovelaceOutput, srcReceiverMinUtxo, config.MinUtxoValue), nil
+	return max(lovelaceOutputBase, calculatedMinUntxo, config.MinUtxoValue), nil
 }
 
 func checkFees(config *ChainConfig, bridgingFee, operationFee uint64) error {
@@ -598,10 +596,10 @@ func checkFees(config *ChainConfig, bridgingFee, operationFee uint64) error {
 
 func getNativeToken(
 	nativeTokenDsts []TokenExchangeConfig, dstChainID string,
-) (token cardanowallet.Token, err error) {
+) (cardanowallet.Token, error) {
 	for _, cfg := range nativeTokenDsts {
 		if cfg.DstChainID == dstChainID {
-			token, err = cardanowallet.NewTokenWithFullName(cfg.TokenName, true)
+			token, err := cardanowallet.NewTokenWithFullName(cfg.TokenName, true)
 			if err == nil {
 				return token, nil
 			}
@@ -615,7 +613,7 @@ func getNativeToken(
 		}
 	}
 
-	return token, errors.New("native token name not specified")
+	return cardanowallet.Token{}, errors.New("native token name not specified")
 }
 
 func WithUtxosTransformer(utxosTransformer IUtxosTransformer) TxSenderOption {
