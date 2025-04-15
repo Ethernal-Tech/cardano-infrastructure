@@ -414,14 +414,8 @@ func (txSnd *TxSender) populateTxBuilder(
 		}
 
 		// calculate min lovelace amount (min utxo) for receiver output
-		srcReceiverMinUtxo, err = cardanowallet.GetTokenCostSum(
-			builder, receiverAddr, []cardanowallet.Utxo{
-				{
-					Amount: outputCurrencyLovelace,
-					Tokens: srcNativeTokenOutputs,
-				},
-			},
-		)
+		srcReceiverMinUtxo, err = cardanowallet.GetMinUtxoForSumMap(
+			builder, receiverAddr, cardanowallet.GetTokensSumMap(srcNativeTokenOutputs))
 		if err != nil {
 			return 0, 0, 0, err
 		}
@@ -439,7 +433,7 @@ func (txSnd *TxSender) populateTxBuilder(
 	}
 
 	// calculate minUtxo for change output
-	potentialChangeTokenCost, err := cardanowallet.GetTokenCostSumFromSumMap(
+	potentialChangeTokenCost, err := cardanowallet.GetMinUtxoForSumMap(
 		builder,
 		senderAddr,
 		cardanowallet.SubtractTokensFromSumMap(cardanowallet.GetUtxosSum(utxos), srcNativeTokenOutputs))

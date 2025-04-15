@@ -45,26 +45,26 @@ func TestGetTokenCostSum(t *testing.T) {
 		},
 	}
 
-	result, err := GetTokenCostSum(txBuilder, address, utxos)
+	result, err := GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1189560), result)
 
 	utxos[1].Tokens[0].Amount = 1 // changing token amount will change the output
 
-	result, err = GetTokenCostSum(txBuilder, address, utxos)
+	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1172320), result)
 
 	utxos[2].Tokens[0].Amount = 3 // changing token amount will change the output
 
-	result, err = GetTokenCostSum(txBuilder, address, utxos)
+	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1137840), result)
 
 	utxos[0].Amount = 3
 	utxos[1].Amount = 300_021_416_931_256_900 // changing lovelace amounts won't make any difference
 
-	result, err = GetTokenCostSum(txBuilder, address, utxos)
+	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1137840), result)
 }
@@ -350,4 +350,17 @@ func TestSubtractTokensFromSumMap(t *testing.T) {
 	require.Equal(t, uint64(150), mp[tokens[1].TokenName()])
 	require.Equal(t, uint64(600), mp[tokens[3].TokenName()])
 	require.Equal(t, uint64(1000), mp["dummy"])
+}
+
+func TestGetTokensSumMap(t *testing.T) {
+	tokens := []TokenAmount{
+		NewTokenAmount(NewToken("pid", "WADA"), 200),
+		NewTokenAmount(NewToken("pid", "WAPEX"), 400),
+		NewTokenAmount(NewToken("pid", "WADA"), 300),
+	}
+	mp := GetTokensSumMap(tokens)
+
+	require.Len(t, mp, 2)
+	require.Equal(t, uint64(500), mp[tokens[0].TokenName()])
+	require.Equal(t, uint64(400), mp[tokens[1].TokenName()])
 }
