@@ -47,7 +47,7 @@ type TxInfo struct {
 	TxRaw               []byte
 	TxHash              string
 	ChangeMinUtxoAmount uint64
-	ChoosenInputs       cardanowallet.TxInputs
+	ChosenInputs        cardanowallet.TxInputs
 }
 
 type TxFeeInfo struct {
@@ -66,5 +66,5 @@ type bridgingTxPreparedData struct {
 type txBuilderPopulationData struct {
 	ChangeLovelace      uint64
 	ChangeMinUtxoAmount uint64
-	ChoosenInputs       cardanowallet.TxInputs
+	ChosenInputs        cardanowallet.TxInputs
 }

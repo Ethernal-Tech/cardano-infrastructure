@@ -395,7 +395,7 @@ func (txSnd *TxSender) createTx(
 		TxRaw:               txRaw,
 		TxHash:              txHash,
 		ChangeMinUtxoAmount: data.ChangeMinUtxoAmount,
-		ChoosenInputs:       data.ChoosenInputs,
+		ChosenInputs:        data.ChosenInputs,
 	}, nil
 }
 
@@ -490,7 +490,7 @@ func (txSnd *TxSender) populateTxBuilder(
 	return &txBuilderPopulationData{
 		ChangeLovelace:      inputs.Sum[cardanowallet.AdaTokenName] - outputLovelace,
 		ChangeMinUtxoAmount: srcChangeMinUtxo,
-		ChoosenInputs:       inputs,
+		ChosenInputs:        inputs,
 	}, nil
 }
 
