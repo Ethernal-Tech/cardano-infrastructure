@@ -58,7 +58,7 @@ func NewTokenWithFullNameTry(name string) (Token, error) {
 		return token, nil
 	}
 
-	return token, fmt.Errorf("invalid native token name %s: %w", name, err)
+	return token, err
 }
 
 func (tt Token) String() string {
