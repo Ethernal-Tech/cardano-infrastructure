@@ -148,8 +148,8 @@ func (txSnd *TxSender) CreateTxGeneric(
 		return nil, err
 	}
 
-	outputLovelace, err = fixLovelaceOutput(
-		txBuilder, &srcConfig, receiverAddr, outputNativeToken, outputLovelace)
+	outputLovelace, err = adjustLovelaceOutput(
+		txBuilder, receiverAddr, outputNativeToken, srcConfig.MinUtxoValue, outputLovelace)
 	if err != nil {
 		return nil, err
 	}
@@ -303,8 +303,8 @@ func (txSnd *TxSender) prepareBridgingTx(
 		outputNativeToken = &token
 	}
 
-	outputLovelace, err := fixLovelaceOutput(
-		txBuilder, srcConfig, srcConfig.MultiSigAddr, outputNativeToken, outputLovelaceBase)
+	outputLovelace, err := adjustLovelaceOutput(
+		txBuilder, srcConfig.MultiSigAddr, outputNativeToken, srcConfig.MinUtxoValue, outputLovelaceBase)
 	if err != nil {
 		return nil, err
 	}
@@ -545,12 +545,12 @@ func (txSnd *TxSender) getConfigs(
 	return &srcConfig, &dstConfig, nil
 }
 
-func fixLovelaceOutput(
-	txBuilder *cardanowallet.TxBuilder, config *ChainConfig,
-	addr string, token *cardanowallet.TokenAmount, lovelaceOutputBase uint64,
+func adjustLovelaceOutput(
+	txBuilder *cardanowallet.TxBuilder, addr string,
+	token *cardanowallet.TokenAmount, defaultMinUtxo, lovelaceOutputBase uint64,
 ) (uint64, error) {
 	if token == nil {
-		return lovelaceOutputBase, nil
+		return max(lovelaceOutputBase, defaultMinUtxo), nil
 	}
 
 	// calculate min lovelace amount (min utxo) for receiver output
@@ -560,7 +560,7 @@ func fixLovelaceOutput(
 		return 0, err
 	}
 
-	return max(lovelaceOutputBase, calculatedMinUtxo, config.MinUtxoValue), nil
+	return max(lovelaceOutputBase, calculatedMinUtxo, defaultMinUtxo), nil
 }
 
 func checkFees(config *ChainConfig, bridgingFee, operationFee uint64) error {
