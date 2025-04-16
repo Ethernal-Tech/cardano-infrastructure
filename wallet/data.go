@@ -47,6 +47,20 @@ func NewTokenWithFullName(name string, isNameEncoded bool) (Token, error) {
 	}, nil
 }
 
+func NewTokenWithFullNameTry(name string) (Token, error) {
+	token, err := NewTokenWithFullName(name, true)
+	if err == nil {
+		return token, nil
+	}
+
+	token, err = NewTokenWithFullName(name, false)
+	if err == nil {
+		return token, nil
+	}
+
+	return token, fmt.Errorf("invalid native token name %s: %w", name, err)
+}
+
 func (tt Token) String() string {
 	return fmt.Sprintf("%s.%s", tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
 }

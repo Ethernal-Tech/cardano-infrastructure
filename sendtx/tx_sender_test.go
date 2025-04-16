@@ -243,17 +243,17 @@ func TestGetTokenFromTokenExchangeConfig(t *testing.T) {
 		},
 	}
 
-	token, err := GetTokenFromTokenExchangeConfig(cfg, "prime")
+	token, err := getTokenFromTokenExchangeConfig(cfg, "prime")
 
 	require.NoError(t, err)
 	assert.Equal(t, cfg[0].TokenName, token.String())
 
-	token, err = GetTokenFromTokenExchangeConfig(cfg, "nexus")
+	token, err = getTokenFromTokenExchangeConfig(cfg, "nexus")
 
 	require.NoError(t, err)
 	assert.Equal(t, "pid."+hex.EncodeToString([]byte("roko")), token.String())
 
-	_, err = GetTokenFromTokenExchangeConfig(cfg, "vector")
+	_, err = getTokenFromTokenExchangeConfig(cfg, "vector")
 
 	assert.Error(t, err)
 }

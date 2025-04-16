@@ -294,7 +294,7 @@ func (txSnd *TxSender) prepareBridgingTx(
 	outputLovelaceBase += bridgingFee + operationFee
 
 	if outputNativeTokenAmount > 0 {
-		nativeToken, err := GetTokenFromTokenExchangeConfig(srcConfig.NativeTokens, dstChainID)
+		nativeToken, err := getTokenFromTokenExchangeConfig(srcConfig.NativeTokens, dstChainID)
 		if err != nil {
 			return nil, err
 		}
@@ -575,22 +575,12 @@ func checkFees(config *ChainConfig, bridgingFee, operationFee uint64) error {
 	return nil
 }
 
-func GetTokenFromTokenExchangeConfig(
+func getTokenFromTokenExchangeConfig(
 	nativeTokenDsts []TokenExchangeConfig, dstChainID string,
 ) (cardanowallet.Token, error) {
 	for _, cfg := range nativeTokenDsts {
 		if cfg.DstChainID == dstChainID {
-			token, err := cardanowallet.NewTokenWithFullName(cfg.TokenName, true)
-			if err == nil {
-				return token, nil
-			}
-
-			token, err = cardanowallet.NewTokenWithFullName(cfg.TokenName, false)
-			if err == nil {
-				return token, nil
-			}
-
-			return token, fmt.Errorf("invalid native token name for destination %s: %w", dstChainID, err)
+			return cardanowallet.NewTokenWithFullNameTry(cfg.TokenName)
 		}
 	}
 
