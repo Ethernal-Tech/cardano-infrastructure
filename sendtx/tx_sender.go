@@ -3,6 +3,7 @@ package sendtx
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	infracommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
@@ -449,7 +450,7 @@ func (txSnd *TxSender) populateTxBuilder(
 		conditions[outputNativeTokenFullName] = outputNativeToken.Amount
 	}
 
-	if txSnd.utxosTransformer != nil {
+	if txSnd.utxosTransformer != nil && !reflect.ValueOf(txSnd.utxosTransformer).IsNil() {
 		utxos = txSnd.utxosTransformer.TransformUtxos(utxos)
 	}
 
