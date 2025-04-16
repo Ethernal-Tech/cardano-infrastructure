@@ -40,6 +40,7 @@ type TxInputs struct {
 	Sum    map[string]uint64
 }
 
+// GetUTXOsForAmount returns UTXOs that can be used to cover the desired sum of specified token
 func GetUTXOsForAmount(
 	utxos []Utxo,
 	tokenName string,
@@ -123,16 +124,17 @@ func GetUTXOsForAmount(
 		"%w: %d vs %d", ErrUTXOsCouldNotSelect, currentSum[tokenName], desiredSum)
 }
 
-func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (uint64, error) {
-	userTokenSum := GetUtxosSum(utxos)
-
+// GetUtxosSum calculates the minimum required Lovelace amount for a UTXO,
+// based on the sumMap that contains all tokens and their respective amounts
+// to be included in that UTXO.
+func GetMinUtxoForSumMap(txBuilder *TxBuilder, userAddress string, sumMap map[string]uint64) (uint64, error) {
 	txOutput := TxOutput{
 		Addr:   userAddress,
-		Amount: userTokenSum[AdaTokenName],
+		Amount: sumMap[AdaTokenName],
 	}
 
-	for tokenName, amount := range userTokenSum {
-		if tokenName != AdaTokenName {
+	for tokenName, amount := range sumMap {
+		if tokenName != AdaTokenName && amount > 0 {
 			token, err := NewTokenWithFullName(tokenName, true)
 			if err != nil {
 				return 0, err
@@ -142,12 +144,7 @@ func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, utxos []Utxo) (ui
 		}
 	}
 
-	retSum, err := txBuilder.CalculateMinUtxo(txOutput)
-	if err != nil {
-		return 0, err
-	}
-
-	return retSum, nil
+	return txBuilder.CalculateMinUtxo(txOutput)
 }
 
 // CreateTxOutputChange generates a TxOutput representing the change
@@ -204,6 +201,7 @@ func CreateTxOutputChange(
 	}, nil
 }
 
+// GetTokenAmountFromUtxo retrieve the amount of a specific token from a UTXO
 func GetTokenAmountFromUtxo(utxo Utxo, tokenName string) uint64 {
 	if tokenName == AdaTokenName {
 		return utxo.Amount
@@ -216,4 +214,49 @@ func GetTokenAmountFromUtxo(utxo Utxo, tokenName string) uint64 {
 	}
 
 	return 0
+}
+
+// SubtractSumMaps subtracts the token amounts in map `b` from map `a`.
+// If the resulting amount for a token is less than or equal to zero, it is removed from the `a` map.
+// Tokens present in `b` but not in `a` are ignored.
+// It updates `a` in place and returns the modified map.
+func SubtractSumMaps(a, b map[string]uint64) map[string]uint64 {
+	for tokenName, tokenAmount := range a {
+		tokenAmountToSubtract, exists := b[tokenName]
+		if !exists {
+			continue
+		}
+
+		if tokenAmount > tokenAmountToSubtract {
+			a[tokenName] = tokenAmount - tokenAmountToSubtract
+		} else {
+			// If there are not enough tokens, remove it from the map.
+			// This function does not need to return an error in case the value is insufficient,
+			// because an error will be raised when attempting to retrieve inputs for the transaction.
+			delete(a, tokenName)
+		}
+	}
+
+	return a
+}
+
+// AddSumMaps adds the token amounts from map `b` to map `a`.
+// It updates `a` in place and returns the modified map.
+func AddSumMaps(a, b map[string]uint64) map[string]uint64 {
+	for tokenName, tokenAmount := range b {
+		a[tokenName] += tokenAmount
+	}
+
+	return a
+}
+
+// GetTokensSumMap converts a slice of TokenAmount into a map where each token name is mapped to its amount.
+func GetTokensSumMap(tokens ...TokenAmount) map[string]uint64 {
+	sumMap := make(map[string]uint64, len(tokens))
+
+	for _, token := range tokens {
+		sumMap[token.TokenName()] += token.Amount // += so it will work even if same tokens are specified twice
+	}
+
+	return sumMap
 }

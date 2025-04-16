@@ -45,26 +45,26 @@ func TestGetTokenCostSum(t *testing.T) {
 		},
 	}
 
-	result, err := GetTokenCostSum(txBuilder, address, utxos)
+	result, err := GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1189560), result)
 
 	utxos[1].Tokens[0].Amount = 1 // changing token amount will change the output
 
-	result, err = GetTokenCostSum(txBuilder, address, utxos)
+	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1172320), result)
 
 	utxos[2].Tokens[0].Amount = 3 // changing token amount will change the output
 
-	result, err = GetTokenCostSum(txBuilder, address, utxos)
+	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1137840), result)
 
 	utxos[0].Amount = 3
 	utxos[1].Amount = 300_021_416_931_256_900 // changing lovelace amounts won't make any difference
 
-	result, err = GetTokenCostSum(txBuilder, address, utxos)
+	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
 	require.NoError(t, err)
 	require.Equal(t, uint64(1137840), result)
 }
@@ -325,4 +325,64 @@ func TestGetUTXOsForAmount(t *testing.T) {
 		require.Equal(t, 1, len(txOutputs.Inputs))
 		require.Equal(t, uint64(11_020_039), txOutputs.Sum[tokenAmount1.TokenName()])
 	})
+}
+
+func TestAddSumMaps(t *testing.T) {
+	a := map[string]uint64{
+		"a": 100,
+		"b": 200,
+		"d": 50,
+	}
+	b := map[string]uint64{
+		"a": 300,
+		"c": 1400,
+		"d": 51,
+	}
+
+	a = AddSumMaps(a, b)
+
+	require.Len(t, a, 4)
+	require.Equal(t, uint64(400), a["a"])
+	require.Equal(t, uint64(200), a["b"])
+	require.Equal(t, uint64(1400), a["c"])
+	require.Equal(t, uint64(101), a["d"])
+}
+
+func TestSubtractSumMaps(t *testing.T) {
+	tokens := []TokenAmount{
+		NewTokenAmount(NewToken("pid", "ADA"), 100),
+		NewTokenAmount(NewToken("pid", "WADA"), 200),
+		NewTokenAmount(NewToken("pid", "APEX"), 300),
+		NewTokenAmount(NewToken("pid", "WAPEX"), 400),
+	}
+	b := GetTokensSumMap(tokens...)
+	a := map[string]uint64{
+		AdaTokenName:          100,
+		tokens[0].TokenName(): 100,
+		tokens[1].TokenName(): 350,
+		tokens[2].TokenName(): 250,
+		tokens[3].TokenName(): 1000,
+		"dummy":               1000,
+	}
+
+	a = SubtractSumMaps(a, b)
+
+	require.Len(t, a, 4)
+	require.Equal(t, uint64(100), a[AdaTokenName])
+	require.Equal(t, uint64(150), a[tokens[1].TokenName()])
+	require.Equal(t, uint64(600), a[tokens[3].TokenName()])
+	require.Equal(t, uint64(1000), a["dummy"])
+}
+
+func TestGetTokensSumMap(t *testing.T) {
+	tokens := []TokenAmount{
+		NewTokenAmount(NewToken("pid", "WADA"), 200),
+		NewTokenAmount(NewToken("pid", "WAPEX"), 400),
+		NewTokenAmount(NewToken("pid", "WADA"), 300),
+	}
+	mp := GetTokensSumMap(tokens...)
+
+	require.Len(t, mp, 2)
+	require.Equal(t, uint64(500), mp[tokens[0].TokenName()])
+	require.Equal(t, uint64(400), mp[tokens[1].TokenName()])
 }
