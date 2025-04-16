@@ -149,7 +149,7 @@ func TestCreateMetaData(t *testing.T) {
 		require.ErrorContains(t, err, "source")
 	})
 
-	t.Run("invalid source", func(t *testing.T) {
+	t.Run("invalid destination", func(t *testing.T) {
 		_, err := NewTxSender(configs).CreateMetadata(
 			dummyAddr, "prime", "vector2", []BridgingTxReceiver{}, bridgingFeeAmount, operationFeeAmount)
 
