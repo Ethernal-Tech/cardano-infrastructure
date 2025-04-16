@@ -4,7 +4,6 @@ import cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
 
 type IUtxosTransformer interface {
 	TransformUtxos(utxos []cardanowallet.Utxo) []cardanowallet.Utxo
-	UpdateUtxos([]cardanowallet.TxInput)
 }
 
 type BridgingType byte
@@ -48,6 +47,7 @@ type TxInfo struct {
 	TxRaw               []byte
 	TxHash              string
 	ChangeMinUtxoAmount uint64
+	ChoosenInputs       cardanowallet.TxInputs
 }
 
 type TxFeeInfo struct {
@@ -61,4 +61,10 @@ type bridgingTxPreparedData struct {
 	OutputNativeToken *cardanowallet.TokenAmount
 	BridgingFee       uint64
 	SrcConfig         *ChainConfig
+}
+
+type txBuilderPopulationData struct {
+	ChangeLovelace      uint64
+	ChangeMinUtxoAmount uint64
+	ChoosenInputs       cardanowallet.TxInputs
 }
