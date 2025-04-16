@@ -273,7 +273,7 @@ func Test_prepareBridgingTx(t *testing.T) {
 		"prime": {
 			MinUtxoValue: 55,
 			TestNetMagic: cardanowallet.PreviewProtocolMagic,
-			MultiSigAddr: "addr_test1vqjysa7p4mhu0l25qknwznvj0kghtr29ud7zp732ezwtzec0w8g3u",
+			MultiSigAddr: dummyAddr,
 			NativeTokens: []TokenExchangeConfig{
 				{
 					DstChainID: "vector",
@@ -355,8 +355,68 @@ func Test_adjustLovelaceOutput(t *testing.T) {
 	})
 }
 
+func Test_populateTxBuilder(t *testing.T) {
+	txBuilder, err := cardanowallet.NewTxBuilder(cardanowallet.ResolveCardanoCliBinary(cardanowallet.TestNetNetwork))
+	require.NoError(t, err)
+
+	defer txBuilder.Dispose()
+
+	txBuilder.SetProtocolParameters(dummyProtoParams)
+
+	token := cardanowallet.NewToken(dummyPID, "WADA")
+	txProviderMock := &txProviderMock{
+		protocolParameters: dummyProtoParams,
+		utxos: []cardanowallet.Utxo{
+			{
+				Amount: 10_000_000,
+				Tokens: []cardanowallet.TokenAmount{
+					cardanowallet.NewTokenAmount(token, 10_000_000),
+				},
+			},
+		},
+	}
+	cfg := &ChainConfig{
+		MinUtxoValue: 55,
+		TestNetMagic: cardanowallet.PreviewProtocolMagic,
+		MultiSigAddr: dummyAddr,
+		NativeTokens: []TokenExchangeConfig{
+			{
+				DstChainID: "vector",
+				TokenName:  token.String(),
+			},
+		},
+		TxProvider:       txProviderMock,
+		CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(cardanowallet.TestNetNetwork),
+	}
+	txSnd := NewTxSender(map[string]ChainConfig{})
+
+	t.Run("valid without token", func(t *testing.T) {
+		data, err := txSnd.populateTxBuilder(
+			context.Background(), txBuilder, cfg, dummyAddr, dummyAddr, nil, 2_000_000, nil)
+
+		require.NoError(t, err)
+		assert.Equal(t, uint64(8000000), data.ChangeLovelace)
+		assert.Equal(t, uint64(1034400), data.ChangeMinUtxoAmount)
+		assert.GreaterOrEqual(t, len(data.ChosenInputs.Inputs), 1)
+	})
+
+	t.Run("valid with token", func(t *testing.T) {
+		data, err := txSnd.populateTxBuilder(
+			context.Background(), txBuilder, cfg, dummyAddr, dummyAddr, nil, 1_000_000, &cardanowallet.TokenAmount{
+				Token:  token,
+				Amount: 2_000_000,
+			})
+
+		require.NoError(t, err)
+		assert.Equal(t, uint64(9000000), data.ChangeLovelace)
+		assert.Equal(t, uint64(1034400), data.ChangeMinUtxoAmount)
+		assert.GreaterOrEqual(t, len(data.ChosenInputs.Inputs), 1)
+	})
+}
+
 type txProviderMock struct {
 	protocolParameters []byte
+	utxos              []cardanowallet.Utxo
 }
 
 func (m *txProviderMock) Dispose() {
@@ -375,7 +435,7 @@ func (m *txProviderMock) GetTip(ctx context.Context) (cardanowallet.QueryTipData
 }
 
 func (m *txProviderMock) GetUtxos(ctx context.Context, addr string) ([]cardanowallet.Utxo, error) {
-	return nil, nil
+	return m.utxos, nil
 }
 
 func (m *txProviderMock) SubmitTx(ctx context.Context, txSigned []byte) error {
