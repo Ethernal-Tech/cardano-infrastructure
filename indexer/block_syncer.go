@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	errBlockSyncerFatal = errors.New("block syncer fatal error")
+	ErrBlockSyncerFatal = errors.New("block syncer fatal error")
 )
 
 const (
@@ -197,7 +197,7 @@ func (bs *BlockSyncerImpl) rollForwardCallback(
 ) error {
 	blockHeader, ok := blockInfo.(ledger.BlockHeader)
 	if !ok {
-		return errors.Join(errBlockSyncerFatal, errors.New("invalid header"))
+		return errors.Join(ErrBlockSyncerFatal, errors.New("invalid header"))
 	}
 
 	bs.lock.Lock()
@@ -233,7 +233,7 @@ func (bs *BlockSyncerImpl) errorHandler(errorCh <-chan error) {
 	}
 
 	// retry syncing again if not fatal error and if RestartOnError is true (errors.Is does not work in this case)
-	if !strings.Contains(err.Error(), errBlockSyncerFatal.Error()) && bs.config.RestartOnError {
+	if !strings.Contains(err.Error(), ErrBlockSyncerFatal.Error()) && bs.config.RestartOnError {
 		bs.logger.Warn("Error happened during synchronization", "err", err)
 
 		select {

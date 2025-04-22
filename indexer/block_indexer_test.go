@@ -678,7 +678,7 @@ func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
 		Slot: bp.BlockSlot + 10003,
 		Hash: bp.BlockHash[:],
 	})
-	require.ErrorIs(t, err, errBlockSyncerFatal)
+	require.ErrorIs(t, err, ErrBlockSyncerFatal)
 
 	dbMock.AssertExpectations(t)
 }
