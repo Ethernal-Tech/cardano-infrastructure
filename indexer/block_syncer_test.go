@@ -3,12 +3,15 @@ package indexer
 import (
 	"errors"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	ouroboros "github.com/blinklabs-io/gouroboros"
 	"github.com/blinklabs-io/gouroboros/ledger"
+	"github.com/blinklabs-io/gouroboros/ledger/byron"
+	"github.com/blinklabs-io/gouroboros/protocol/chainsync"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
@@ -30,7 +33,6 @@ type BlockSyncerHandlerMock struct {
 
 func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock {
 	bn := uint64(0)
-
 	if hash == ExistingPointHashStr {
 		bn = ExistingPointBlockNum
 	}
@@ -89,7 +91,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	require.NotNil(t, syncer)
 }
 
-func TestSyncWrongMagic(t *testing.T) {
+func TestSyncer_Sync_WrongMagic(t *testing.T) {
 	t.Parallel()
 
 	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
@@ -101,11 +103,10 @@ func TestSyncWrongMagic(t *testing.T) {
 
 	defer syncer.Close()
 
-	err := syncer.Sync()
-	require.NotNil(t, err)
+	require.NotNil(t, syncer.Sync())
 }
 
-func TestSyncWrongNodeAddress(t *testing.T) {
+func TestSyncer_Sync_WrongNodeAddress(t *testing.T) {
 	t.Parallel()
 
 	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
@@ -117,11 +118,10 @@ func TestSyncWrongNodeAddress(t *testing.T) {
 
 	defer syncer.Close()
 
-	err := syncer.Sync()
-	require.NotNil(t, err)
+	require.NotNil(t, syncer.Sync())
 }
 
-func TestSyncWrongUnixNodeAddress(t *testing.T) {
+func TestSyncer_Sync_WrongUnixNodeAddress(t *testing.T) {
 	t.Parallel()
 
 	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
@@ -133,11 +133,10 @@ func TestSyncWrongUnixNodeAddress(t *testing.T) {
 
 	defer syncer.Close()
 
-	err := syncer.Sync()
-	require.NotNil(t, err)
+	require.NotNil(t, syncer.Sync())
 }
 
-func TestSyncNonExistingSlot(t *testing.T) {
+func TestSyncer_Sync_NonExistingSlot(t *testing.T) {
 	t.Parallel()
 
 	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(NonExistingPointSlot, ExistingPointHashStr)
@@ -149,11 +148,10 @@ func TestSyncNonExistingSlot(t *testing.T) {
 
 	defer syncer.Close()
 
-	err := syncer.Sync()
-	require.NotNil(t, err)
+	require.NotNil(t, syncer.Sync())
 }
 
-func TestSyncNonExistingHash(t *testing.T) {
+func TestSyncer_Sync_NonExistingHash(t *testing.T) {
 	t.Parallel()
 
 	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, NonExistingPointHashStr)
@@ -165,53 +163,33 @@ func TestSyncNonExistingHash(t *testing.T) {
 
 	defer syncer.Close()
 
-	err := syncer.Sync()
-	require.NotNil(t, err)
+	require.NotNil(t, syncer.Sync())
 }
 
-func TestSyncZeroSlot(t *testing.T) {
+func TestSyncer_Sync_ZeroSlot(t *testing.T) {
 	t.Parallel()
 
-	var emptyHash []byte
-
-	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(0, string(emptyHash))
-	syncer := NewBlockSyncer(&BlockSyncerConfig{
-		NetworkMagic: NetworkMagic,
-		NodeAddress:  NodeAddress,
-		RestartDelay: time.Millisecond * 10,
-	}, mockSyncerBlockHandler, hclog.NewNullLogger())
+	syncer := getTestSyncer(0, "")
 
 	defer syncer.Close()
 
-	err := syncer.Sync()
-	require.Nil(t, err)
+	require.Nil(t, syncer.Sync())
 }
 
-func TestSync(t *testing.T) {
+func TestSyncer_Sync_Valid(t *testing.T) {
 	t.Parallel()
 
-	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
-	syncer := NewBlockSyncer(&BlockSyncerConfig{
-		NetworkMagic: NetworkMagic,
-		NodeAddress:  NodeAddress,
-		RestartDelay: time.Millisecond * 10,
-	}, mockSyncerBlockHandler, hclog.NewNullLogger())
+	syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
 
 	defer syncer.Close()
 
-	err := syncer.Sync()
-	require.Nil(t, err)
+	require.Nil(t, syncer.Sync())
 }
 
-func TestSyncWithExistingConnection(t *testing.T) {
+func TestSyncer_Sync_ExistingConnection(t *testing.T) {
 	t.Parallel()
 
-	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
-	syncer := NewBlockSyncer(&BlockSyncerConfig{
-		NetworkMagic: NetworkMagic,
-		NodeAddress:  NodeAddress,
-		RestartDelay: time.Millisecond * 10,
-	}, mockSyncerBlockHandler, hclog.NewNullLogger())
+	syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
 
 	defer syncer.Close()
 
@@ -225,33 +203,22 @@ func TestSyncWithExistingConnection(t *testing.T) {
 	require.NoError(t, connection.Dial(ProtocolTCP, NodeAddress))
 
 	syncer.connection = connection
-	err = syncer.Sync()
-	require.Nil(t, err)
+
+	require.Nil(t, syncer.Sync())
 }
 
-func TestCloseWithConnectionNil(t *testing.T) {
+func TestSyncer_Close_ConnectionNil(t *testing.T) {
 	t.Parallel()
 
-	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
-	syncer := NewBlockSyncer(&BlockSyncerConfig{
-		NetworkMagic: NetworkMagic,
-		NodeAddress:  NodeAddress,
-		RestartDelay: time.Millisecond * 10,
-	}, mockSyncerBlockHandler, hclog.NewNullLogger())
+	syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
 
-	err := syncer.Close()
-	require.Nil(t, err)
+	require.Nil(t, syncer.Close())
 }
 
-func TestCloseWithConnectionNotNil(t *testing.T) {
+func TestSyncer_Close_ConnectionNotNil(t *testing.T) {
 	t.Parallel()
 
-	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
-	syncer := NewBlockSyncer(&BlockSyncerConfig{
-		NetworkMagic: NetworkMagic,
-		NodeAddress:  NodeAddress,
-		RestartDelay: time.Millisecond * 10,
-	}, mockSyncerBlockHandler, hclog.NewNullLogger())
+	syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
 
 	connection, err := ouroboros.NewConnection(
 		ouroboros.WithNetworkMagic(NetworkMagic),
@@ -264,11 +231,10 @@ func TestCloseWithConnectionNotNil(t *testing.T) {
 
 	syncer.connection = connection
 
-	err = syncer.Close()
-	require.Nil(t, err)
+	require.Nil(t, syncer.Close())
 }
 
-func TestSyncRollForwardCalled(t *testing.T) {
+func TestSyncer_RollForward_Valid(t *testing.T) {
 	t.Parallel()
 
 	called := uint64(1)
@@ -292,23 +258,25 @@ func TestSyncRollForwardCalled(t *testing.T) {
 		return nil
 	}
 
-	err := syncer.Sync()
-	require.Nil(t, err)
+	require.Nil(t, syncer.Sync())
 
 	time.Sleep(5 * time.Second)
 	require.True(t, atomic.LoadUint64(&called) == uint64(1))
 }
 
-func TestSync_ConnectionIsClosed(t *testing.T) {
+func TestSyncer_RollForwardCallback_ConnectionNil(t *testing.T) {
 	t.Parallel()
 
-	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
-	syncer := NewBlockSyncer(&BlockSyncerConfig{
-		NetworkMagic: NetworkMagic,
-		NodeAddress:  NodeAddress,
-		RestartDelay: time.Millisecond * 10,
-	}, mockSyncerBlockHandler, hclog.NewNullLogger())
+	syncer := NewBlockSyncer(&BlockSyncerConfig{}, nil, hclog.NewNullLogger())
 
+	err := syncer.rollForwardCallback(chainsync.CallbackContext{}, 10, byron.ByronMainBlockHeader{}, chainsync.Tip{})
+	require.NotNil(t, err)
+}
+
+func TestSyncer_Sync_ConnectionIsClosed(t *testing.T) {
+	t.Parallel()
+
+	syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
 	syncer.Close()
 
 	require.NoError(t, syncer.syncExecute())
@@ -316,4 +284,171 @@ func TestSync_ConnectionIsClosed(t *testing.T) {
 
 	require.NoError(t, syncer.Sync())
 	require.Nil(t, syncer.connection)
+}
+
+func TestSyncer_ErrorHandler(t *testing.T) {
+	t.Parallel()
+
+	const Good = 0x9689
+
+	t.Run("syncer closed", func(t *testing.T) {
+		t.Parallel()
+
+		errCh := make(chan error, 1)
+		waitCh := make(chan int, 1)
+		syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
+		syncer.config.RestartOnError = true
+
+		go func() {
+			syncer.errorHandler(errCh)
+			waitCh <- Good
+		}()
+
+		syncer.Close()
+
+		select {
+		case value := <-waitCh:
+			require.Equal(t, Good, value)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("timeout")
+		}
+	})
+
+	t.Run("error channel closed", func(t *testing.T) {
+		t.Parallel()
+
+		errCh := make(chan error, 1)
+		waitCh := make(chan int, 1)
+		syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
+		syncer.config.RestartOnError = true
+
+		go func() {
+			syncer.errorHandler(errCh)
+			waitCh <- Good
+		}()
+
+		close(errCh)
+
+		select {
+		case value := <-waitCh:
+			require.Equal(t, Good, value)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("timeout")
+		}
+	})
+
+	t.Run("error non fatal RestartOnError false", func(t *testing.T) {
+		t.Parallel()
+
+		wg := sync.WaitGroup{}
+		testErr := errors.New("test error")
+		errCh := make(chan error, 1)
+		isOk := false
+		syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
+
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+
+			syncer.errorHandler(errCh)
+		}()
+
+		go func() {
+			defer wg.Done()
+
+			v := <-syncer.ErrorCh()
+			isOk = errors.Is(v, testErr)
+		}()
+
+		errCh <- testErr
+
+		wg.Wait()
+
+		require.True(t, isOk)
+	})
+
+	t.Run("error non fatal RestartOnError true - try sync again", func(t *testing.T) {
+		t.Parallel()
+
+		testErr := errors.New("test error")
+		wg := sync.WaitGroup{}
+		errCh := make(chan error, 1)
+		isOk := false
+		syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
+		syncer.config.RestartOnError = true
+		syncer.config.NodeAddress = "invalid node address"
+
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+
+			syncer.errorHandler(errCh)
+		}()
+
+		go func() {
+			defer wg.Done()
+
+			v := <-syncer.ErrorCh()
+			isOk = v != nil && strings.Contains(v.Error(), "missing port")
+		}()
+
+		errCh <- testErr
+
+		wg.Wait()
+
+		require.True(t, isOk)
+	})
+
+	t.Run("close during re-sync", func(t *testing.T) {
+		t.Parallel()
+
+		testErr := errors.New("test error")
+		wg := sync.WaitGroup{}
+		waitCh := make(chan struct{}, 1)
+		errCh := make(chan error, 1)
+		syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
+		syncer.config.RestartOnError = true
+		syncer.config.RestartDelay = time.Second * 100
+
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+
+			syncer.errorHandler(errCh)
+		}()
+
+		go func() {
+			defer wg.Done()
+
+			time.Sleep(1 * time.Second)
+
+			syncer.Close()
+		}()
+
+		go func() {
+			<-syncer.ErrorCh()
+			waitCh <- struct{}{}
+		}()
+
+		errCh <- testErr
+
+		wg.Wait()
+
+		select {
+		case <-waitCh:
+			t.Fatalf("timeout expected")
+		case <-time.After(4 * time.Second):
+		}
+	})
+}
+
+func getTestSyncer(pointSlot uint64, pointHash string) *BlockSyncerImpl {
+	return NewBlockSyncer(&BlockSyncerConfig{
+		NetworkMagic: NetworkMagic,
+		NodeAddress:  NodeAddress,
+		RestartDelay: time.Millisecond * 10,
+	}, NewBlockSyncerHandlerMock(pointSlot, pointHash), hclog.NewNullLogger())
 }
