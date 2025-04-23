@@ -89,7 +89,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	require.NotNil(t, syncer)
 }
 
-func TestSyncWrongMagic(t *testing.T) {
+func TestSyncer_Sync_WrongMagic(t *testing.T) {
 	t.Parallel()
 
 	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
@@ -104,7 +104,7 @@ func TestSyncWrongMagic(t *testing.T) {
 	require.NotNil(t, syncer.Sync())
 }
 
-func TestSyncWrongNodeAddress(t *testing.T) {
+func TestSyncer_Sync_WrongNodeAddress(t *testing.T) {
 	t.Parallel()
 
 	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
@@ -119,7 +119,7 @@ func TestSyncWrongNodeAddress(t *testing.T) {
 	require.NotNil(t, syncer.Sync())
 }
 
-func TestSyncWrongUnixNodeAddress(t *testing.T) {
+func TestSyncer_Sync_WrongUnixNodeAddress(t *testing.T) {
 	t.Parallel()
 
 	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, ExistingPointHashStr)
@@ -134,7 +134,7 @@ func TestSyncWrongUnixNodeAddress(t *testing.T) {
 	require.NotNil(t, syncer.Sync())
 }
 
-func TestSyncNonExistingSlot(t *testing.T) {
+func TestSyncer_Sync_NonExistingSlot(t *testing.T) {
 	t.Parallel()
 
 	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(NonExistingPointSlot, ExistingPointHashStr)
@@ -149,7 +149,7 @@ func TestSyncNonExistingSlot(t *testing.T) {
 	require.NotNil(t, syncer.Sync())
 }
 
-func TestSyncNonExistingHash(t *testing.T) {
+func TestSyncer_Sync_NonExistingHash(t *testing.T) {
 	t.Parallel()
 
 	mockSyncerBlockHandler := NewBlockSyncerHandlerMock(ExistingPointSlot, NonExistingPointHashStr)
@@ -164,7 +164,7 @@ func TestSyncNonExistingHash(t *testing.T) {
 	require.NotNil(t, syncer.Sync())
 }
 
-func TestSyncZeroSlot(t *testing.T) {
+func TestSyncer_Sync_ZeroSlot(t *testing.T) {
 	t.Parallel()
 
 	syncer := getTestSyncer(0, "")
@@ -174,7 +174,7 @@ func TestSyncZeroSlot(t *testing.T) {
 	require.Nil(t, syncer.Sync())
 }
 
-func TestSync(t *testing.T) {
+func TestSyncer_Sync_Valid(t *testing.T) {
 	t.Parallel()
 
 	syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
@@ -184,7 +184,7 @@ func TestSync(t *testing.T) {
 	require.Nil(t, syncer.Sync())
 }
 
-func TestSyncWithExistingConnection(t *testing.T) {
+func TestSyncer_Sync_ExistingConnection(t *testing.T) {
 	t.Parallel()
 
 	syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
@@ -205,7 +205,7 @@ func TestSyncWithExistingConnection(t *testing.T) {
 	require.Nil(t, syncer.Sync())
 }
 
-func TestCloseWithConnectionNil(t *testing.T) {
+func TestSyncer_Close_ConnectionNil(t *testing.T) {
 	t.Parallel()
 
 	syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
@@ -213,7 +213,7 @@ func TestCloseWithConnectionNil(t *testing.T) {
 	require.Nil(t, syncer.Close())
 }
 
-func TestCloseWithConnectionNotNil(t *testing.T) {
+func TestSyncer_Close_ConnectionNotNil(t *testing.T) {
 	t.Parallel()
 
 	syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
@@ -232,7 +232,7 @@ func TestCloseWithConnectionNotNil(t *testing.T) {
 	require.Nil(t, syncer.Close())
 }
 
-func TestSyncRollForwardCalled(t *testing.T) {
+func TestSyncer_RollForward(t *testing.T) {
 	t.Parallel()
 
 	called := uint64(1)
@@ -262,7 +262,7 @@ func TestSyncRollForwardCalled(t *testing.T) {
 	require.True(t, atomic.LoadUint64(&called) == uint64(1))
 }
 
-func TestSync_ConnectionIsClosed(t *testing.T) {
+func TestSyncer_Sync_ConnectionIsClosed(t *testing.T) {
 	t.Parallel()
 
 	syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
@@ -275,7 +275,7 @@ func TestSync_ConnectionIsClosed(t *testing.T) {
 	require.Nil(t, syncer.connection)
 }
 
-func TestSync_errorHandler(t *testing.T) {
+func TestSyncer_ErrorHandler(t *testing.T) {
 	t.Parallel()
 
 	const Good = 0x9689
