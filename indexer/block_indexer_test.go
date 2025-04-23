@@ -18,7 +18,7 @@ var addresses = []string{
 	"addr1qxh7y2ezyt7hcraew7q0s8fg36usm049ktf4m9rly220snm0tf3rte5f4wequeg86kww58hp34qpwxdpl76tfuwmk77qjstmmj",
 }
 
-func TestBlockIndexer_processConfirmedBlockNoTxOfInterest(t *testing.T) {
+func TestBlockIndexer_ProcessConfirmedBlock_NoTxOfInterest(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -95,7 +95,7 @@ func TestBlockIndexer_processConfirmedBlockNoTxOfInterest(t *testing.T) {
 	dbMock.Writter.AssertExpectations(t)
 }
 
-func TestBlockIndexer_processConfirmedBlockTxOfInterestInOutputs(t *testing.T) {
+func TestBlockIndexer_ProcessConfirmedBlock_TxOfInterestInOutputs(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -250,7 +250,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInOutputs(t *testing.T) {
 	dbMock.Writter.AssertExpectations(t)
 }
 
-func TestBlockIndexer_processConfirmedBlockTxOfInterestInInputs(t *testing.T) {
+func TestBlockIndexer_ProcessConfirmedBlock_TxOfInterestInInputs(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -410,7 +410,7 @@ func TestBlockIndexer_processConfirmedBlockTxOfInterestInInputs(t *testing.T) {
 	dbMock.Writter.AssertExpectations(t)
 }
 
-func TestBlockIndexer_processConfirmedBlockKeepAllTxOutputsInDb(t *testing.T) {
+func TestBlockIndexer_ProcessConfirmedBlock_KeepAllTxOutputsInDb(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -553,7 +553,7 @@ func TestBlockIndexer_processConfirmedBlockKeepAllTxOutputsInDb(t *testing.T) {
 	dbMock.Writter.AssertExpectations(t)
 }
 
-func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
+func TestBlockIndexer_RollBackwardFunc_RollbackToUnconfirmed(t *testing.T) {
 	t.Parallel()
 
 	uncomfBlocks := []ledger.BlockHeader{
@@ -600,7 +600,7 @@ func TestBlockIndexer_RollBackwardFuncToUnconfirmed(t *testing.T) {
 	dbMock.AssertExpectations(t)
 }
 
-func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
+func TestBlockIndexer_RollBackwardFunc_RollbackToConfirmed(t *testing.T) {
 	t.Parallel()
 
 	uncomfBlocks := []ledger.BlockHeader{
@@ -640,7 +640,7 @@ func TestBlockIndexer_RollBackwardFuncToConfirmed(t *testing.T) {
 	dbMock.AssertExpectations(t)
 }
 
-func TestBlockIndexer_RollBackwardFuncError(t *testing.T) {
+func TestBlockIndexer_RollBackwardFunc_Error(t *testing.T) {
 	t.Parallel()
 
 	uncomfBlocks := []ledger.BlockHeader{

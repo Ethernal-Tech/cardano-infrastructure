@@ -41,11 +41,6 @@ func NewHashFromBytes(bytes []byte) Hash {
 	return Hash(bytes)
 }
 
-type Witness struct {
-	VKey      []byte `json:"key"`
-	Signature []byte `json:"sgn"`
-}
-
 type BlockPoint struct {
 	BlockSlot   uint64 `json:"slot"`
 	BlockHash   Hash   `json:"hash"`
@@ -120,31 +115,6 @@ func SlotNumberToKey(slotNumber uint64) []byte {
 	binary.BigEndian.PutUint64(bytes, slotNumber)
 
 	return bytes
-}
-
-func NewWitnesses(vkeyWitnesses []interface{}) []Witness {
-	res := make([]Witness, len(vkeyWitnesses))
-
-	for i, vv := range vkeyWitnesses {
-		arr, ok1 := vv.([]interface{})
-		if !ok1 || len(arr) != 2 {
-			panic("wrong key inside block") //nolint:gocritic
-		}
-
-		key, ok2 := arr[0].([]byte)
-		sign, ok3 := arr[1].([]byte)
-
-		if !ok2 || !ok3 {
-			panic("wrong key inside block") //nolint:gocritic
-		}
-
-		res[i] = Witness{
-			VKey:      key,
-			Signature: sign,
-		}
-	}
-
-	return res
 }
 
 func (tx Tx) Key() []byte {

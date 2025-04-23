@@ -10,6 +10,8 @@ import (
 
 	ouroboros "github.com/blinklabs-io/gouroboros"
 	"github.com/blinklabs-io/gouroboros/ledger"
+	"github.com/blinklabs-io/gouroboros/ledger/byron"
+	"github.com/blinklabs-io/gouroboros/protocol/chainsync"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
@@ -232,7 +234,7 @@ func TestSyncer_Close_ConnectionNotNil(t *testing.T) {
 	require.Nil(t, syncer.Close())
 }
 
-func TestSyncer_RollForward(t *testing.T) {
+func TestSyncer_RollForward_Valid(t *testing.T) {
 	t.Parallel()
 
 	called := uint64(1)
@@ -260,6 +262,15 @@ func TestSyncer_RollForward(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 	require.True(t, atomic.LoadUint64(&called) == uint64(1))
+}
+
+func TestSyncer_RollForwardCallback_ConnectionNil(t *testing.T) {
+	t.Parallel()
+
+	syncer := NewBlockSyncer(&BlockSyncerConfig{}, nil, hclog.NewNullLogger())
+
+	err := syncer.rollForwardCallback(chainsync.CallbackContext{}, 10, byron.ByronMainBlockHeader{}, chainsync.Tip{})
+	require.NotNil(t, err)
 }
 
 func TestSyncer_Sync_ConnectionIsClosed(t *testing.T) {
