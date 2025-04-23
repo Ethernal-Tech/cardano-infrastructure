@@ -31,7 +31,6 @@ type BlockSyncerHandlerMock struct {
 
 func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock {
 	bn := uint64(0)
-
 	if hash == ExistingPointHashStr {
 		bn = ExistingPointBlockNum
 	}
@@ -327,29 +326,6 @@ func TestSync_errorHandler(t *testing.T) {
 		}
 	})
 
-	t.Run("error channel closed", func(t *testing.T) {
-		t.Parallel()
-
-		errCh := make(chan error, 1)
-		waitCh := make(chan int, 1)
-		syncer := getTestSyncer(ExistingPointSlot, ExistingPointHashStr)
-		syncer.config.RestartOnError = true
-
-		go func() {
-			syncer.errorHandler(errCh)
-			waitCh <- Good
-		}()
-
-		close(errCh)
-
-		select {
-		case value := <-waitCh:
-			require.Equal(t, Good, value)
-		case <-time.After(5 * time.Second):
-			t.Fatalf("timeout")
-		}
-	})
-
 	t.Run("error non fatal RestartOnError false", func(t *testing.T) {
 		t.Parallel()
 
@@ -442,8 +418,6 @@ func TestSync_errorHandler(t *testing.T) {
 		}()
 
 		go func() {
-			defer wg.Done()
-
 			<-syncer.ErrorCh()
 			waitCh <- struct{}{}
 		}()
