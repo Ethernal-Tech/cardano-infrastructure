@@ -9,7 +9,6 @@ require (
 	github.com/quasilyte/go-ruleguard v0.4.2
 	github.com/quasilyte/go-ruleguard/dsl v0.3.22
 	github.com/stretchr/testify v1.9.0
-	github.com/syndtr/goleveldb v1.0.0
 	github.com/utxorpc/go-codegen v0.11.0
 	go.etcd.io/bbolt v1.3.9
 	golang.org/x/crypto v0.28.0
@@ -75,7 +74,6 @@ require (
 	github.com/aws/aws-sdk-go v1.51.18
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fatih/color v1.16.0 // indirect
-	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
 	github.com/hashicorp/vault/api v1.12.2
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
