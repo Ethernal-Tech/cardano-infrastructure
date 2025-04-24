@@ -131,7 +131,7 @@ func (txSnd *TxSender) CreateTxGeneric(
 	receiverAddr string,
 	metadata []byte,
 	outputLovelace uint64,
-	outputNativeTokens ...*cardanowallet.TokenAmount,
+	outputNativeTokens []*cardanowallet.TokenAmount,
 ) (*TxInfo, error) {
 	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
 	if !existsSrc {
@@ -573,9 +573,7 @@ func checkFees(config *ChainConfig, bridgingFee, operationFee uint64) error {
 }
 
 func filterNativeTokenAmounts(tokens []*cardanowallet.TokenAmount) []cardanowallet.TokenAmount {
-	var (
-		filteredTokens = make([]cardanowallet.TokenAmount, 0, len(tokens))
-	)
+	filteredTokens := make([]cardanowallet.TokenAmount, 0, len(tokens))
 
 	for _, token := range tokens {
 		if token != nil && token.Amount > 0 {
