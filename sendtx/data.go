@@ -68,3 +68,16 @@ type txBuilderPopulationData struct {
 	ChangeMinUtxoAmount uint64
 	ChosenInputs        cardanowallet.TxInputs
 }
+
+func (bt BridgingType) String() string {
+	switch bt {
+	case BridgingTypeNormal:
+		return "Bridging Request Reactor"
+	case BridgingTypeNativeTokenOnSource:
+		return "Bridging Native Token on Source"
+	case BridgingTypeCurrencyOnSource:
+		return "Bridging Currency on Source"
+	default:
+		return "Unknown Bridging Type"
+	}
+}

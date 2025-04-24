@@ -209,7 +209,7 @@ func (txSnd *TxSender) CreateMetadata(
 			}
 
 			txs[i] = BridgingRequestMetadataTransaction{
-				Address:            addrToMetaDataAddr(x.Addr),
+				Address:            AddrToMetaDataAddr(x.Addr),
 				Amount:             x.Amount,
 				IsNativeTokenOnSrc: metadataBoolTrue,
 			}
@@ -220,7 +220,7 @@ func (txSnd *TxSender) CreateMetadata(
 			}
 
 			txs[i] = BridgingRequestMetadataTransaction{
-				Address: addrToMetaDataAddr(x.Addr),
+				Address: AddrToMetaDataAddr(x.Addr),
 				Amount:  x.Amount,
 			}
 		default:
@@ -229,7 +229,7 @@ func (txSnd *TxSender) CreateMetadata(
 			}
 
 			txs[i] = BridgingRequestMetadataTransaction{
-				Address: addrToMetaDataAddr(x.Addr),
+				Address: AddrToMetaDataAddr(x.Addr),
 				Amount:  x.Amount,
 			}
 		}
@@ -238,7 +238,7 @@ func (txSnd *TxSender) CreateMetadata(
 	return &BridgingRequestMetadata{
 		BridgingTxType:     bridgingMetaDataType,
 		DestinationChainID: dstChainID,
-		SenderAddr:         addrToMetaDataAddr(senderAddr),
+		SenderAddr:         AddrToMetaDataAddr(senderAddr),
 		Transactions:       txs,
 		BridgingFee:        bridgingFee,
 		OperationFee:       operationFee,
