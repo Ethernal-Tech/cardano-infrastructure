@@ -73,7 +73,7 @@ func (txSnd *TxSender) CreateBridgingTx(
 	txInfo, err := txSnd.createTx(
 		ctx, data.TxBuilder, data.SrcConfig,
 		senderAddr, data.SrcConfig.MultiSigAddr,
-		metadataRaw, data.OutputLovelace, []*cardanowallet.TokenAmount{data.OutputNativeToken})
+		metadataRaw, data.OutputLovelace, data.OutputNativeTokens)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -115,7 +115,7 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	txFeeInfo, err := txSnd.calculateFee(
 		ctx, data.TxBuilder, data.SrcConfig,
 		senderAddr, data.SrcConfig.MultiSigAddr,
-		metadataRaw, data.OutputLovelace, []*cardanowallet.TokenAmount{data.OutputNativeToken})
+		metadataRaw, data.OutputLovelace, data.OutputNativeTokens)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -131,7 +131,7 @@ func (txSnd *TxSender) CreateTxGeneric(
 	receiverAddr string,
 	metadata []byte,
 	outputLovelace uint64,
-	outputNativeTokens []*cardanowallet.TokenAmount,
+	outputNativeTokens []cardanowallet.TokenAmount,
 ) (*TxInfo, error) {
 	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
 	if !existsSrc {
@@ -290,7 +290,7 @@ func (txSnd *TxSender) prepareBridgingTx(
 		return nil, err
 	}
 
-	outputNativeToken := (*cardanowallet.TokenAmount)(nil)
+	outputNativeTokens := ([]cardanowallet.TokenAmount)(nil)
 	outputLovelaceBase, outputNativeTokenAmount := getOutputAmounts(receivers)
 	outputLovelaceBase += bridgingFee + operationFee
 
@@ -301,11 +301,11 @@ func (txSnd *TxSender) prepareBridgingTx(
 		}
 
 		token := cardanowallet.NewTokenAmount(nativeToken, outputNativeTokenAmount)
-		outputNativeToken = &token
+		outputNativeTokens = append(outputNativeTokens, token)
 	}
 
 	outputLovelace, err := adjustLovelaceOutput(
-		txBuilder, srcConfig.MultiSigAddr, []*cardanowallet.TokenAmount{outputNativeToken},
+		txBuilder, srcConfig.MultiSigAddr, outputNativeTokens,
 		srcConfig.MinUtxoValue, outputLovelaceBase)
 	if err != nil {
 		return nil, err
@@ -316,11 +316,11 @@ func (txSnd *TxSender) prepareBridgingTx(
 	}
 
 	return &bridgingTxPreparedData{
-		TxBuilder:         txBuilder,
-		SrcConfig:         srcConfig,
-		OutputLovelace:    outputLovelace,
-		OutputNativeToken: outputNativeToken,
-		BridgingFee:       bridgingFee,
+		TxBuilder:          txBuilder,
+		SrcConfig:          srcConfig,
+		OutputLovelace:     outputLovelace,
+		OutputNativeTokens: outputNativeTokens,
+		BridgingFee:        bridgingFee,
 	}, nil
 }
 
@@ -332,7 +332,7 @@ func (txSnd *TxSender) calculateFee(
 	receiverAddr string,
 	metadata []byte,
 	outputLovelace uint64,
-	outputNativeTokens []*cardanowallet.TokenAmount,
+	outputNativeTokens []cardanowallet.TokenAmount,
 ) (*TxFeeInfo, error) {
 	data, err := txSnd.populateTxBuilder(
 		ctx, txBuilder, srcConfig, senderAddr, receiverAddr, metadata, outputLovelace, outputNativeTokens)
@@ -359,7 +359,7 @@ func (txSnd *TxSender) createTx(
 	receiverAddr string,
 	metadata []byte,
 	outputLovelace uint64,
-	outputNativeTokens []*cardanowallet.TokenAmount,
+	outputNativeTokens []cardanowallet.TokenAmount,
 ) (*TxInfo, error) {
 	data, err := txSnd.populateTxBuilder(
 		ctx, txBuilder, srcConfig, senderAddr, receiverAddr, metadata, outputLovelace, outputNativeTokens)
@@ -409,10 +409,8 @@ func (txSnd *TxSender) populateTxBuilder(
 	receiverAddr string,
 	metadata []byte,
 	outputLovelace uint64,
-	outputNativeTokens []*cardanowallet.TokenAmount,
+	outputNativeTokens []cardanowallet.TokenAmount,
 ) (*txBuilderPopulationData, error) {
-	outputNativeTokenAmounts := filterNativeTokenAmounts(outputNativeTokens)
-
 	utxos, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]cardanowallet.Utxo, error) {
 		return config.TxProvider.GetUtxos(ctx, senderAddr)
 	}, txSnd.retryOptions...)
@@ -426,7 +424,7 @@ func (txSnd *TxSender) populateTxBuilder(
 		senderAddr,
 		cardanowallet.SubtractSumMaps(
 			cardanowallet.GetUtxosSum(utxos),
-			cardanowallet.GetTokensSumMap(outputNativeTokenAmounts...),
+			cardanowallet.GetTokensSumMap(outputNativeTokens...),
 		))
 	if err != nil {
 		return nil, err
@@ -439,7 +437,7 @@ func (txSnd *TxSender) populateTxBuilder(
 		cardanowallet.AdaTokenName: outputLovelace + potentialFee + srcChangeMinUtxo,
 	}
 
-	for _, token := range outputNativeTokenAmounts {
+	for _, token := range outputNativeTokens {
 		conditions[token.TokenName()] += token.Amount
 	}
 
@@ -452,7 +450,7 @@ func (txSnd *TxSender) populateTxBuilder(
 		return nil, err
 	}
 
-	for _, token := range outputNativeTokenAmounts {
+	for _, token := range outputNativeTokens {
 		tokenName := token.TokenName()
 
 		inputs.Sum[tokenName] -= token.Amount
@@ -472,7 +470,7 @@ func (txSnd *TxSender) populateTxBuilder(
 		AddOutputs(cardanowallet.TxOutput{
 			Addr:   receiverAddr,
 			Amount: outputLovelace,
-			Tokens: outputNativeTokenAmounts,
+			Tokens: outputNativeTokens,
 		}, cardanowallet.TxOutput{
 			Addr:   senderAddr,
 			Tokens: outputRemainingTokens,
@@ -543,16 +541,15 @@ func (txSnd *TxSender) getConfigs(
 
 func adjustLovelaceOutput(
 	txBuilder *cardanowallet.TxBuilder, addr string,
-	tokens []*cardanowallet.TokenAmount, defaultMinUtxo, lovelaceOutputBase uint64,
+	tokens []cardanowallet.TokenAmount, defaultMinUtxo, lovelaceOutputBase uint64,
 ) (uint64, error) {
-	nativeTokenAmounts := filterNativeTokenAmounts(tokens)
-	if len(nativeTokenAmounts) == 0 {
+	if len(tokens) == 0 {
 		return max(lovelaceOutputBase, defaultMinUtxo), nil
 	}
 
 	// calculate min lovelace amount (min utxo) for receiver output
 	calculatedMinUtxo, err := cardanowallet.GetMinUtxoForSumMap(
-		txBuilder, addr, cardanowallet.GetTokensSumMap(nativeTokenAmounts...))
+		txBuilder, addr, cardanowallet.GetTokensSumMap(tokens...))
 	if err != nil {
 		return 0, err
 	}
@@ -570,18 +567,6 @@ func checkFees(config *ChainConfig, bridgingFee, operationFee uint64) error {
 	}
 
 	return nil
-}
-
-func filterNativeTokenAmounts(tokens []*cardanowallet.TokenAmount) []cardanowallet.TokenAmount {
-	filteredTokens := make([]cardanowallet.TokenAmount, 0, len(tokens))
-
-	for _, token := range tokens {
-		if token != nil && token.Amount > 0 {
-			filteredTokens = append(filteredTokens, *token)
-		}
-	}
-
-	return filteredTokens
 }
 
 func getTokenFromTokenExchangeConfig(

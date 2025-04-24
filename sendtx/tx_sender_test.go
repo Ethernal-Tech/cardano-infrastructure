@@ -318,7 +318,8 @@ func Test_prepareBridgingTx(t *testing.T) {
 
 		assert.Equal(t, uint64(1034400), data.OutputLovelace)
 		assert.Equal(t, uint64(1034400-1_000_001), data.BridgingFee)
-		assert.Equal(t, &expectedTokenAmount, data.OutputNativeToken)
+		assert.Len(t, data.OutputNativeTokens, 1)
+		assert.Equal(t, expectedTokenAmount, data.OutputNativeTokens[0])
 	})
 }
 
@@ -345,7 +346,7 @@ func Test_adjustLovelaceOutput(t *testing.T) {
 	})
 
 	t.Run("with native token", func(t *testing.T) {
-		v, err := adjustLovelaceOutput(txBuilder, dummyAddr, []*cardanowallet.TokenAmount{{
+		v, err := adjustLovelaceOutput(txBuilder, dummyAddr, []cardanowallet.TokenAmount{{
 			Token:  cardanowallet.NewToken(dummyPID, "WADAorWAPEX"),
 			Amount: 1_000_000_000_000,
 		}}, 1_000_002, 1_000_001)
@@ -402,7 +403,7 @@ func Test_populateTxBuilder(t *testing.T) {
 
 	t.Run("valid with token", func(t *testing.T) {
 		data, err := txSnd.populateTxBuilder(
-			context.Background(), txBuilder, cfg, dummyAddr, dummyAddr, nil, 1_000_000, []*cardanowallet.TokenAmount{{
+			context.Background(), txBuilder, cfg, dummyAddr, dummyAddr, nil, 1_000_000, []cardanowallet.TokenAmount{{
 				Token:  token,
 				Amount: 2_000_000,
 			}})

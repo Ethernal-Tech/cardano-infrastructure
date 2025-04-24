@@ -56,11 +56,11 @@ type TxFeeInfo struct {
 }
 
 type bridgingTxPreparedData struct {
-	TxBuilder         *cardanowallet.TxBuilder
-	OutputLovelace    uint64
-	OutputNativeToken *cardanowallet.TokenAmount
-	BridgingFee       uint64
-	SrcConfig         *ChainConfig
+	TxBuilder          *cardanowallet.TxBuilder
+	OutputLovelace     uint64
+	OutputNativeTokens []cardanowallet.TokenAmount
+	BridgingFee        uint64
+	SrcConfig          *ChainConfig
 }
 
 type txBuilderPopulationData struct {
