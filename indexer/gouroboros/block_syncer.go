@@ -177,10 +177,12 @@ func (bs *BlockSyncerImpl) rollBackwardCallback(
 		"hash", hex.EncodeToString(point.Hash), "slot", point.Slot,
 		"tip_slot", tip.Point.Slot, "tip_hash", hex.EncodeToString(tip.Point.Hash))
 
-	return bs.blockHandler.RollBackward(indexer.BlockPoint{
-		BlockSlot: point.Slot,
-		BlockHash: indexer.Hash(point.Hash),
-	})
+	blockPoint := indexer.BlockPoint{BlockSlot: point.Slot}
+	if len(point.Hash) == indexer.HashSize {
+		blockPoint.BlockHash = indexer.Hash(point.Hash)
+	}
+
+	return bs.blockHandler.RollBackward(blockPoint)
 }
 
 func (bs *BlockSyncerImpl) rollForwardCallback(

@@ -17,29 +17,6 @@ const HashSize = 32
 
 type Hash [HashSize]byte
 
-func (h Hash) String() string {
-	return hex.EncodeToString(h[:])
-}
-
-func NewHashFromHexString(hash string) Hash {
-	v, _ := hex.DecodeString(strings.TrimPrefix(hash, "0x"))
-
-	return NewHashFromBytes(v)
-}
-
-func NewHashFromBytes(bytes []byte) Hash {
-	if len(bytes) != HashSize {
-		result := Hash{}
-		size := min(HashSize, len(bytes))
-
-		copy(result[HashSize-size:], bytes[:size])
-
-		return result
-	}
-
-	return Hash(bytes)
-}
-
 type BlockPoint struct {
 	BlockSlot uint64 `json:"slot"`
 	BlockHash Hash   `json:"hash"`
@@ -106,6 +83,29 @@ type TxInfo struct {
 	IsValid  bool        `json:"isValid"`
 	Inputs   []TxInput   `json:"inputs,omitempty"`
 	Outputs  []*TxOutput `json:"outputs,omitempty"`
+}
+
+func (h Hash) String() string {
+	return hex.EncodeToString(h[:])
+}
+
+func NewHashFromHexString(hash string) Hash {
+	v, _ := hex.DecodeString(strings.TrimPrefix(hash, "0x"))
+
+	return NewHashFromBytes(v)
+}
+
+func NewHashFromBytes(bytes []byte) Hash {
+	if len(bytes) != HashSize {
+		result := Hash{}
+		size := min(HashSize, len(bytes))
+
+		copy(result[HashSize-size:], bytes[:size])
+
+		return result
+	}
+
+	return Hash(bytes)
 }
 
 func (cb *CardanoBlock) Key() []byte {
