@@ -56,15 +56,28 @@ type TxFeeInfo struct {
 }
 
 type bridgingTxPreparedData struct {
-	TxBuilder         *cardanowallet.TxBuilder
-	OutputLovelace    uint64
-	OutputNativeToken *cardanowallet.TokenAmount
-	BridgingFee       uint64
-	SrcConfig         *ChainConfig
+	TxBuilder          *cardanowallet.TxBuilder
+	OutputLovelace     uint64
+	OutputNativeTokens []cardanowallet.TokenAmount
+	BridgingFee        uint64
+	SrcConfig          *ChainConfig
 }
 
 type txBuilderPopulationData struct {
 	ChangeLovelace      uint64
 	ChangeMinUtxoAmount uint64
 	ChosenInputs        cardanowallet.TxInputs
+}
+
+func (bt BridgingType) String() string {
+	switch bt {
+	case BridgingTypeNormal:
+		return "Bridging Request Reactor"
+	case BridgingTypeNativeTokenOnSource:
+		return "Bridging Native Token on Source"
+	case BridgingTypeCurrencyOnSource:
+		return "Bridging Currency on Source"
+	default:
+		return "Unknown Bridging Type"
+	}
 }

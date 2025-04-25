@@ -3,9 +3,6 @@ package sendtx
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
-
-	infracommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 )
 
 type BridgingRequestType string
@@ -67,10 +64,4 @@ func (brm *BridgingRequestMetadata) GetOutputAmounts() (outputCurrencyLovelace u
 
 func (brmt BridgingRequestMetadataTransaction) IsNativeTokenOnSource() bool {
 	return brmt.IsNativeTokenOnSrc != 0
-}
-
-func addrToMetaDataAddr(addr string) []string {
-	addr = strings.TrimPrefix(strings.TrimPrefix(addr, "0x"), "0X")
-
-	return infracommon.SplitString(addr, splitStringLength)
 }
