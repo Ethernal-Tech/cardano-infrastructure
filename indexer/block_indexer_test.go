@@ -438,20 +438,18 @@ func TestBlockIndexer_ProcessConfirmedBlock_KeepAllTxOutputsInDb(t *testing.T) {
 	dbMock.Writter.AssertExpectations(t)
 }
 
-/*
-func TestBlockIndexer_RollBackwardFunc_RollbackToUnconfirmed(t *testing.T) {
+func TestBlockIndexer_RollBackward_RollbackToUnconfirmed(t *testing.T) {
 	t.Parallel()
 
-	uncomfBlocks := []ledger.BlockHeader{
-		&LedgerBlockHeaderMock{SlotNumberVal: 6, HashVal: bytes2HashString([]byte{0, 2})},
-		&LedgerBlockHeaderMock{SlotNumberVal: 7, HashVal: bytes2HashString([]byte{0, 3})},
-		&LedgerBlockHeaderMock{SlotNumberVal: 8, HashVal: bytes2HashString([]byte{0, 4})},
-		&LedgerBlockHeaderMock{SlotNumberVal: 9, HashVal: bytes2HashString([]byte{0, 5})},
+	uncomfBlocks := []BlockHeader{
+		{Slot: 6, Hash: Hash{0, 2}},
+		{Slot: 7, Hash: Hash{0, 3}},
+		{Slot: 8, Hash: Hash{0, 4}},
+		{Slot: 9, Hash: Hash{0, 5}},
 	}
 	bp := &BlockPoint{
-		BlockSlot:   5,
-		BlockHash:   Hash{0, 1},
-		BlockNumber: 1,
+		BlockSlot: 5,
+		BlockHash: Hash{0, 1},
 	}
 	config := &BlockIndexerConfig{
 		ConfirmationBlockCount: 5,
@@ -461,10 +459,7 @@ func TestBlockIndexer_RollBackwardFunc_RollbackToUnconfirmed(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DBTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
-		return nil
-	}
-	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
+	blockIndexer := NewBlockIndexer(config, nil, dbMock, hclog.NewNullLogger())
 
 	dbMock.On("GetLatestBlockPoint").Return((*BlockPoint)(nil), error(nil)).Once()
 
@@ -476,10 +471,7 @@ func TestBlockIndexer_RollBackwardFunc_RollbackToUnconfirmed(t *testing.T) {
 		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
 	}
 
-	err = blockIndexer.RollBackwardFunc(common.Point{
-		Slot: 7,
-		Hash: []byte{0, 3},
-	})
+	err = blockIndexer.RollBackward(BlockPoint{BlockSlot: 7, BlockHash: Hash{0, 3}})
 	require.NoError(t, err)
 
 	require.Equal(t, uncomfBlocks[0:2], blockIndexer.unconfirmedBlocks.ToList())
@@ -489,14 +481,13 @@ func TestBlockIndexer_RollBackwardFunc_RollbackToUnconfirmed(t *testing.T) {
 func TestBlockIndexer_RollBackwardFunc_RollbackToConfirmed(t *testing.T) {
 	t.Parallel()
 
-	uncomfBlocks := []ledger.BlockHeader{
-		&LedgerBlockHeaderMock{SlotNumberVal: 6, HashVal: bytes2HashString([]byte{0, 2})},
-		&LedgerBlockHeaderMock{SlotNumberVal: 7, HashVal: bytes2HashString([]byte{0, 3})},
+	uncomfBlocks := []BlockHeader{
+		{Slot: 6, Hash: Hash{0, 2}},
+		{Slot: 7, Hash: Hash{0, 3}},
 	}
-	bp := &BlockPoint{
-		BlockSlot:   5,
-		BlockHash:   Hash{0, 1},
-		BlockNumber: 1,
+	bp := BlockPoint{
+		BlockSlot: 5,
+		BlockHash: Hash{0, 1},
 	}
 	config := &BlockIndexerConfig{
 		ConfirmationBlockCount: 5,
@@ -506,20 +497,14 @@ func TestBlockIndexer_RollBackwardFunc_RollbackToConfirmed(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DBTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
-		return nil
-	}
-	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
-	blockIndexer.latestBlockPoint = bp
+	blockIndexer := NewBlockIndexer(config, nil, dbMock, hclog.NewNullLogger())
+	blockIndexer.latestBlockPoint = &bp
 
 	for _, x := range uncomfBlocks {
 		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
 	}
 
-	err := blockIndexer.RollBackwardFunc(common.Point{
-		Slot: bp.BlockSlot,
-		Hash: bp.BlockHash[:],
-	})
+	err := blockIndexer.RollBackward(bp)
 	require.NoError(t, err)
 
 	require.Equal(t, 0, blockIndexer.unconfirmedBlocks.Len())
@@ -529,11 +514,11 @@ func TestBlockIndexer_RollBackwardFunc_RollbackToConfirmed(t *testing.T) {
 func TestBlockIndexer_RollBackwardFunc_Error(t *testing.T) {
 	t.Parallel()
 
-	uncomfBlocks := []ledger.BlockHeader{
-		&LedgerBlockHeaderMock{SlotNumberVal: 6, HashVal: bytes2HashString([]byte{0, 2})},
-		&LedgerBlockHeaderMock{SlotNumberVal: 7, HashVal: bytes2HashString([]byte{0, 3})},
+	uncomfBlocks := []BlockHeader{
+		{Slot: 6, Hash: Hash{0, 2}},
+		{Slot: 7, Hash: Hash{0, 3}},
 	}
-	bp := &BlockPoint{
+	bp := BlockPoint{
 		BlockSlot: 5,
 		BlockHash: Hash{0, 1},
 	}
@@ -545,10 +530,7 @@ func TestBlockIndexer_RollBackwardFunc_Error(t *testing.T) {
 	dbMock := &DatabaseMock{
 		Writter: &DBTransactionWriterMock{},
 	}
-	newConfirmedBlockHandler := func(cb *CardanoBlock, fb []*Tx) error {
-		return nil
-	}
-	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
+	blockIndexer := NewBlockIndexer(config, nil, dbMock, hclog.NewNullLogger())
 
 	for _, x := range uncomfBlocks {
 		require.NoError(t, blockIndexer.unconfirmedBlocks.Push(x))
@@ -560,62 +542,62 @@ func TestBlockIndexer_RollBackwardFunc_Error(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, Hash{}, sp.BlockHash) // all zeroes
 
-	err = blockIndexer.RollBackwardFunc(common.Point{
-		Slot: bp.BlockSlot + 10003,
-		Hash: bp.BlockHash[:],
-	})
-	require.ErrorIs(t, err, ErrBlockSyncerFatal)
+	err = blockIndexer.RollBackward(BlockPoint{BlockSlot: bp.BlockSlot + 10003, BlockHash: bp.BlockHash})
+	require.ErrorIs(t, err, ErrBlockIndexerFatal)
 
 	dbMock.AssertExpectations(t)
 }
 
-func TestBlockIndexer_RollForwardFunc(t *testing.T) {
+func TestBlockIndexer_RollForward(t *testing.T) {
 	t.Parallel()
 
-	inputTxHash := NewHashFromHexString("01FFaa")
+	inputTxHash := Hash{1, 2, 3, 4, 5, 6, 7, 8, 0xff}
 	inputTxIndex := uint32(43)
 	confirmedTxs := ([]*Tx)(nil)
 	addressesOfInterest := []string{addresses[1]}
 	getTxsMock := &BlockTxsRetrieverMock{
-		RetrieveFn: func(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error) {
-			switch blockHeader.SlotNumber() {
+		RetrieveFn: func(blockHeader BlockHeader) ([]*Tx, error) {
+			switch blockHeader.Slot {
 			case 1:
-				return []ledger.Transaction{
-					&LedgerTransactionMock{
-						HashVal: "01",
-						OutputsVal: []ledger.TransactionOutput{
-							NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(50)),
+				return []*Tx{
+					{
+						BlockHash: Hash{1},
+						Hash:      Hash{0, 1},
+						Outputs: []*TxOutput{
+							{Address: addressesOfInterest[0], Amount: 50},
 						},
 					},
 				}, nil
 			case 2:
-				return []ledger.Transaction{
-					&LedgerTransactionMock{
-						HashVal: "02",
-						InputsVal: []ledger.TransactionInput{
-							NewLedgerTransactionInputMock(t, inputTxHash[:], inputTxIndex),
+				return []*Tx{
+					{
+						BlockHash: Hash{2},
+						Hash:      Hash{0, 2},
+						Inputs: []*TxInputOutput{
+							{Input: TxInput{Hash: inputTxHash, Index: inputTxIndex}},
 						},
-						OutputsVal: []ledger.TransactionOutput{
-							NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(100)),
+						Outputs: []*TxOutput{
+							{Address: addressesOfInterest[0], Amount: 100},
 						},
 					},
-					&LedgerTransactionMock{
-						HashVal: "03",
-						OutputsVal: []ledger.TransactionOutput{
-							NewLedgerTransactionOutputMock(t, addressesOfInterest[0], uint64(200)),
+					{
+						BlockHash: Hash{3},
+						Hash:      Hash{0, 3},
+						Outputs: []*TxOutput{
+							{Address: addressesOfInterest[0], Amount: 200},
 						},
 					},
 				}, nil
 			default:
-				return []ledger.Transaction{}, nil
+				return []*Tx{}, nil
 			}
 		},
 	}
-	blockHeaders := []*LedgerBlockHeaderMock{
-		{SlotNumberVal: 1, HashVal: bytes2HashString([]byte{1})},
-		{SlotNumberVal: 2, HashVal: bytes2HashString([]byte{2})},
-		{SlotNumberVal: 3, HashVal: bytes2HashString([]byte{3})},
-		{SlotNumberVal: 4, HashVal: bytes2HashString([]byte{4})},
+	blockHeaders := []BlockHeader{
+		{Slot: 1, Hash: Hash{1}},
+		{Slot: 2, Hash: Hash{2}},
+		{Slot: 3, Hash: Hash{3}},
+		{Slot: 4, Hash: Hash{4}},
 	}
 	config := &BlockIndexerConfig{
 		StartingBlockPoint:     nil,
@@ -645,10 +627,9 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 				dbMock.Writter.On("AddTxOutputs", []*TxInputOutput{
 					{
 						Input: TxInput{
-							Hash: NewHashFromHexString("0x01"),
+							Hash: Hash{0, 1},
 						},
 						Output: TxOutput{
-							Slot:    1,
 							Address: addressesOfInterest[0],
 							Amount:  50,
 						},
@@ -659,20 +640,18 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 				dbMock.Writter.On("AddTxOutputs", []*TxInputOutput{
 					{
 						Input: TxInput{
-							Hash: NewHashFromHexString("0x02"),
+							Hash: Hash{0, 2},
 						},
 						Output: TxOutput{
-							Slot:    2,
 							Address: addressesOfInterest[0],
 							Amount:  100,
 						},
 					},
 					{
 						Input: TxInput{
-							Hash: NewHashFromHexString("0x03"),
+							Hash: Hash{0, 3},
 						},
 						Output: TxOutput{
-							Slot:    2,
 							Address: addressesOfInterest[0],
 							Amount:  200,
 						},
@@ -692,22 +671,21 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 			dbMock.Writter.On("AddConfirmedTxs", mock.Anything).Once()
 			dbMock.Writter.On("AddConfirmedBlock", blockHeaders[i-2].ToCardanoBlock(getTxHashes(txsRetrievedWithGetTxs))).Once()
 			dbMock.Writter.On("SetLatestBlockPoint", &BlockPoint{
-				BlockSlot: blockHeaders[i-2].SlotNumberVal,
-				BlockHash: NewHashFromHexString(blockHeaders[i-2].HashVal),
+				BlockSlot: blockHeaders[i-2].Slot,
+				BlockHash: blockHeaders[i-2].Hash,
 			}).Once()
 		}
 
-		require.NoError(t, blockIndexer.RollForwardFunc(h, getTxsMock))
+		require.NoError(t, blockIndexer.RollForward(h, getTxsMock))
 
 		if i < 2 {
 			require.Equal(t, i+1, blockIndexer.unconfirmedBlocks.Len())
 		} else {
 			require.Equal(t, 2, blockIndexer.unconfirmedBlocks.Len())
 			require.Len(t, confirmedTxs, i-1)
-			require.Equal(t, blockHeaders[i-2].Hash(), bytes2HashString(confirmedTxs[0].BlockHash[:]))
+			require.Equal(t, blockHeaders[i-2].Hash, confirmedTxs[0].BlockHash)
 		}
 
 		dbMock.AssertExpectations(t)
 	}
 }
-*/

@@ -209,3 +209,11 @@ func (m *DBTransactionWriterMock) DeleteAllTxOutputsPhysically() DBTransactionWr
 }
 
 var _ DBTransactionWriter = (*DBTransactionWriterMock)(nil)
+
+type BlockTxsRetrieverMock struct {
+	RetrieveFn func(blockHeader BlockHeader) ([]*Tx, error)
+}
+
+func (bt *BlockTxsRetrieverMock) GetBlockTransactions(blockHeader BlockHeader) ([]*Tx, error) {
+	return bt.RetrieveFn(blockHeader)
+}

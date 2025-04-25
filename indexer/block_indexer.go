@@ -178,11 +178,11 @@ func (bi *BlockIndexer) processConfirmedBlock(
 	relevantTxs := bi.filterTxsOfInterest(allTxs)
 
 	if bi.config.KeepAllTxOutputsInDB {
-		txOutputsToSave = getTxOutputs(allTxs, bi.addressesOfInterest, true)
-		txOutputsToRemove = getTxInputs(allTxs, bi.addressesOfInterest, true)
+		txOutputsToSave = getTxOutputs(allTxs, nil)
+		txOutputsToRemove = getTxInputs(allTxs, nil)
 	} else {
-		txOutputsToSave = getTxOutputs(relevantTxs, bi.addressesOfInterest, false)
-		txOutputsToRemove = getTxInputs(relevantTxs, bi.addressesOfInterest, false)
+		txOutputsToSave = getTxOutputs(relevantTxs, bi.addressesOfInterest)
+		txOutputsToRemove = getTxInputs(relevantTxs, bi.addressesOfInterest)
 	}
 
 	// add confirmed block to db and create full block only if there are some transactions of interest

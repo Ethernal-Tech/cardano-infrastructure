@@ -54,10 +54,10 @@ func getTxHashes(txs []*Tx) []Hash {
 	return result
 }
 
-func getTxOutputs(txs []*Tx, addressesOfInterest map[string]bool, retrieveAll bool) (res []*TxInputOutput) {
+func getTxOutputs(txs []*Tx, addressesOfInterest map[string]bool) (res []*TxInputOutput) {
 	for _, tx := range txs {
 		for outIndex, txOut := range tx.Outputs {
-			if retrieveAll || addressesOfInterest[txOut.Address] {
+			if len(addressesOfInterest) == 0 || addressesOfInterest[txOut.Address] {
 				res = append(res, &TxInputOutput{
 					Input: TxInput{
 						Hash:  tx.Hash,
@@ -72,10 +72,10 @@ func getTxOutputs(txs []*Tx, addressesOfInterest map[string]bool, retrieveAll bo
 	return res
 }
 
-func getTxInputs(txs []*Tx, addressesOfInterest map[string]bool, retrieveAll bool) (res []*TxInput) {
+func getTxInputs(txs []*Tx, addressesOfInterest map[string]bool) (res []*TxInput) {
 	for _, tx := range txs {
 		for _, inp := range tx.Inputs {
-			if retrieveAll || addressesOfInterest[inp.Output.Address] {
+			if len(addressesOfInterest) == 0 || addressesOfInterest[inp.Output.Address] {
 				res = append(res, &inp.Input)
 			}
 		}

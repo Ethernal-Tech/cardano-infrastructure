@@ -104,18 +104,18 @@ func TestGetTxOutputsAndInputsFuncs(t *testing.T) {
 	addressesOfInterest := map[string]bool{address: true}
 
 	t.Run("getTxOutputs retrieve all", func(t *testing.T) {
-		require.Len(t, getTxOutputs(txs, addressesOfInterest, true), 4)
+		require.Len(t, getTxOutputs(txs, nil), 4)
 	})
 
 	t.Run("getTxOutputs retrieve filtered", func(t *testing.T) {
-		require.Len(t, getTxOutputs(txs, addressesOfInterest, false), 2)
+		require.Len(t, getTxOutputs(txs, addressesOfInterest), 2)
 	})
 
 	t.Run("getTxInputs retrieve all", func(t *testing.T) {
-		require.Len(t, getTxInputs(txs, addressesOfInterest, true), 5)
+		require.Len(t, getTxInputs(txs, nil), 5)
 	})
 
 	t.Run("getTxInputs retrieve filtered", func(t *testing.T) {
-		require.Len(t, getTxInputs(txs, addressesOfInterest, false), 2)
+		require.Len(t, getTxInputs(txs, addressesOfInterest), 2)
 	})
 }
