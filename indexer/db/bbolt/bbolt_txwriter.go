@@ -78,6 +78,10 @@ func (tw *BBoltTransactionWriter) AddConfirmedBlock(block *core.CardanoBlock) co
 }
 
 func (tw *BBoltTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DBTransactionWriter {
+	if len(txs) == 0 {
+		return tw
+	}
+
 	tw.operations = append(tw.operations, func(tx *bbolt.Tx) error {
 		for _, cardTx := range txs {
 			bytes, err := json.Marshal(cardTx)

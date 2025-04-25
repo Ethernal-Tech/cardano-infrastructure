@@ -244,7 +244,6 @@ func TestTxWriter(t *testing.T) {
 
 		blocks, err := db.GetConfirmedBlocksFrom(0, 10)
 		require.NoError(t, err)
-		require.NotEmpty(t, blocks)
 		require.Len(t, blocks, 2)
 
 		dbTx = db.OpenTx()
@@ -255,7 +254,6 @@ func TestTxWriter(t *testing.T) {
 
 		blocks, err = db.GetConfirmedBlocksFrom(0, 10)
 		require.NoError(t, err)
-		require.NotEmpty(t, blocks)
 		require.Len(t, blocks, 4)
 
 		require.EqualValues(t, []*indexer.CardanoBlock{block1, block2, block3, block4}, blocks)
@@ -277,13 +275,20 @@ func TestTxWriter(t *testing.T) {
 		dbTx := db.OpenTx()
 		require.NotNil(t, dbTx)
 
-		dbTx.AddConfirmedTxs([]*indexer.Tx{tx1, tx2})
+		dbTx.AddConfirmedTxs([]*indexer.Tx{})
 		err = dbTx.Execute()
 		require.NoError(t, err)
 
 		txs, err := db.GetUnprocessedConfirmedTxs(10)
 		require.NoError(t, err)
-		require.NotEmpty(t, txs)
+		require.Len(t, txs, 0)
+
+		dbTx.AddConfirmedTxs([]*indexer.Tx{tx1, tx2})
+		err = dbTx.Execute()
+		require.NoError(t, err)
+
+		txs, err = db.GetUnprocessedConfirmedTxs(10)
+		require.NoError(t, err)
 		require.Len(t, txs, 2)
 
 		dbTx = db.OpenTx()
@@ -293,7 +298,6 @@ func TestTxWriter(t *testing.T) {
 
 		txs, err = db.GetUnprocessedConfirmedTxs(10)
 		require.NoError(t, err)
-		require.NotEmpty(t, txs)
 		require.Len(t, txs, 5)
 
 		require.EqualValues(t, []*indexer.Tx{tx1, tx2, tx3, tx4, tx5}, txs)

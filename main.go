@@ -12,6 +12,7 @@ import (
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/indexer"
 	"github.com/Ethernal-Tech/cardano-infrastructure/indexer/db"
+	"github.com/Ethernal-Tech/cardano-infrastructure/indexer/gouroboros"
 	"github.com/Ethernal-Tech/cardano-infrastructure/logger"
 	"github.com/hashicorp/go-hclog"
 )
@@ -74,9 +75,8 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 
 	indexerConfig := &indexer.BlockIndexerConfig{
 		StartingBlockPoint: &indexer.BlockPoint{
-			BlockSlot:   0,
-			BlockHash:   [32]byte{},
-			BlockNumber: 0,
+			BlockSlot: 0,
+			BlockHash: [32]byte{},
 		},
 		AddressCheck:            indexer.AddressCheckAll,
 		ConfirmationBlockCount:  10,
@@ -85,7 +85,7 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 		KeepAllTxOutputsInDB:    false,
 		KeepAllTxsHashesInBlock: true,
 	}
-	syncerConfig := &indexer.BlockSyncerConfig{
+	syncerConfig := &gouroboros.BlockSyncerConfig{
 		NetworkMagic:   networkMagic,
 		NodeAddress:    address,
 		RestartOnError: true,
@@ -94,7 +94,7 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 	}
 
 	indexerObj := indexer.NewBlockIndexer(indexerConfig, confirmedBlockHandler, dbs, logger.Named("block_indexer"))
-	syncer := indexer.NewBlockSyncer(syncerConfig, indexerObj, logger.Named("block_syncer"))
+	syncer := gouroboros.NewBlockSyncer(syncerConfig, indexerObj, logger.Named("block_syncer"))
 
 	go func() {
 		select {
