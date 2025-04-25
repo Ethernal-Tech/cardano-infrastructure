@@ -28,7 +28,7 @@ func ParseTxInfo(rawTx []byte, full bool) (indexer.TxInfo, error) {
 	if libOutputs := gtx.Outputs(); len(libOutputs) > 0 {
 		txOutputs = make([]*indexer.TxOutput, len(libOutputs))
 		for j, out := range libOutputs {
-			txOutputs[j] = createTxOutput(0, ledgerAddressToString(out.Address()), out)
+			txOutputs[j] = createTxOutput(0, out)
 		}
 	}
 

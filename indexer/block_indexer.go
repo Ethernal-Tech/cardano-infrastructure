@@ -16,12 +16,6 @@ const (
 	AddressCheckAll     = AddressCheckInputs | AddressCheckOutputs
 )
 
-type txFilterResult struct {
-	Txs     []Tx
-	Inputs  []*TxInputOutput
-	Outputs []*TxOutput
-}
-
 type BlockIndexerConfig struct {
 	StartingBlockPoint *BlockPoint `json:"startingBlockPoint"`
 	// how many children blocks is needed for some block to be considered final
@@ -265,6 +259,9 @@ func (bi *BlockIndexer) isTxInputOfInterest(tx *Tx) bool {
 func (bi *BlockIndexer) populateOutputsForEachInput(txs []*Tx) (err error) {
 	for _, tx := range txs {
 		for _, inp := range tx.Inputs {
+			if inp.Output.Address != "" {
+				continue // output is already set
+			}
 			// if there is no output for the input, zero address and amount are set
 			inp.Output, err = bi.db.GetTxOutput(inp.Input)
 			if err != nil {

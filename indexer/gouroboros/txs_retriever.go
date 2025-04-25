@@ -28,7 +28,7 @@ func (br *BlockTxsRetrieverImpl) GetBlockTransactions(blockHeader indexer.BlockH
 	txs := make([]*indexer.Tx, len(legderTxs))
 
 	for i, ledgerTx := range legderTxs {
-		tx, err := createTx(&blockHeader, ledgerTx, uint32(i))
+		tx, err := createTx(&blockHeader, ledgerTx, uint32(i)) //nolint:gosec
 		if err != nil {
 			return nil, err
 		}

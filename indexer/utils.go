@@ -7,11 +7,13 @@ import (
 )
 
 // SortTxInputOutputs sorts a slice of TxInputOutput pointers based on the following priority:
-//  1. Inputs with lower Output.Slot values come first — this is critical because inputs added earlier must be processed first
+//  1. Inputs with lower Output.Slot values come first —
+//     this is critical because inputs added earlier must be processed first
 //  2. If Slot values are equal, inputs are sorted lexicographically by their Input.Hash
 //  3. If both Slot and Hash are equal, inputs are sorted by Input.Index
 //
-// The returned slice reflects this ordering and ensures deterministic processing of inputs in the correct chronological order.
+// The returned slice reflects this ordering and ensures deterministic processing of inputs
+// in the correct chronological order.
 func SortTxInputOutputs(txInputsOutputs []*TxInputOutput) []*TxInputOutput {
 	sort.Slice(txInputsOutputs, func(i, j int) bool {
 		first, second := txInputsOutputs[i], txInputsOutputs[j]
@@ -59,7 +61,7 @@ func getTxOutputs(txs []*Tx, addressesOfInterest map[string]bool, retrieveAll bo
 				res = append(res, &TxInputOutput{
 					Input: TxInput{
 						Hash:  tx.Hash,
-						Index: uint32(outIndex),
+						Index: uint32(outIndex), //nolint:gosec
 					},
 					Output: *txOut,
 				})

@@ -170,8 +170,8 @@ func (tx *Tx) String() string {
 	return sb.String()
 }
 
-func (to *TxOutput) IsNotUsed() bool {
-	return to.Address != "" && !to.IsUsed
+func (t *TxOutput) IsNotUsed() bool {
+	return t.Address != "" && !t.IsUsed
 }
 
 func (t *TxOutput) String() string {
@@ -190,7 +190,7 @@ func (t *TxOutput) String() string {
 func (ti *TxInput) Key() []byte {
 	key := make([]byte, HashSize+4)
 
-	copy(key[:], ti.Hash[:])
+	copy(key, ti.Hash[:])
 	binary.BigEndian.PutUint32(key[HashSize:], ti.Index)
 
 	return key
@@ -207,8 +207,8 @@ func (ti *TxInput) Set(bytes []byte) error {
 	return nil
 }
 
-func (t *TxInput) String() string {
-	return fmt.Sprintf("%s#%d", t.Hash, t.Index)
+func (ti *TxInput) String() string {
+	return fmt.Sprintf("%s#%d", ti.Hash, ti.Index)
 }
 
 func (t *TxInputOutput) String() string {

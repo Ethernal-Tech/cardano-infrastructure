@@ -1,7 +1,7 @@
 package indexer
 
 import (
-	"encoding/hex"
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
@@ -321,7 +321,6 @@ func TestBlockIndexer_ProcessConfirmedBlock_TxOfInterestInInputs(t *testing.T) {
 	dbMock.Writter.AssertExpectations(t)
 }
 
-/*
 func TestBlockIndexer_ProcessConfirmedBlock_KeepAllTxOutputsInDb(t *testing.T) {
 	t.Parallel()
 
@@ -334,7 +333,7 @@ func TestBlockIndexer_ProcessConfirmedBlock_KeepAllTxOutputsInDb(t *testing.T) {
 		{89, 19},
 		{66, 4},
 	}
-	dbInputOutputs := [2]*TxInputOutput{
+	dbInputOutputs := []*TxInputOutput{
 		{
 			Input: TxInput{
 				Hash:  Hash{1, 1},
@@ -356,15 +355,13 @@ func TestBlockIndexer_ProcessConfirmedBlock_KeepAllTxOutputsInDb(t *testing.T) {
 			},
 		},
 	}
-	txInputs := [2]*LedgerTransactionInputMock{
-		NewLedgerTransactionInputMock(t, dbInputOutputs[0].Input.Hash[:], dbInputOutputs[0].Input.Index),
-		NewLedgerTransactionInputMock(t, dbInputOutputs[1].Input.Hash[:], dbInputOutputs[1].Input.Index),
+	txInputs := []*TxInputOutput{
+		{Input: dbInputOutputs[0].Input}, {Input: dbInputOutputs[1].Input},
 	}
 	blockHash := Hash{100, 200, 100}
 	expectedLastBlockPoint := &BlockPoint{
-		BlockSlot:   blockSlot,
-		BlockHash:   blockHash,
-		BlockNumber: blockNumber,
+		BlockSlot: blockSlot,
+		BlockHash: blockHash,
 	}
 	config := &BlockIndexerConfig{
 		AddressCheck:         AddressCheckAll,
@@ -377,61 +374,42 @@ func TestBlockIndexer_ProcessConfirmedBlock_KeepAllTxOutputsInDb(t *testing.T) {
 		return nil
 	}
 
-	allTransactions := []ledger.Transaction{
-		&LedgerTransactionMock{
-			HashVal: bytes2HashString(hashTx[0][:]),
-			InputsVal: []ledger.TransactionInput{
-				txInputs[0],
-			},
-			OutputsVal: []ledger.TransactionOutput{
-				NewLedgerTransactionOutputMock(t, addresses[1], uint64(200)),
+	allTransactions := []*Tx{
+		{
+			Hash:   hashTx[0],
+			Inputs: []*TxInputOutput{txInputs[0]},
+			Outputs: []*TxOutput{
+				{Address: addresses[1], Amount: 200},
 			},
 		},
-		&LedgerTransactionMock{
-			HashVal: bytes2HashString(hashTx[1][:]),
-			InputsVal: []ledger.TransactionInput{
-				txInputs[1],
-			},
-			OutputsVal: []ledger.TransactionOutput{
-				NewLedgerTransactionOutputMock(t, addresses[1], uint64(100)),
+		{
+			Hash:   hashTx[1],
+			Inputs: []*TxInputOutput{txInputs[1]},
+			Outputs: []*TxOutput{
+				{Address: addresses[1], Amount: 100},
 			},
 		},
 	}
 
+	for i, txInput := range txInputs {
+		dbMock.On("GetTxOutput", txInput.Input).Return(TxOutput{Address: fmt.Sprintf("addr%d", i)}, error(nil)).Once()
+	}
+
 	dbMock.On("OpenTx").Once()
-	dbMock.On("GetTxOutput", TxInput{
-		Hash:  Hash(txInputs[0].Id()),
-		Index: txInputs[0].Index(),
-	}).Return(TxOutput{
-		Address: "addr1",
-	}, error(nil)).Once()
-	dbMock.On("GetTxOutput", TxInput{
-		Hash:  Hash(txInputs[1].Id()),
-		Index: txInputs[1].Index(),
-	}).Return(TxOutput{
-		Address: "addr2",
-	}, error(nil)).Once()
 	dbMock.Writter.On("Execute").Return(error(nil)).Once()
 	dbMock.Writter.On("SetLatestBlockPoint", expectedLastBlockPoint).Once()
 	dbMock.Writter.On("AddTxOutputs", []*TxInputOutput{
 		{
 			Input:  TxInput{Hash: hashTx[0], Index: 0},
-			Output: TxOutput{Address: addresses[1], Amount: uint64(200), Slot: blockSlot},
+			Output: TxOutput{Address: addresses[1], Amount: uint64(200)},
 		},
 		{
 			Input:  TxInput{Hash: hashTx[1], Index: 0},
-			Output: TxOutput{Address: addresses[1], Amount: uint64(100), Slot: blockSlot},
+			Output: TxOutput{Address: addresses[1], Amount: uint64(100)},
 		},
 	}).Once()
 	dbMock.Writter.On("RemoveTxOutputs", []*TxInput{
-		{
-			Hash:  Hash(txInputs[0].Id()),
-			Index: txInputs[0].Index(),
-		},
-		{
-			Hash:  Hash(txInputs[1].Id()),
-			Index: txInputs[1].Index(),
-		},
+		&txInputs[0].Input, &txInputs[1].Input,
 	}, false).Once()
 	dbMock.Writter.On("AddConfirmedBlock", &CardanoBlock{
 		Slot:   blockSlot,
@@ -439,20 +417,15 @@ func TestBlockIndexer_ProcessConfirmedBlock_KeepAllTxOutputsInDb(t *testing.T) {
 		Hash:   blockHash,
 		Txs:    getTxHashes(allTransactions),
 	}).Once()
-	dbMock.Writter.On("AddConfirmedTxs", mock.Anything).Run(func(args mock.Arguments) {
-		txs := args.Get(0).([]*Tx)
-		require.Len(t, txs, 2)
-		require.Equal(t, blockHash, txs[0].BlockHash)
-		require.Equal(t, blockHash, txs[1].BlockHash)
-	}).Once()
+	dbMock.Writter.On("AddConfirmedTxs", allTransactions).Once()
 
 	blockIndexer := NewBlockIndexer(config, newConfirmedBlockHandler, dbMock, hclog.NewNullLogger())
 	assert.NotNil(t, blockIndexer)
 
-	cb, txs, latestBlockPoint, err := blockIndexer.processConfirmedBlock(&LedgerBlockHeaderMock{
-		SlotNumberVal:  blockSlot,
-		HashVal:        bytes2HashString(blockHash[:]),
-		BlockNumberVal: blockNumber,
+	cb, txs, latestBlockPoint, err := blockIndexer.processConfirmedBlock(BlockHeader{
+		Slot:   blockSlot,
+		Hash:   blockHash,
+		Number: blockNumber,
 	}, allTransactions)
 
 	require.Nil(t, err)
@@ -465,6 +438,7 @@ func TestBlockIndexer_ProcessConfirmedBlock_KeepAllTxOutputsInDb(t *testing.T) {
 	dbMock.Writter.AssertExpectations(t)
 }
 
+/*
 func TestBlockIndexer_RollBackwardFunc_RollbackToUnconfirmed(t *testing.T) {
 	t.Parallel()
 
@@ -737,13 +711,3 @@ func TestBlockIndexer_RollForwardFunc(t *testing.T) {
 	}
 }
 */
-
-func bytes2HashString(bytes []byte) string {
-	if len(bytes) == HashSize {
-		return hex.EncodeToString(bytes)
-	}
-
-	h := NewHashFromBytes(bytes)
-
-	return hex.EncodeToString(h[:])
-}

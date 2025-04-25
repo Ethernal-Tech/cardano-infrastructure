@@ -25,7 +25,7 @@ func createTx(blockHeader *indexer.BlockHeader, ledgerTx ledger.Transaction, ind
 		tx.Inputs = make([]*indexer.TxInputOutput, len(inputs))
 
 		for j, inp := range inputs {
-			// output will be set later by indexer
+			// output field will be set later by indexer
 			tx.Inputs[j] = &indexer.TxInputOutput{
 				Input: indexer.TxInput{
 					Hash:  indexer.Hash(inp.Id()),
@@ -38,14 +38,14 @@ func createTx(blockHeader *indexer.BlockHeader, ledgerTx ledger.Transaction, ind
 	if outputs := ledgerTx.Outputs(); len(outputs) > 0 {
 		tx.Outputs = make([]*indexer.TxOutput, len(outputs))
 		for j, out := range outputs {
-			tx.Outputs[j] = createTxOutput(blockHeader.Slot, ledgerAddressToString(out.Address()), out)
+			tx.Outputs[j] = createTxOutput(blockHeader.Slot, out)
 		}
 	}
 
 	return tx, nil
 }
 
-func createTxOutput(slot uint64, addr string, txOut common.TransactionOutput) *indexer.TxOutput {
+func createTxOutput(slot uint64, txOut common.TransactionOutput) *indexer.TxOutput {
 	var tokens []indexer.TokenAmount
 
 	if assets := txOut.Assets(); assets != nil {
@@ -80,7 +80,7 @@ func createTxOutput(slot uint64, addr string, txOut common.TransactionOutput) *i
 
 	return &indexer.TxOutput{
 		Slot:      slot,
-		Address:   addr,
+		Address:   ledgerAddressToString(txOut.Address()),
 		Amount:    txOut.Amount(),
 		Tokens:    tokens,
 		Datum:     datum,
