@@ -92,14 +92,20 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 		RestartDelay:   time.Second * 2,
 		KeepAlive:      true,
 	}
+	runnerConfig := &indexer.BlockIndexerRunnerConfig{
+		QueueChannelSize: 100,
+		AutoStart:        true,
+	}
 
 	indexerObj := indexer.NewBlockIndexer(indexerConfig, confirmedBlockHandler, dbs, logger.Named("block_indexer"))
-	syncer := gouroboros.NewBlockSyncer(syncerConfig, indexerObj, logger.Named("block_syncer"))
+	runner := indexer.NewBlockIndexerRunner(indexerObj, runnerConfig, logger.Named("block_indexer_runner"))
+	syncer := gouroboros.NewBlockSyncer(syncerConfig, runner, logger.Named("block_syncer"))
 
 	go func() {
 		select {
 		case <-ctx.Done():
 			syncer.Close()
+			runner.Close()
 			dbs.Close()
 		case err := <-syncer.ErrorCh():
 			logger.Error("syncer fatal err", "err", err)
