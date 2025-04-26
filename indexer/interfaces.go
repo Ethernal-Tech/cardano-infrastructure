@@ -1,12 +1,21 @@
 package indexer
 
+type Closable interface {
+	Close() error
+}
+
+type Service interface {
+	Closable
+	Start()
+}
+
 type BlockTxsRetriever interface {
 	GetBlockTransactions(blockHeader BlockHeader) ([]*Tx, error)
 }
 
 type BlockSyncer interface {
+	Closable
 	Sync() error
-	Close() error
 	ErrorCh() <-chan error
 }
 

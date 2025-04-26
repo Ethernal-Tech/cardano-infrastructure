@@ -194,17 +194,12 @@ func (bs *BlockSyncerImpl) rollForwardCallback(
 	}
 
 	bs.lock.Lock()
-	if bs.connection == nil {
-		bs.lock.Unlock()
+	conn := bs.connection
+	bs.lock.Unlock()
 
+	if conn == nil {
 		return errors.New("failed to get block transactions: no connection")
 	}
-
-	txsRetriever := &BlockTxsRetrieverImpl{
-		connection: bs.connection,
-		logger:     bs.logger,
-	}
-	bs.lock.Unlock()
 
 	bs.logger.Debug("Roll forward",
 		"hash", blockHeader.Hash(), "slot", blockHeader.SlotNumber(), "number", blockHeader.BlockNumber(),
@@ -215,7 +210,10 @@ func (bs *BlockSyncerImpl) rollForwardCallback(
 		Hash:   indexer.NewHashFromHexString(blockHeader.Hash()),
 		Number: blockHeader.BlockNumber(),
 		EraID:  blockHeader.Era().Id,
-	}, txsRetriever)
+	}, &BlockTxsRetrieverImpl{
+		connection: conn,
+		logger:     bs.logger,
+	})
 }
 
 func (bs *BlockSyncerImpl) errorHandler(errorCh <-chan error) {

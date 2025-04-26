@@ -25,7 +25,10 @@ type BlockIndexerRunner struct {
 	logger             hclog.Logger
 }
 
-var _ BlockSyncerHandler = (*BlockIndexerRunner)(nil)
+var (
+	_ BlockSyncerHandler = (*BlockIndexerRunner)(nil)
+	_ Service            = (*BlockIndexerRunner)(nil)
+)
 
 func NewBlockIndexerRunner(
 	blockSyncerHandler BlockSyncerHandler, config *BlockIndexerRunnerConfig, logger hclog.Logger,
@@ -45,9 +48,9 @@ func NewBlockIndexerRunner(
 }
 
 func (br *BlockIndexerRunner) Start() {
-	br.logger.Info("Starting block indexer runner")
-
 	go func() {
+		br.logger.Info("Block indexer runner has been started")
+
 		for {
 			select {
 			case <-br.closeCh:
@@ -67,12 +70,14 @@ func (br *BlockIndexerRunner) Start() {
 	}()
 }
 
-func (br *BlockIndexerRunner) Close() {
+func (br *BlockIndexerRunner) Close() error {
 	if atomic.CompareAndSwapUint32(&br.isClosed, 0, 1) {
 		br.logger.Info("Closing block indexer runner")
 
 		close(br.closeCh)
 	}
+
+	return nil
 }
 
 func (br *BlockIndexerRunner) RollBackward(point BlockPoint) error {

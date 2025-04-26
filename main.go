@@ -114,12 +114,7 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 		}
 	}()
 
-	err = syncer.Sync()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return syncer.Sync()
 }
 
 func main() {
