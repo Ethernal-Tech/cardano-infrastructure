@@ -65,7 +65,7 @@ func TestBlockIndexer_ProcessConfirmedBlock_NoTxOfInterest(t *testing.T) {
 	dbMock.Writter.On("Execute").Return(error(nil)).Once()
 	dbMock.Writter.On("AddConfirmedTxs", []*Tx(nil)).Return(error(nil)).Once()
 	dbMock.Writter.On("SetLatestBlockPoint", expectedLastBlockPoint).Once()
-	dbMock.Writter.On("RemoveTxOutputs", ([]*TxInput)(nil), false).Once()
+	dbMock.Writter.On("RemoveTxOutputs", ([]TxInput)(nil), false).Once()
 	dbMock.Writter.On("AddTxOutputs", ([]*TxInputOutput)(nil)).Once()
 	dbMock.Writter.On("AddConfirmedBlock", blockHeader.ToCardanoBlock(getTxHashes(allTransactions))).Once()
 
@@ -152,7 +152,7 @@ func TestBlockIndexer_ProcessConfirmedBlock_TxOfInterestInOutputs(t *testing.T) 
 	}).Once()
 	dbMock.Writter.On("Execute").Return(error(nil)).Once()
 	dbMock.Writter.On("SetLatestBlockPoint", expectedLastBlockPoint).Once()
-	dbMock.Writter.On("RemoveTxOutputs", []*TxInput(nil), true).Once()
+	dbMock.Writter.On("RemoveTxOutputs", []TxInput(nil), true).Once()
 	dbMock.Writter.On("AddTxOutputs", []*TxInputOutput{
 		{
 			Input: TxInput{
@@ -295,8 +295,8 @@ func TestBlockIndexer_ProcessConfirmedBlock_TxOfInterestInInputs(t *testing.T) {
 	}).Once()
 	dbMock.Writter.On("SetLatestBlockPoint", expectedLastBlockPoint).Once()
 	dbMock.Writter.On("AddTxOutputs", ([]*TxInputOutput)(nil)).Once()
-	dbMock.Writter.On("RemoveTxOutputs", []*TxInput{
-		&txInputs[1], &txInputs[3],
+	dbMock.Writter.On("RemoveTxOutputs", []TxInput{
+		txInputs[1], txInputs[3],
 	}, false).Once()
 	dbMock.Writter.On("AddConfirmedTxs", []*Tx{
 		allTransactions[0], allTransactions[2],
@@ -408,8 +408,8 @@ func TestBlockIndexer_ProcessConfirmedBlock_KeepAllTxOutputsInDb(t *testing.T) {
 			Output: TxOutput{Address: addresses[1], Amount: uint64(100)},
 		},
 	}).Once()
-	dbMock.Writter.On("RemoveTxOutputs", []*TxInput{
-		&txInputs[0].Input, &txInputs[1].Input,
+	dbMock.Writter.On("RemoveTxOutputs", []TxInput{
+		txInputs[0].Input, txInputs[1].Input,
 	}, false).Once()
 	dbMock.Writter.On("AddConfirmedBlock", &CardanoBlock{
 		Slot:   blockSlot,
@@ -635,7 +635,7 @@ func TestBlockIndexer_RollForward(t *testing.T) {
 						},
 					},
 				}).Once()
-				dbMock.Writter.On("RemoveTxOutputs", []*TxInput(nil), false).Once()
+				dbMock.Writter.On("RemoveTxOutputs", []TxInput(nil), false).Once()
 			} else {
 				dbMock.Writter.On("AddTxOutputs", []*TxInputOutput{
 					{
@@ -660,7 +660,7 @@ func TestBlockIndexer_RollForward(t *testing.T) {
 				dbMock.On("GetTxOutput", TxInput{
 					Hash: inputTxHash, Index: inputTxIndex,
 				}).Return(TxOutput{}, error(nil)).Once()
-				dbMock.Writter.On("RemoveTxOutputs", []*TxInput{
+				dbMock.Writter.On("RemoveTxOutputs", []TxInput{
 					{
 						Hash:  inputTxHash,
 						Index: inputTxIndex,

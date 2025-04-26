@@ -165,11 +165,11 @@ func (bi *BlockIndexer) processConfirmedBlock(
 	var (
 		txsHashes         []Hash
 		txOutputsToSave   []*TxInputOutput
-		txOutputsToRemove []*TxInput
+		txOutputsToRemove []TxInput
 
 		dbTx = bi.db.OpenTx() // open database tx
 	)
-
+	// populate each input with full output data (address, amount, etc.) based on its (hash, index)
 	if err := bi.populateOutputsForEachInput(allTxs); err != nil {
 		return nil, nil, nil, err
 	}
@@ -185,7 +185,7 @@ func (bi *BlockIndexer) processConfirmedBlock(
 		txOutputsToRemove = getTxInputs(relevantTxs, bi.addressesOfInterest)
 	}
 
-	// add confirmed block to db and create full block only if there are some transactions of interest
+	// add all relevant transactions from the confirmed block to the db
 	dbTx.AddConfirmedTxs(relevantTxs)
 
 	if bi.config.KeepAllTxsHashesInBlock {
@@ -206,7 +206,7 @@ func (bi *BlockIndexer) processConfirmedBlock(
 	// add all needed outputs, remove used ones in db tx
 	dbTx.AddTxOutputs(txOutputsToSave).RemoveTxOutputs(txOutputsToRemove, bi.config.SoftDeleteUtxo)
 
-	// update database -> execute db transaction
+	// execute all previously queued updates in a single atomic db operation
 	if err := dbTx.Execute(); err != nil {
 		return nil, nil, nil, err
 	}

@@ -72,11 +72,11 @@ func getTxOutputs(txs []*Tx, addressesOfInterest map[string]bool) (res []*TxInpu
 	return res
 }
 
-func getTxInputs(txs []*Tx, addressesOfInterest map[string]bool) (res []*TxInput) {
+func getTxInputs(txs []*Tx, addressesOfInterest map[string]bool) (res []TxInput) {
 	for _, tx := range txs {
 		for _, inp := range tx.Inputs {
 			if len(addressesOfInterest) == 0 || addressesOfInterest[inp.Output.Address] {
-				res = append(res, &inp.Input)
+				res = append(res, inp.Input)
 			}
 		}
 	}

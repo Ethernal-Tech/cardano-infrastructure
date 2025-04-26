@@ -146,7 +146,7 @@ func TestTxWriter(t *testing.T) {
 		require.NoError(t, err)
 
 		dbTx = db.OpenTx()
-		dbTx.RemoveTxOutputs([]*indexer.TxInput{&txInOut1.Input, &txInOut2.Input}, softDelete)
+		dbTx.RemoveTxOutputs([]indexer.TxInput{txInOut1.Input, txInOut2.Input}, softDelete)
 		err = dbTx.Execute()
 		require.NoError(t, err)
 
@@ -209,7 +209,7 @@ func TestTxWriter(t *testing.T) {
 		require.NoError(t, err)
 
 		dbTx = db.OpenTx()
-		dbTx.RemoveTxOutputs([]*indexer.TxInput{&txInOut1.Input, &txInOut2.Input}, softDelete)
+		dbTx.RemoveTxOutputs([]indexer.TxInput{txInOut1.Input, txInOut2.Input}, softDelete)
 		err = dbTx.Execute()
 		require.NoError(t, err)
 

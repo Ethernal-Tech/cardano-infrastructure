@@ -100,7 +100,7 @@ func (tw *BBoltTransactionWriter) AddConfirmedTxs(txs []*core.Tx) core.DBTransac
 	return tw
 }
 
-func (tw *BBoltTransactionWriter) RemoveTxOutputs(txInputs []*core.TxInput, softDelete bool) core.DBTransactionWriter {
+func (tw *BBoltTransactionWriter) RemoveTxOutputs(txInputs []core.TxInput, softDelete bool) core.DBTransactionWriter {
 	if len(txInputs) == 0 {
 		return tw
 	}

@@ -138,7 +138,7 @@ type DBTransactionWriterMock struct {
 	mock.Mock
 	AddConfirmedTxsFn     func(txs []*Tx) DBTransactionWriter
 	AddTxOutputsFn        func(txOutputs []*TxInputOutput) DBTransactionWriter
-	RemoveTxOutputsFn     func(txInputs []*TxInput) DBTransactionWriter
+	RemoveTxOutputsFn     func(txInputs []TxInput) DBTransactionWriter
 	SetLatestBlockPointFn func(point *BlockPoint) DBTransactionWriter
 	ExecuteFn             func() error
 }
@@ -181,7 +181,7 @@ func (m *DBTransactionWriterMock) Execute() error {
 }
 
 // RemoveTxOutputs implements DbTransactionWriter.
-func (m *DBTransactionWriterMock) RemoveTxOutputs(txInputs []*TxInput, softDelete bool) DBTransactionWriter {
+func (m *DBTransactionWriterMock) RemoveTxOutputs(txInputs []TxInput, softDelete bool) DBTransactionWriter {
 	m.Called(txInputs, softDelete)
 
 	if m.RemoveTxOutputsFn != nil {
