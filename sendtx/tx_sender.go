@@ -434,7 +434,7 @@ func (txSnd *TxSender) populateTxBuilder(
 	potentialFee := setOrDefault(config.PotentialFee, defaultPotentialFee)
 
 	conditions := map[string]uint64{
-		cardanowallet.AdaTokenName: outputLovelace + potentialFee + srcChangeMinUtxo,
+		cardanowallet.AdaTokenName: outputLovelace + potentialFee,
 	}
 
 	for _, token := range outputNativeTokens {
@@ -445,7 +445,7 @@ func (txSnd *TxSender) populateTxBuilder(
 		utxos = txSnd.utxosTransformer.TransformUtxos(utxos)
 	}
 
-	inputs, err := GetUTXOsForAmounts(utxos, conditions, txSnd.maxInputsPerTx, 1)
+	inputs, err := GetUTXOsForAmounts(utxos, conditions, srcChangeMinUtxo, txSnd.maxInputsPerTx, 1)
 	if err != nil {
 		return nil, err
 	}

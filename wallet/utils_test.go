@@ -137,6 +137,11 @@ func TestGetTokensFromSumMap(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, tokens[1:], res)
+
+	res, err = GetTokensFromSumMap(nil)
+
+	require.NoError(t, err)
+	require.Empty(t, res)
 }
 
 type txRetrieverMock struct {
