@@ -25,19 +25,21 @@ func ParseTxInfo(rawTx []byte, full bool) (indexer.TxInfo, error) {
 		metadata = gtx.Metadata().Cbor()
 	}
 
-	if libOutputs := gtx.Outputs(); len(libOutputs) > 0 {
-		txOutputs = make([]*indexer.TxOutput, len(libOutputs))
-		for j, out := range libOutputs {
-			txOutputs[j] = createTxOutput(0, out)
+	if full {
+		if libOutputs := gtx.Outputs(); len(libOutputs) > 0 {
+			txOutputs = make([]*indexer.TxOutput, len(libOutputs))
+			for j, out := range libOutputs {
+				txOutputs[j] = createTxOutput(0, out)
+			}
 		}
-	}
 
-	if libInputs := gtx.Inputs(); len(libInputs) > 0 {
-		txInputs = make([]indexer.TxInput, len(libInputs))
-		for i, inp := range libInputs {
-			txInputs[i] = indexer.TxInput{
-				Hash:  indexer.Hash(inp.Id()),
-				Index: inp.Index(),
+		if libInputs := gtx.Inputs(); len(libInputs) > 0 {
+			txInputs = make([]indexer.TxInput, len(libInputs))
+			for i, inp := range libInputs {
+				txInputs[i] = indexer.TxInput{
+					Hash:  indexer.Hash(inp.Id()),
+					Index: inp.Index(),
+				}
 			}
 		}
 	}
