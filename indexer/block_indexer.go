@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	infraCommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
-	"github.com/blinklabs-io/gouroboros/ledger"
-	ledgerCommon "github.com/blinklabs-io/gouroboros/ledger/common"
-	"github.com/blinklabs-io/gouroboros/protocol/common"
+	infracommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 	"github.com/hashicorp/go-hclog"
 )
 
@@ -30,14 +27,12 @@ type BlockIndexerConfig struct {
 	KeepAllTxsHashesInBlock bool     `json:"keepAllTxsHashesInBlock"`
 }
 
-type NewConfirmedBlockHandler func(*CardanoBlock, []*Tx) error
-
 type BlockIndexer struct {
 	config *BlockIndexerConfig
 
 	// latest confirmed and saved block point
 	latestBlockPoint      *BlockPoint
-	unconfirmedBlocks     infraCommon.CircularQueue[ledger.BlockHeader]
+	unconfirmedBlocks     infracommon.CircularQueue[BlockHeader]
 	confirmedBlockHandler NewConfirmedBlockHandler
 	addressesOfInterest   map[string]bool
 
@@ -65,36 +60,34 @@ func NewBlockIndexer(
 		config:                config,
 		latestBlockPoint:      nil,
 		confirmedBlockHandler: confirmedBlockHandler,
-		unconfirmedBlocks:     infraCommon.NewCircularQueue[ledger.BlockHeader](int(config.ConfirmationBlockCount)), //nolint
+		unconfirmedBlocks:     infracommon.NewCircularQueue[BlockHeader](int(config.ConfirmationBlockCount)), //nolint
 		db:                    db,
 		addressesOfInterest:   addressesOfInterest,
 		logger:                logger,
 	}
 }
 
-func (bi *BlockIndexer) RollBackwardFunc(point common.Point) error {
+func (bi *BlockIndexer) RollBackward(point BlockPoint) error {
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
-	pointHash := bytes2HashString(point.Hash)
-
 	// linear is ok, there will be smaller number of unconfirmed blocks in memory
-	indx := bi.unconfirmedBlocks.Find(func(header ledger.BlockHeader) bool {
-		return header.SlotNumber() == point.Slot && header.Hash() == pointHash
+	indx := bi.unconfirmedBlocks.Find(func(header BlockHeader) bool {
+		return header.Slot == point.BlockSlot && header.Hash == point.BlockHash
 	})
 	if indx != -1 {
-		bi.logger.Info("Roll backward to unconfirmed block",
-			"hash", pointHash, "slot", point.Slot, "indx", indx)
+		bi.logger.Info("Roll backward to unconfirmed block", "indx", indx,
+			"slot", point.BlockSlot, "hash", point.BlockHash)
 
 		bi.unconfirmedBlocks.SetCount(indx + 1)
 
 		return nil
 	}
 
-	if bi.latestBlockPoint.BlockSlot == point.Slot && bi.latestBlockPoint.BlockHash.String() == pointHash {
+	if bi.latestBlockPoint.BlockSlot == point.BlockSlot && bi.latestBlockPoint.BlockHash == point.BlockHash {
 		bi.unconfirmedBlocks.SetCount(0)
 
-		bi.logger.Info("Roll backward to confirmed block", "hash", pointHash, "slot", point.Slot)
+		bi.logger.Info("Roll backward to confirmed block", "slot", point.BlockSlot, "hash", point.BlockHash)
 
 		// everything is ok -> we are reverting to the latest confirmed block
 		return nil
@@ -102,13 +95,12 @@ func (bi *BlockIndexer) RollBackwardFunc(point common.Point) error {
 
 	// we have confirmed a block that should NOT have been confirmed!
 	// recovering from this error is difficult and requires manual database changes
-	return errors.Join(ErrBlockSyncerFatal,
+	return errors.Join(ErrBlockIndexerFatal,
 		fmt.Errorf("roll backward block not found. new = (%d, %s) vs latest = (%d, %s)",
-			point.Slot, pointHash,
-			bi.latestBlockPoint.BlockSlot, bi.latestBlockPoint.BlockHash))
+			point.BlockSlot, point.BlockHash, bi.latestBlockPoint.BlockSlot, bi.latestBlockPoint.BlockHash))
 }
 
-func (bi *BlockIndexer) RollForwardFunc(blockHeader ledger.BlockHeader, txsRetriever BlockTxsRetriever) error {
+func (bi *BlockIndexer) RollForward(blockHeader BlockHeader, txsRetriever BlockTxsRetriever) error {
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
@@ -168,55 +160,44 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 }
 
 func (bi *BlockIndexer) processConfirmedBlock(
-	confirmedBlockHeader ledger.BlockHeader, allBlockTransactions []ledger.Transaction,
+	confirmedBlockHeader BlockHeader, allTxs []*Tx,
 ) (*CardanoBlock, []*Tx, *BlockPoint, error) {
 	var (
 		txsHashes         []Hash
-		confirmedTxs      []*Tx
 		txOutputsToSave   []*TxInputOutput
-		txOutputsToRemove []*TxInput
+		txOutputsToRemove []TxInput
 
 		dbTx = bi.db.OpenTx() // open database tx
 	)
-
-	// get all transactions of interest from block
-	txsOfInterest, err := bi.filterTxsOfInterest(allBlockTransactions)
-	if err != nil {
+	// populate each input with full output data (address, amount, etc.) based on its (hash, index)
+	if err := bi.populateOutputsForEachInput(allTxs); err != nil {
 		return nil, nil, nil, err
 	}
 
+	// get all transactions of interest from block
+	relevantTxs := bi.filterTxsOfInterest(allTxs)
+
 	if bi.config.KeepAllTxOutputsInDB {
-		txOutputsToSave = bi.getTxOutputs(confirmedBlockHeader.SlotNumber(), allBlockTransactions, nil)
-		txOutputsToRemove = bi.getTxInputs(allBlockTransactions)
+		txOutputsToSave = getTxOutputs(allTxs, nil)
+		txOutputsToRemove = getTxInputs(allTxs, nil)
 	} else {
-		txOutputsToSave = bi.getTxOutputs(confirmedBlockHeader.SlotNumber(), txsOfInterest, bi.addressesOfInterest)
-		txOutputsToRemove = bi.getTxInputs(txsOfInterest)
+		txOutputsToSave = getTxOutputs(relevantTxs, bi.addressesOfInterest)
+		txOutputsToRemove = getTxInputs(relevantTxs, bi.addressesOfInterest)
 	}
 
-	// add confirmed block to db and create full block only if there are some transactions of interest
-	if len(txsOfInterest) > 0 {
-		confirmedTxs = make([]*Tx, len(txsOfInterest))
-		for i, ltx := range txsOfInterest {
-			confirmedTxs[i], err = bi.createTx(confirmedBlockHeader, ltx, uint32(i))
-			if err != nil {
-				return nil, nil, nil, err
-			}
-		}
-
-		dbTx.AddConfirmedTxs(confirmedTxs) // add confirmed txs in db
-	}
+	// add all relevant transactions from the confirmed block to the db
+	dbTx.AddConfirmedTxs(relevantTxs)
 
 	if bi.config.KeepAllTxsHashesInBlock {
-		txsHashes = getTxHashes(allBlockTransactions)
+		txsHashes = getTxHashes(allTxs)
 	} else {
-		txsHashes = getTxHashes(txsOfInterest)
+		txsHashes = getTxHashes(relevantTxs)
 	}
 
-	confirmedBlock := NewCardanoBlock(confirmedBlockHeader, txsHashes)
+	confirmedBlock := confirmedBlockHeader.ToCardanoBlock(txsHashes)
 	latestBlockPoint := &BlockPoint{
-		BlockSlot:   confirmedBlockHeader.SlotNumber(),
-		BlockHash:   NewHashFromHexString(confirmedBlockHeader.Hash()),
-		BlockNumber: confirmedBlockHeader.BlockNumber(),
+		BlockSlot: confirmedBlockHeader.Slot,
+		BlockHash: confirmedBlockHeader.Hash,
 	}
 	// save confirmed block (without tx details) in db
 	dbTx.AddConfirmedBlock(confirmedBlock)
@@ -225,39 +206,35 @@ func (bi *BlockIndexer) processConfirmedBlock(
 	// add all needed outputs, remove used ones in db tx
 	dbTx.AddTxOutputs(txOutputsToSave).RemoveTxOutputs(txOutputsToRemove, bi.config.SoftDeleteUtxo)
 
-	// update database -> execute db transaction
+	// execute all previously queued updates in a single atomic db operation
 	if err := dbTx.Execute(); err != nil {
 		return nil, nil, nil, err
 	}
 
-	return confirmedBlock, confirmedTxs, latestBlockPoint, nil
+	return confirmedBlock, relevantTxs, latestBlockPoint, nil
 }
 
-func (bi *BlockIndexer) filterTxsOfInterest(txs []ledger.Transaction) (result []ledger.Transaction, err error) {
+func (bi *BlockIndexer) filterTxsOfInterest(txs []*Tx) (result []*Tx) {
 	if len(bi.addressesOfInterest) == 0 {
-		return txs, nil
+		return txs
 	}
 
 	for _, tx := range txs {
-		if bi.config.AddressCheck&AddressCheckOutputs != 0 && bi.isTxOutputOfInterest(tx) {
+		if bi.isTxInputOfInterest(tx) || bi.isTxOutputOfInterest(tx) {
 			result = append(result, tx)
-		} else if bi.config.AddressCheck&AddressCheckInputs != 0 {
-			txIsGood, err := bi.isTxInputOfInterest(tx)
-			if err != nil {
-				return nil, err
-			} else if txIsGood {
-				result = append(result, tx)
-			}
 		}
 	}
 
-	return result, nil
+	return result
 }
 
-func (bi *BlockIndexer) isTxOutputOfInterest(tx ledger.Transaction) bool {
-	for _, out := range tx.Outputs() {
-		addr := LedgerAddressToString(out.Address())
-		if bi.addressesOfInterest[addr] {
+func (bi *BlockIndexer) isTxOutputOfInterest(tx *Tx) bool {
+	if bi.config.AddressCheck&AddressCheckOutputs == 0 {
+		return false
+	}
+
+	for _, out := range tx.Outputs {
+		if bi.addressesOfInterest[out.Address] {
 			return true
 		}
 	}
@@ -265,161 +242,33 @@ func (bi *BlockIndexer) isTxOutputOfInterest(tx ledger.Transaction) bool {
 	return false
 }
 
-func (bi *BlockIndexer) isTxInputOfInterest(tx ledger.Transaction) (bool, error) {
-	for _, inp := range tx.Inputs() {
-		txOutput, err := bi.db.GetTxOutput(TxInput{
-			Hash:  Hash(inp.Id()),
-			Index: inp.Index(),
-		})
-		if err != nil {
-			return false, err
-		} else if !txOutput.IsUsed && bi.addressesOfInterest[txOutput.Address] {
-			return true, nil
+func (bi *BlockIndexer) isTxInputOfInterest(tx *Tx) bool {
+	if bi.config.AddressCheck&AddressCheckInputs == 0 {
+		return false
+	}
+
+	for _, inp := range tx.Inputs {
+		if bi.addressesOfInterest[inp.Output.Address] {
+			return true
 		}
 	}
 
-	return false, nil
+	return false
 }
 
-func (bi *BlockIndexer) getTxOutputs(
-	slot uint64, txs []ledger.Transaction, addressesOfInterest map[string]bool,
-) (res []*TxInputOutput) {
+func (bi *BlockIndexer) populateOutputsForEachInput(txs []*Tx) (err error) {
 	for _, tx := range txs {
-		for ind, txOut := range tx.Outputs() {
-			addr := LedgerAddressToString(txOut.Address())
-			if len(addressesOfInterest) > 0 && !bi.addressesOfInterest[addr] {
-				continue
+		for _, inp := range tx.Inputs {
+			if inp.Output.Address != "" {
+				continue // output is already set
 			}
-
-			res = append(res, &TxInputOutput{
-				Input: TxInput{
-					Hash:  NewHashFromHexString(tx.Hash()),
-					Index: uint32(ind),
-				},
-				Output: createTxOutput(slot, addr, txOut),
-			})
-		}
-	}
-
-	return res
-}
-
-func (bi *BlockIndexer) getTxInputs(txs []ledger.Transaction) (res []*TxInput) {
-	for _, tx := range txs {
-		for _, inp := range tx.Inputs() {
-			res = append(res, &TxInput{
-				Hash:  Hash(inp.Id()),
-				Index: inp.Index(),
-			})
-		}
-	}
-
-	return res
-}
-
-func (bi *BlockIndexer) createTx(
-	ledgerBlockHeader ledger.BlockHeader, ledgerTx ledger.Transaction, indx uint32,
-) (*Tx, error) {
-	tx := &Tx{
-		Indx:      indx,
-		Hash:      NewHashFromHexString(ledgerTx.Hash()),
-		Fee:       ledgerTx.Fee(),
-		BlockSlot: ledgerBlockHeader.SlotNumber(),
-		BlockHash: NewHashFromHexString(ledgerBlockHeader.Hash()),
-		Valid:     ledgerTx.IsValid(),
-	}
-
-	if inputs := ledgerTx.Inputs(); len(inputs) > 0 {
-		tx.Inputs = make([]*TxInputOutput, len(inputs))
-
-		for j, inp := range inputs {
-			txInput := TxInput{
-				Hash:  Hash(inp.Id()),
-				Index: inp.Index(),
-			}
-
-			output, err := bi.db.GetTxOutput(txInput)
+			// if there is no output for the input, zero address and amount are set
+			inp.Output, err = bi.db.GetTxOutput(inp.Input)
 			if err != nil {
-				return nil, err
-			}
-
-			tx.Inputs[j] = &TxInputOutput{
-				Input:  txInput,
-				Output: output,
+				return err
 			}
 		}
 	}
 
-	if metadata := ledgerTx.Metadata(); metadata != nil {
-		tx.Metadata = metadata.Cbor()
-	}
-
-	if outputs := ledgerTx.Outputs(); len(outputs) > 0 {
-		tx.Outputs = make([]*TxOutput, len(outputs))
-		for j, out := range outputs {
-			txOutput := createTxOutput(
-				ledgerBlockHeader.SlotNumber(), LedgerAddressToString(out.Address()), out)
-			tx.Outputs[j] = &txOutput
-		}
-	}
-
-	return tx, nil
-}
-
-func getTxHashes(txs []ledger.Transaction) []Hash {
-	if len(txs) == 0 {
-		return nil
-	}
-
-	res := make([]Hash, len(txs))
-	for i, x := range txs {
-		res[i] = NewHashFromHexString(x.Hash())
-	}
-
-	return res
-}
-
-func createTxOutput(
-	slot uint64, addr string, txOut ledgerCommon.TransactionOutput,
-) TxOutput {
-	var tokens []TokenAmount
-
-	if assets := txOut.Assets(); assets != nil {
-		policies := assets.Policies()
-		tokens = make([]TokenAmount, 0, len(policies))
-
-		for _, policyIDRaw := range policies {
-			policyID := policyIDRaw.String()
-
-			for _, asset := range assets.Assets(policyIDRaw) {
-				tokens = append(tokens, TokenAmount{
-					PolicyID: policyID,
-					Name:     string(asset),
-					Amount:   assets.Asset(policyIDRaw, asset),
-				})
-			}
-		}
-	}
-
-	var (
-		datum     []byte
-		datumHash Hash
-	)
-
-	if tmp := txOut.Datum(); tmp != nil {
-		datum = tmp.Cbor()
-	}
-
-	if tmp := txOut.DatumHash(); tmp != nil {
-		datumHash = Hash(tmp.Bytes())
-	}
-
-	return TxOutput{
-		Slot:      slot,
-		Address:   addr,
-		Amount:    txOut.Amount(),
-		Tokens:    tokens,
-		Datum:     datum,
-		DatumHash: datumHash,
-	}
+	return nil
 }

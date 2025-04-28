@@ -1,50 +1,32 @@
 package indexer
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
+)
 
-	"github.com/Ethernal-Tech/cardano-infrastructure/wallet"
-	"github.com/blinklabs-io/gouroboros/ledger"
-	"github.com/blinklabs-io/gouroboros/protocol/common"
+var (
+	ErrBlockIndexerFatal = errors.New("block indexer fatal error")
 )
 
 const HashSize = 32
 
 type Hash [HashSize]byte
 
-func (h Hash) String() string {
-	return hex.EncodeToString(h[:])
-}
-
-func NewHashFromHexString(hash string) Hash {
-	v, _ := hex.DecodeString(strings.TrimPrefix(hash, "0x"))
-
-	return NewHashFromBytes(v)
-}
-
-func NewHashFromBytes(bytes []byte) Hash {
-	if len(bytes) != HashSize {
-		result := Hash{}
-		size := min(HashSize, len(bytes))
-
-		copy(result[HashSize-size:], bytes[:size])
-
-		return result
-	}
-
-	return Hash(bytes)
-}
-
 type BlockPoint struct {
-	BlockSlot   uint64 `json:"slot"`
-	BlockHash   Hash   `json:"hash"`
-	BlockNumber uint64 `json:"num"`
+	BlockSlot uint64 `json:"slot"`
+	BlockHash Hash   `json:"hash"`
+}
+
+type BlockHeader struct {
+	Slot   uint64 `json:"slot"`
+	Hash   Hash   `json:"hash"`
+	Number uint64 `json:"num"`
+	EraID  uint8  `json:"era"`
 }
 
 type Tx struct {
@@ -75,7 +57,7 @@ type TxOutput struct {
 	Slot      uint64        `json:"slot"`
 	Amount    uint64        `json:"amnt"`
 	Datum     []byte        `json:"datum,omitempty"`
-	DatumHash Hash          `json:"datumHsh,omitempty"`
+	DatumHash Hash          `json:"datumHash,omitempty"`
 	IsUsed    bool          `json:"used"`
 	Tokens    []TokenAmount `json:"assets,omitempty"`
 }
@@ -86,38 +68,51 @@ type TxInputOutput struct {
 }
 
 type CardanoBlock struct {
-	Slot    uint64 `json:"slot"`
-	Hash    Hash   `json:"hash"`
-	Number  uint64 `json:"num"`
-	EraID   uint8  `json:"era"`
-	EraName string `json:"-"`
-	Txs     []Hash `json:"txs"`
+	Slot   uint64 `json:"slot"`
+	Hash   Hash   `json:"hash"`
+	Number uint64 `json:"num"`
+	EraID  uint8  `json:"era"`
+	Txs    []Hash `json:"txs"`
 }
 
-func NewCardanoBlock(header ledger.BlockHeader, txs []Hash) *CardanoBlock {
-	return &CardanoBlock{
-		Slot:    header.SlotNumber(),
-		Hash:    NewHashFromHexString(header.Hash()),
-		Number:  header.BlockNumber(),
-		EraID:   header.Era().Id,
-		EraName: header.Era().Name,
-		Txs:     txs,
+type TxInfo struct {
+	Hash     string      `json:"hash"`
+	MetaData []byte      `json:"md"`
+	TTL      uint64      `json:"ttl"`
+	Fee      uint64      `json:"fee"`
+	IsValid  bool        `json:"isValid"`
+	Inputs   []TxInput   `json:"inputs,omitempty"`
+	Outputs  []*TxOutput `json:"outputs,omitempty"`
+}
+
+func (h Hash) String() string {
+	return hex.EncodeToString(h[:])
+}
+
+func NewHashFromHexString(hash string) Hash {
+	v, _ := hex.DecodeString(strings.TrimPrefix(hash, "0x"))
+
+	return NewHashFromBytes(v)
+}
+
+func NewHashFromBytes(bytes []byte) Hash {
+	if len(bytes) != HashSize {
+		result := Hash{}
+		size := min(HashSize, len(bytes))
+
+		copy(result[HashSize-size:], bytes[:size])
+
+		return result
 	}
+
+	return Hash(bytes)
 }
 
-func (cb CardanoBlock) Key() []byte {
+func (cb *CardanoBlock) Key() []byte {
 	return SlotNumberToKey(cb.Slot)
 }
 
-func SlotNumberToKey(slotNumber uint64) []byte {
-	bytes := make([]byte, 8)
-
-	binary.BigEndian.PutUint64(bytes, slotNumber)
-
-	return bytes
-}
-
-func (tx Tx) Key() []byte {
+func (tx *Tx) Key() []byte {
 	key := make([]byte, 8+4)
 
 	binary.BigEndian.PutUint64(key[:8], tx.BlockSlot)
@@ -126,7 +121,7 @@ func (tx Tx) Key() []byte {
 	return key
 }
 
-func (tx Tx) String() string {
+func (tx *Tx) String() string {
 	var (
 		sb    strings.Builder
 		sbInp strings.Builder
@@ -175,58 +170,11 @@ func (tx Tx) String() string {
 	return sb.String()
 }
 
-func (to TxOutput) IsNotUsed() bool {
-	return to.Address != "" && !to.IsUsed
+func (t *TxOutput) IsNotUsed() bool {
+	return t.Address != "" && !t.IsUsed
 }
 
-func (ti TxInput) Key() []byte {
-	key := make([]byte, HashSize+4)
-
-	copy(key[:], ti.Hash[:])
-	binary.BigEndian.PutUint32(key[HashSize:], ti.Index)
-
-	return key
-}
-
-func NewTxInputFromBytes(bytes []byte) (TxInput, error) {
-	if len(bytes) != HashSize+4 {
-		return TxInput{}, fmt.Errorf("invalid bytes size: %d", len(bytes))
-	}
-
-	return TxInput{
-		Hash:  Hash(bytes[:HashSize]),
-		Index: binary.BigEndian.Uint32(bytes[HashSize:]),
-	}, nil
-}
-
-func (bp BlockPoint) ToCommonPoint() common.Point {
-	if bp.BlockSlot == 0 {
-		return common.NewPointOrigin() // from genesis
-	}
-
-	return common.NewPoint(bp.BlockSlot, bp.BlockHash[:])
-}
-
-func (bp BlockPoint) String() string {
-	return fmt.Sprintf("slot = %d, hash = %s, num = %d",
-		bp.BlockSlot, hex.EncodeToString(bp.BlockHash[:]), bp.BlockNumber)
-}
-
-func bytes2HashString(bytes []byte) string {
-	if len(bytes) == HashSize {
-		return hex.EncodeToString(bytes)
-	}
-
-	h := NewHashFromBytes(bytes)
-
-	return hex.EncodeToString(h[:])
-}
-
-func (t TxInput) String() string {
-	return fmt.Sprintf("%s#%d", t.Hash, t.Index)
-}
-
-func (t TxOutput) String() string {
+func (t *TxOutput) String() string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("%s+%d", t.Address, t.Amount))
@@ -239,53 +187,56 @@ func (t TxOutput) String() string {
 	return sb.String()
 }
 
-func (t TxInputOutput) String() string {
+func (ti *TxInput) Key() []byte {
+	key := make([]byte, HashSize+4)
+
+	copy(key, ti.Hash[:])
+	binary.BigEndian.PutUint32(key[HashSize:], ti.Index)
+
+	return key
+}
+
+func (ti *TxInput) Set(bytes []byte) error {
+	if len(bytes) != HashSize+4 {
+		return fmt.Errorf("invalid bytes size: %d", len(bytes))
+	}
+
+	ti.Hash = Hash(bytes[:HashSize])
+	ti.Index = binary.BigEndian.Uint32(bytes[HashSize:])
+
+	return nil
+}
+
+func (ti *TxInput) String() string {
+	return fmt.Sprintf("%s#%d", ti.Hash, ti.Index)
+}
+
+func (t *TxInputOutput) String() string {
 	if t.Output.Address == "" {
 		return t.Input.String()
 	}
 
-	return fmt.Sprintf("%s::%s", t.Input, t.Output)
+	return fmt.Sprintf("%s::%s", t.Input.String(), t.Output.String())
 }
 
-func (tt TokenAmount) TokenName() string {
+func (bp *BlockPoint) String() string {
+	return fmt.Sprintf("slot = %d, hash = %s", bp.BlockSlot, bp.BlockHash)
+}
+
+func (tt *TokenAmount) TokenName() string {
 	return fmt.Sprintf("%s.%s", tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
 }
 
-func (tt TokenAmount) String() string {
+func (tt *TokenAmount) String() string {
 	return fmt.Sprintf("%d %s.%s", tt.Amount, tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
 }
 
-// LedgerAddressToString translates string representation of address to our wallet representation
-// this will handle vector and other specific cases
-func LedgerAddressToString(addr ledger.Address) string {
-	ourAddr, err := wallet.NewCardanoAddress(addr.Bytes())
-	if err != nil {
-		return addr.String()
+func (header BlockHeader) ToCardanoBlock(txs []Hash) *CardanoBlock {
+	return &CardanoBlock{
+		Slot:   header.Slot,
+		Hash:   header.Hash,
+		Number: header.Number,
+		EraID:  header.EraID,
+		Txs:    txs,
 	}
-
-	return ourAddr.String()
-}
-
-// SortTxInputOutputs sorts a slice of TxInputOutput pointers based on the following priority:
-//  1. Inputs with lower Output.Slot values come first — this is critical because inputs added earlier must be processed first
-//  2. If Slot values are equal, inputs are sorted lexicographically by their Input.Hash
-//  3. If both Slot and Hash are equal, inputs are sorted by Input.Index
-//
-// The returned slice reflects this ordering and ensures deterministic processing of inputs in the correct chronological order.
-func SortTxInputOutputs(txInputsOutputs []*TxInputOutput) []*TxInputOutput {
-	sort.Slice(txInputsOutputs, func(i, j int) bool {
-		first, second := txInputsOutputs[i], txInputsOutputs[j]
-
-		if first.Output.Slot != second.Output.Slot {
-			return first.Output.Slot < second.Output.Slot
-		}
-
-		if cmp := bytes.Compare(first.Input.Hash[:], second.Input.Hash[:]); cmp != 0 {
-			return cmp < 0
-		}
-
-		return first.Input.Index < second.Input.Index
-	})
-
-	return txInputsOutputs
 }

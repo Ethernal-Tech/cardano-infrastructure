@@ -1,4 +1,4 @@
-package indexer
+package gouroboros
 
 import (
 	"encoding/hex"
@@ -7,15 +7,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Ethernal-Tech/cardano-infrastructure/indexer"
 	ouroboros "github.com/blinklabs-io/gouroboros"
 	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/blinklabs-io/gouroboros/protocol/chainsync"
 	"github.com/blinklabs-io/gouroboros/protocol/common"
 	"github.com/hashicorp/go-hclog"
-)
-
-var (
-	ErrBlockSyncerFatal = errors.New("block syncer fatal error")
 )
 
 const (
@@ -24,22 +21,6 @@ const (
 
 	syncStartTriesDefault = 4
 )
-
-type BlockTxsRetriever interface {
-	GetBlockTransactions(blockHeader ledger.BlockHeader) ([]ledger.Transaction, error)
-}
-
-type BlockSyncer interface {
-	Sync() error
-	Close() error
-	ErrorCh() <-chan error
-}
-
-type BlockSyncerHandler interface {
-	RollBackwardFunc(point common.Point) error
-	RollForwardFunc(blockHeader ledger.BlockHeader, txsRetriver BlockTxsRetriever) error
-	Reset() (BlockPoint, error)
-}
 
 type BlockSyncerConfig struct {
 	NetworkMagic   uint32        `json:"networkMagic"`
@@ -60,7 +41,7 @@ func (bsc BlockSyncerConfig) Protocol() string {
 
 type BlockSyncerImpl struct {
 	connection   *ouroboros.Connection
-	blockHandler BlockSyncerHandler
+	blockHandler indexer.BlockSyncerHandler
 	config       *BlockSyncerConfig
 	logger       hclog.Logger
 
@@ -70,9 +51,11 @@ type BlockSyncerImpl struct {
 	isClosed bool
 }
 
-var _ BlockSyncer = (*BlockSyncerImpl)(nil)
+var _ indexer.BlockSyncer = (*BlockSyncerImpl)(nil)
 
-func NewBlockSyncer(config *BlockSyncerConfig, blockHandler BlockSyncerHandler, logger hclog.Logger) *BlockSyncerImpl {
+func NewBlockSyncer(
+	config *BlockSyncerConfig, blockHandler indexer.BlockSyncerHandler, logger hclog.Logger,
+) *BlockSyncerImpl {
 	return &BlockSyncerImpl{
 		blockHandler: blockHandler,
 		config:       config,
@@ -169,7 +152,12 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 	}
 
 	// start syncing
-	if err := connection.ChainSync().Client.Sync([]common.Point{blockPoint.ToCommonPoint()}); err != nil {
+	var blockPointLedger common.Point
+	if blockPoint.BlockSlot != 0 {
+		blockPointLedger = common.NewPoint(blockPoint.BlockSlot, blockPoint.BlockHash[:])
+	}
+
+	if err := connection.ChainSync().Client.Sync([]common.Point{blockPointLedger}); err != nil {
 		return err
 	}
 
@@ -189,7 +177,12 @@ func (bs *BlockSyncerImpl) rollBackwardCallback(
 		"hash", hex.EncodeToString(point.Hash), "slot", point.Slot,
 		"tip_slot", tip.Point.Slot, "tip_hash", hex.EncodeToString(tip.Point.Hash))
 
-	return bs.blockHandler.RollBackwardFunc(point)
+	blockPoint := indexer.BlockPoint{BlockSlot: point.Slot}
+	if len(point.Hash) == indexer.HashSize {
+		blockPoint.BlockHash = indexer.Hash(point.Hash)
+	}
+
+	return bs.blockHandler.RollBackward(blockPoint)
 }
 
 func (bs *BlockSyncerImpl) rollForwardCallback(
@@ -197,24 +190,30 @@ func (bs *BlockSyncerImpl) rollForwardCallback(
 ) error {
 	blockHeader, ok := blockInfo.(ledger.BlockHeader)
 	if !ok {
-		return errors.Join(ErrBlockSyncerFatal, errors.New("invalid header"))
+		return errors.New("failed to get block header with gouroboros")
 	}
 
 	bs.lock.Lock()
-	if bs.connection == nil {
-		bs.lock.Unlock()
+	conn := bs.connection
+	bs.lock.Unlock()
 
+	if conn == nil {
 		return errors.New("failed to get block transactions: no connection")
 	}
-
-	txsRetriever := NewBlockTxsRetriever(bs.connection, bs.logger)
-	bs.lock.Unlock()
 
 	bs.logger.Debug("Roll forward",
 		"hash", blockHeader.Hash(), "slot", blockHeader.SlotNumber(), "number", blockHeader.BlockNumber(),
 		"tip_slot", tip.Point.Slot, "tip_hash", hex.EncodeToString(tip.Point.Hash))
 
-	return bs.blockHandler.RollForwardFunc(blockHeader, txsRetriever)
+	return bs.blockHandler.RollForward(indexer.BlockHeader{
+		Slot:   blockHeader.SlotNumber(),
+		Hash:   indexer.NewHashFromHexString(blockHeader.Hash()),
+		Number: blockHeader.BlockNumber(),
+		EraID:  blockHeader.Era().Id,
+	}, &BlockTxsRetrieverImpl{
+		connection: conn,
+		logger:     bs.logger,
+	})
 }
 
 func (bs *BlockSyncerImpl) errorHandler(errorCh <-chan error) {
@@ -233,7 +232,7 @@ func (bs *BlockSyncerImpl) errorHandler(errorCh <-chan error) {
 	}
 
 	// retry syncing again if not fatal error and if RestartOnError is true (errors.Is does not work in this case)
-	if !strings.Contains(err.Error(), ErrBlockSyncerFatal.Error()) && bs.config.RestartOnError {
+	if !strings.Contains(err.Error(), indexer.ErrBlockIndexerFatal.Error()) && bs.config.RestartOnError {
 		bs.logger.Warn("Error happened during synchronization", "err", err)
 
 		select {
@@ -264,33 +263,4 @@ func (bs *BlockSyncerImpl) closeConnectionNoLock() {
 			bs.logger.Debug("Old connection has been closed")
 		}
 	}
-}
-
-type BlockTxsRetrieverImpl struct {
-	connection *ouroboros.Connection
-	logger     hclog.Logger
-}
-
-func NewBlockTxsRetriever(conn *ouroboros.Connection, logger hclog.Logger) *BlockTxsRetrieverImpl {
-	return &BlockTxsRetrieverImpl{
-		connection: conn,
-		logger:     logger,
-	}
-}
-
-func (br *BlockTxsRetrieverImpl) GetBlockTransactions(
-	blockHeader ledger.BlockHeader,
-) ([]ledger.Transaction, error) {
-	br.logger.Debug("Get block transactions", "slot", blockHeader.SlotNumber(), "hash", blockHeader.Hash())
-
-	hash := NewHashFromHexString(blockHeader.Hash())
-
-	block, err := br.connection.BlockFetch().Client.GetBlock(
-		common.NewPoint(blockHeader.SlotNumber(), hash[:]),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return block.Transactions(), nil
 }
