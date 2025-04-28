@@ -12,7 +12,7 @@ var _ indexer.TxInfoParserFunc = ParseTxInfo
 func ParseTxInfo(rawTx []byte, full bool) (indexer.TxInfo, error) {
 	gtx, err := tryParseTxRaw(rawTx)
 	if err != nil {
-		return indexer.TxInfo{}, err
+		return indexer.TxInfo{}, fmt.Errorf("failed to parse tx: %w", err)
 	}
 
 	var (
