@@ -1,6 +1,8 @@
 package indexer
 
 import (
+	"errors"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/hashicorp/go-hclog"
@@ -12,6 +14,14 @@ type blockIndexerRunnerQueueItem struct {
 	Point        *BlockPoint
 }
 
+func (qi blockIndexerRunnerQueueItem) String() string {
+	if qi.Point != nil {
+		return fmt.Sprintf("backward (%d, %s)", qi.Point.BlockSlot, qi.Point.BlockHash)
+	}
+
+	return fmt.Sprintf("foward (%d, %s)", qi.BlockHeader.Slot, qi.BlockHeader.Hash)
+}
+
 type BlockIndexerRunnerConfig struct {
 	AutoStart        bool `json:"autoStart"`
 	QueueChannelSize int  `json:"queueChannelSize"`
@@ -20,6 +30,7 @@ type BlockIndexerRunnerConfig struct {
 type BlockIndexerRunner struct {
 	blockSyncerHandler BlockSyncerHandler
 	isClosed           uint32
+	errorCh            chan error
 	closeCh            chan struct{}
 	queueCh            chan blockIndexerRunnerQueueItem
 	logger             hclog.Logger
@@ -36,6 +47,7 @@ func NewBlockIndexerRunner(
 	runner := &BlockIndexerRunner{
 		blockSyncerHandler: blockSyncerHandler,
 		closeCh:            make(chan struct{}),
+		errorCh:            make(chan error, 1),
 		queueCh:            make(chan blockIndexerRunnerQueueItem, config.QueueChannelSize),
 		logger:             logger,
 	}
@@ -51,19 +63,27 @@ func (br *BlockIndexerRunner) Start() {
 	go func() {
 		br.logger.Info("Block indexer runner has been started")
 
+		var err error
+
 		for {
 			select {
 			case <-br.closeCh:
 				return
 			case item := <-br.queueCh:
 				if item.Point != nil {
-					if err := br.blockSyncerHandler.RollBackward(*item.Point); err != nil {
-						br.logger.Error("Failed to roll backward", "error", err)
-					}
+					err = br.blockSyncerHandler.RollBackward(*item.Point)
 				} else {
-					if err := br.blockSyncerHandler.RollForward(*item.BlockHeader, item.TxsRetriever); err != nil {
-						br.logger.Error("Failed to roll forward", "error", err)
-					}
+					err = br.blockSyncerHandler.RollForward(*item.BlockHeader, item.TxsRetriever)
+				}
+
+				if err != nil {
+					br.logger.Error("Runner failed", "item", item, "error", err)
+				}
+
+				if errors.Is(err, ErrBlockIndexerFatal) {
+					br.errorCh <- err
+
+					return
 				}
 			}
 		}
@@ -94,4 +114,8 @@ func (br *BlockIndexerRunner) RollForward(blockHeader BlockHeader, txsRetriever 
 
 func (br *BlockIndexerRunner) Reset() (BlockPoint, error) {
 	return br.blockSyncerHandler.Reset()
+}
+
+func (br *BlockIndexerRunner) ErrorCh() <-chan error {
+	return br.errorCh
 }
