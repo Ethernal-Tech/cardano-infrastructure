@@ -270,3 +270,49 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 		checkAllAreThere(t, utxos)
 	})
 }
+
+func TestDoesSumSatisfyCondition(t *testing.T) {
+	t.Run("equal currency", func(t *testing.T) {
+		require.True(t, doesSumSatisfyCondition(map[string]uint64{
+			cardanowallet.AdaTokenName: 100,
+		}, map[string]uint64{
+			cardanowallet.AdaTokenName: 100,
+		}, 50))
+	})
+
+	t.Run("currency with change", func(t *testing.T) {
+		require.True(t, doesSumSatisfyCondition(map[string]uint64{
+			cardanowallet.AdaTokenName: 150,
+		}, map[string]uint64{
+			cardanowallet.AdaTokenName: 100,
+		}, 50))
+	})
+
+	t.Run("currency not enough change", func(t *testing.T) {
+		require.False(t, doesSumSatisfyCondition(map[string]uint64{
+			cardanowallet.AdaTokenName: 149,
+		}, map[string]uint64{
+			cardanowallet.AdaTokenName: 100,
+		}, 50))
+	})
+
+	t.Run("not enough tokens", func(t *testing.T) {
+		require.False(t, doesSumSatisfyCondition(map[string]uint64{
+			cardanowallet.AdaTokenName: 150,
+			"1.31":                     200,
+		}, map[string]uint64{
+			cardanowallet.AdaTokenName: 100,
+			"1.31":                     250,
+		}, 50))
+	})
+
+	t.Run("enough tokens and currency", func(t *testing.T) {
+		require.True(t, doesSumSatisfyCondition(map[string]uint64{
+			cardanowallet.AdaTokenName: 155,
+			"1.31":                     250,
+		}, map[string]uint64{
+			cardanowallet.AdaTokenName: 100,
+			"1.31":                     250,
+		}, 50))
+	})
+}

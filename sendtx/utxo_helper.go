@@ -49,7 +49,7 @@ func GetUTXOsForAmounts(
 			currentSumTotal[token.TokenName()] += token.Amount
 		}
 
-		if isSumSatisfiesCondition(currentSum, conditions, minUtxoLovelace) {
+		if doesSumSatisfyCondition(currentSum, conditions, minUtxoLovelace) {
 			return prepareTxInputs(utxos, currentSum, maxInputs, tryAtLeastInputs, choosenCount), nil
 		}
 
@@ -68,7 +68,7 @@ func GetUTXOsForAmounts(
 		}
 	}
 
-	if isSumSatisfiesCondition(currentSumTotal, conditions, minUtxoLovelace) {
+	if doesSumSatisfyCondition(currentSumTotal, conditions, minUtxoLovelace) {
 		return cardanowallet.TxInputs{}, fmt.Errorf(
 			"%w: %s vs %s", cardanowallet.ErrUTXOsLimitReached,
 			mapStrUInt64ToStr(currentSumTotal), mapStrUInt64ToStr(conditions))
@@ -143,7 +143,7 @@ func findMinUtxo(
 	return minUtxo, idx
 }
 
-func isSumSatisfiesCondition(
+func doesSumSatisfyCondition(
 	currentSum map[string]uint64, conditions map[string]uint64, minUtoxLovelace uint64,
 ) bool {
 	currLovelace, condLovelace := currentSum[cardanowallet.AdaTokenName], conditions[cardanowallet.AdaTokenName]
