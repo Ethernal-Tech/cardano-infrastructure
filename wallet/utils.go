@@ -55,6 +55,10 @@ func IsTxInUtxos(ctx context.Context, utxoRetriever IUTxORetriever, addr string,
 
 // GetTokensFromSumMap processes a map of token names to their quantities and returns a slice of TokenAmount objects
 func GetTokensFromSumMap(sum map[string]uint64, skipTokenNames ...string) ([]TokenAmount, error) {
+	if len(sum) == 0 {
+		return nil, nil
+	}
+
 	tokens := make([]TokenAmount, 0, len(sum)-1)
 
 	for tokenName, amount := range sum {
