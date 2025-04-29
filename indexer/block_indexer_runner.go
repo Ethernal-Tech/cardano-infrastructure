@@ -63,6 +63,10 @@ func (br *BlockIndexerRunner) Start() {
 	go func() {
 		br.logger.Info("Block indexer runner has been started")
 
+		defer func() {
+			br.logger.Info("Block indexer runner has been stopped")
+		}()
+
 		var err error
 
 		for {
