@@ -1,6 +1,8 @@
 package indexer
 
 import (
+	"errors"
+
 	"github.com/stretchr/testify/mock"
 )
 
@@ -216,4 +218,47 @@ type BlockTxsRetrieverMock struct {
 
 func (bt *BlockTxsRetrieverMock) GetBlockTransactions(blockHeader BlockHeader) ([]*Tx, error) {
 	return bt.RetrieveFn(blockHeader)
+}
+
+var _ BlockSyncerHandler = (*BlockSyncerHandlerMock)(nil)
+
+type BlockSyncerHandlerMock struct {
+	BlockPoint         *BlockPoint
+	RollForwardFn      func(BlockHeader, BlockTxsRetriever) error
+	RollBackwardFuncFn func(BlockPoint) error
+}
+
+func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock {
+	return &BlockSyncerHandlerMock{
+		BlockPoint: &BlockPoint{
+			BlockSlot: slot,
+			BlockHash: NewHashFromHexString(hash),
+		},
+	}
+}
+
+func (hMock *BlockSyncerHandlerMock) RollBackward(point BlockPoint) error {
+	if hMock.RollBackwardFuncFn != nil {
+		return hMock.RollBackwardFuncFn(point)
+	}
+
+	return nil
+}
+
+func (hMock *BlockSyncerHandlerMock) RollForward(
+	blockHeader BlockHeader, txsRetriever BlockTxsRetriever,
+) error {
+	if hMock.RollForwardFn != nil {
+		return hMock.RollForwardFn(blockHeader, txsRetriever)
+	}
+
+	return nil
+}
+
+func (hMock *BlockSyncerHandlerMock) Reset() (BlockPoint, error) {
+	if hMock.BlockPoint == nil {
+		return BlockPoint{}, errors.New("error sync block point")
+	}
+
+	return *hMock.BlockPoint, nil
 }

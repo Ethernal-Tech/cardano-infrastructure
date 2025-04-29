@@ -1,11 +1,16 @@
 package indexer
 
+type ErrorEmitter interface {
+	ErrorCh() <-chan error
+}
+
 type Closable interface {
 	Close() error
 }
 
 type Service interface {
 	Closable
+	ErrorEmitter
 	Start()
 }
 
@@ -15,8 +20,8 @@ type BlockTxsRetriever interface {
 
 type BlockSyncer interface {
 	Closable
+	ErrorEmitter
 	Sync() error
-	ErrorCh() <-chan error
 }
 
 type BlockSyncerHandler interface {
