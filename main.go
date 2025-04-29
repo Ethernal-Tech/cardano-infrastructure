@@ -13,6 +13,7 @@ import (
 	"github.com/Ethernal-Tech/cardano-infrastructure/indexer"
 	"github.com/Ethernal-Tech/cardano-infrastructure/indexer/db"
 	"github.com/Ethernal-Tech/cardano-infrastructure/indexer/gouroboros"
+	"github.com/Ethernal-Tech/cardano-infrastructure/indexer/ogmios"
 	"github.com/Ethernal-Tech/cardano-infrastructure/logger"
 	"github.com/hashicorp/go-hclog"
 )
@@ -22,6 +23,7 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 		address             string
 		networkMagic        uint32
 		addressesOfInterest []string
+		startPoint          indexer.BlockPoint
 	)
 
 	switch chainType {
@@ -39,6 +41,17 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 	case 3:
 		address = "preprod-node.play.dev.cardano.org:3001"
 		networkMagic = 1
+	case 4:
+		startPoint.BlockHash = indexer.NewHashFromHexString(
+			"3009105e1e2a12d4ecf8e3d0a950218ac0e086158abe439454615a67fcc146b4")
+		startPoint.BlockSlot = 15734575
+		address = "relay-0.prime.testnet.apexfusion.org:5521"
+		networkMagic = uint32(3311)
+	case 5:
+		startPoint.BlockHash = indexer.NewHashFromHexString(
+			"3009105e1e2a12d4ecf8e3d0a950218ac0e086158abe439454615a67fcc146b4")
+		startPoint.BlockSlot = 15734575
+		address = "ws://ogmios.prime.testnet.apexfusion.org:1337"
 	}
 
 	logger, err := logger.NewLogger(logger.LoggerConfig{
@@ -74,23 +87,13 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 	}
 
 	indexerConfig := &indexer.BlockIndexerConfig{
-		StartingBlockPoint: &indexer.BlockPoint{
-			BlockSlot: 0,
-			BlockHash: [32]byte{},
-		},
+		StartingBlockPoint:      &startPoint,
 		AddressCheck:            indexer.AddressCheckAll,
 		ConfirmationBlockCount:  10,
 		AddressesOfInterest:     addressesOfInterest,
 		SoftDeleteUtxo:          false,
 		KeepAllTxOutputsInDB:    false,
 		KeepAllTxsHashesInBlock: true,
-	}
-	syncerConfig := &gouroboros.BlockSyncerConfig{
-		NetworkMagic:   networkMagic,
-		NodeAddress:    address,
-		RestartOnError: true,
-		RestartDelay:   time.Second * 2,
-		KeepAlive:      true,
 	}
 	runnerConfig := &indexer.BlockIndexerRunnerConfig{
 		QueueChannelSize: 100,
@@ -99,7 +102,23 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 
 	indexerObj := indexer.NewBlockIndexer(indexerConfig, confirmedBlockHandler, dbs, logger.Named("block_indexer"))
 	runner := indexer.NewBlockIndexerRunner(indexerObj, runnerConfig, logger.Named("block_indexer_runner"))
-	syncer := gouroboros.NewBlockSyncer(syncerConfig, runner, logger.Named("block_syncer"))
+	syncer := (indexer.BlockSyncer)(nil)
+
+	if chainType != 5 {
+		syncer = gouroboros.NewBlockSyncer(&gouroboros.BlockSyncerConfig{
+			NetworkMagic:   networkMagic,
+			NodeAddress:    address,
+			RestartOnError: true,
+			RestartDelay:   time.Second * 2,
+			KeepAlive:      true,
+		}, runner, logger.Named("block_syncer"))
+	} else {
+		syncer = ogmios.NewBlockSyncer(&ogmios.BlockSyncerConfig{
+			URL:            address,
+			RestartOnError: true,
+			RestartDelay:   time.Second * 2,
+		}, runner, logger.Named("block_syncer"))
+	}
 
 	go func() {
 		select {
@@ -138,7 +157,7 @@ func main() {
 
 		timeOutContext, cancel := context.WithTimeout(context.Background(), syncerTimeout)
 
-		if err := startSyncer(timeOutContext, 3, i, baseDirectory); err != nil {
+		if err := startSyncer(timeOutContext, 5, i, baseDirectory); err != nil {
 			fmt.Println("syncer error", err)
 		}
 
