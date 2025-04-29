@@ -30,14 +30,14 @@ func TestNewBlockSyncer(t *testing.T) {
 
 	var logger hclog.Logger
 
-	syncer := NewBlockSyncer(&BlockSyncerConfig{}, &blockSyncerHandlerMock{}, logger)
+	syncer := NewBlockSyncer(&BlockSyncerConfig{}, &indexer.BlockSyncerHandlerMock{}, logger)
 	require.NotNil(t, syncer)
 }
 
 func TestSyncer_Sync_WrongMagic(t *testing.T) {
 	t.Parallel()
 
-	mockSyncerBlockHandler := newBlockSyncerHandlerMock(existingPointSlot, existingPointHashStr)
+	mockSyncerBlockHandler := indexer.NewBlockSyncerHandlerMock(existingPointSlot, existingPointHashStr)
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: 71,
 		NodeAddress:  nodeAddress,
@@ -52,7 +52,7 @@ func TestSyncer_Sync_WrongMagic(t *testing.T) {
 func TestSyncer_Sync_WrongNodeAddress(t *testing.T) {
 	t.Parallel()
 
-	mockSyncerBlockHandler := newBlockSyncerHandlerMock(existingPointSlot, existingPointHashStr)
+	mockSyncerBlockHandler := indexer.NewBlockSyncerHandlerMock(existingPointSlot, existingPointHashStr)
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: networkMagic,
 		NodeAddress:  "test",
@@ -67,7 +67,7 @@ func TestSyncer_Sync_WrongNodeAddress(t *testing.T) {
 func TestSyncer_Sync_WrongUnixNodeAddress(t *testing.T) {
 	t.Parallel()
 
-	mockSyncerBlockHandler := newBlockSyncerHandlerMock(existingPointSlot, existingPointHashStr)
+	mockSyncerBlockHandler := indexer.NewBlockSyncerHandlerMock(existingPointSlot, existingPointHashStr)
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: networkMagic,
 		NodeAddress:  "/" + nodeAddress,
@@ -82,7 +82,7 @@ func TestSyncer_Sync_WrongUnixNodeAddress(t *testing.T) {
 func TestSyncer_Sync_NonExistingSlot(t *testing.T) {
 	t.Parallel()
 
-	mockSyncerBlockHandler := newBlockSyncerHandlerMock(nonExistingPointSlot, existingPointHashStr)
+	mockSyncerBlockHandler := indexer.NewBlockSyncerHandlerMock(nonExistingPointSlot, existingPointHashStr)
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: networkMagic,
 		NodeAddress:  "/" + nodeAddress,
@@ -97,7 +97,7 @@ func TestSyncer_Sync_NonExistingSlot(t *testing.T) {
 func TestSyncer_Sync_NonExistingHash(t *testing.T) {
 	t.Parallel()
 
-	mockSyncerBlockHandler := newBlockSyncerHandlerMock(existingPointSlot, nonExistingPointHashStr)
+	mockSyncerBlockHandler := indexer.NewBlockSyncerHandlerMock(existingPointSlot, nonExistingPointHashStr)
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: networkMagic,
 		NodeAddress:  "/" + nodeAddress,
@@ -181,7 +181,7 @@ func TestSyncer_RollForward_Valid(t *testing.T) {
 	t.Parallel()
 
 	called := uint64(1)
-	mockSyncerBlockHandler := newBlockSyncerHandlerMock(existingPointSlot, existingPointHashStr)
+	mockSyncerBlockHandler := indexer.NewBlockSyncerHandlerMock(existingPointSlot, existingPointHashStr)
 	syncer := NewBlockSyncer(&BlockSyncerConfig{
 		NetworkMagic: networkMagic,
 		NodeAddress:  nodeAddress,
@@ -393,48 +393,5 @@ func getTestSyncer(pointSlot uint64, pointHash string) *BlockSyncerImpl {
 		NetworkMagic: networkMagic,
 		NodeAddress:  nodeAddress,
 		RestartDelay: time.Millisecond * 10,
-	}, newBlockSyncerHandlerMock(pointSlot, pointHash), hclog.NewNullLogger())
-}
-
-type blockSyncerHandlerMock struct {
-	BlockPoint         *indexer.BlockPoint
-	RollForwardFn      func(indexer.BlockHeader, indexer.BlockTxsRetriever) error
-	RollBackwardFuncFn func(indexer.BlockPoint) error
-}
-
-var _ indexer.BlockSyncerHandler = (*blockSyncerHandlerMock)(nil)
-
-func newBlockSyncerHandlerMock(slot uint64, hash string) *blockSyncerHandlerMock {
-	return &blockSyncerHandlerMock{
-		BlockPoint: &indexer.BlockPoint{
-			BlockSlot: slot,
-			BlockHash: indexer.NewHashFromHexString(hash),
-		},
-	}
-}
-
-func (hMock *blockSyncerHandlerMock) RollBackward(point indexer.BlockPoint) error {
-	if hMock.RollBackwardFuncFn != nil {
-		return hMock.RollBackwardFuncFn(point)
-	}
-
-	return nil
-}
-
-func (hMock *blockSyncerHandlerMock) RollForward(
-	blockHeader indexer.BlockHeader, txsRetriever indexer.BlockTxsRetriever,
-) error {
-	if hMock.RollForwardFn != nil {
-		return hMock.RollForwardFn(blockHeader, txsRetriever)
-	}
-
-	return nil
-}
-
-func (hMock *blockSyncerHandlerMock) Reset() (indexer.BlockPoint, error) {
-	if hMock.BlockPoint == nil {
-		return indexer.BlockPoint{}, errors.New("error sync block point")
-	}
-
-	return *hMock.BlockPoint, nil
+	}, indexer.NewBlockSyncerHandlerMock(pointSlot, pointHash), hclog.NewNullLogger())
 }

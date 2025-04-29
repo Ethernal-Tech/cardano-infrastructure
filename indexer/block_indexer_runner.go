@@ -19,7 +19,7 @@ func (qi blockIndexerRunnerQueueItem) String() string {
 		return fmt.Sprintf("backward (%d, %s)", qi.Point.BlockSlot, qi.Point.BlockHash)
 	}
 
-	return fmt.Sprintf("foward (%d, %s)", qi.BlockHeader.Slot, qi.BlockHeader.Hash)
+	return fmt.Sprintf("forward (%d, %s)", qi.BlockHeader.Slot, qi.BlockHeader.Hash)
 }
 
 type BlockIndexerRunnerConfig struct {
