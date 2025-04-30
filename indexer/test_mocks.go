@@ -223,14 +223,15 @@ func (bt *BlockTxsRetrieverMock) GetBlockTransactions(blockHeader BlockHeader) (
 var _ BlockSyncerHandler = (*BlockSyncerHandlerMock)(nil)
 
 type BlockSyncerHandlerMock struct {
-	BlockPoint         *BlockPoint
+	defBlockPoint      *BlockPoint
+	ResetFn            func() (BlockPoint, error)
 	RollForwardFn      func(BlockHeader, BlockTxsRetriever) error
 	RollBackwardFuncFn func(BlockPoint) error
 }
 
 func NewBlockSyncerHandlerMock(slot uint64, hash string) *BlockSyncerHandlerMock {
 	return &BlockSyncerHandlerMock{
-		BlockPoint: &BlockPoint{
+		defBlockPoint: &BlockPoint{
 			BlockSlot: slot,
 			BlockHash: NewHashFromHexString(hash),
 		},
@@ -256,9 +257,13 @@ func (hMock *BlockSyncerHandlerMock) RollForward(
 }
 
 func (hMock *BlockSyncerHandlerMock) Reset() (BlockPoint, error) {
-	if hMock.BlockPoint == nil {
+	if hMock.ResetFn != nil {
+		return hMock.ResetFn()
+	}
+
+	if hMock.defBlockPoint == nil {
 		return BlockPoint{}, errors.New("error sync block point")
 	}
 
-	return *hMock.BlockPoint, nil
+	return *hMock.defBlockPoint, nil
 }
