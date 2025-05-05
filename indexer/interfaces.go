@@ -11,7 +11,6 @@ type Closable interface {
 type Service interface {
 	Closable
 	ErrorEmitter
-	Start()
 }
 
 type BlockTxsRetriever interface {

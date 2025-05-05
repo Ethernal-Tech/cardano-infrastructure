@@ -15,7 +15,9 @@ func TestBlockIndexerRunner_CloseTerminates(t *testing.T) {
 	config := &BlockIndexerRunnerConfig{QueueChannelSize: 2}
 	runner := NewBlockIndexerRunner(handlerMock, config, hclog.NewNullLogger())
 
-	runner.Start()
+	runner.Reset()
+
+	<-time.After(time.Millisecond * 100)
 
 	require.NoError(t, runner.Close())
 
@@ -26,7 +28,7 @@ func TestBlockIndexerRunner_CloseTerminates(t *testing.T) {
 	}
 }
 
-func TestBlockIndexerRunner_Start(t *testing.T) {
+func TestBlockIndexerRunner_runMainLoop(t *testing.T) {
 	forward, backward, tries := int32(0), int32(0), int32(0)
 	handlerMock := &BlockSyncerHandlerMock{
 		RollForwardFn: func(_ BlockHeader, _ BlockTxsRetriever) error {
@@ -39,7 +41,7 @@ func TestBlockIndexerRunner_Start(t *testing.T) {
 			}
 
 			return nil
-		}, RollBackwardFuncFn: func(_ BlockPoint) error {
+		}, RollBackwardFuncFn: func(bp BlockPoint) error {
 			newValue := atomic.AddInt32(&backward, 1)
 			if newValue == 4 {
 				return ErrBlockIndexerFatal
@@ -50,9 +52,10 @@ func TestBlockIndexerRunner_Start(t *testing.T) {
 	}
 	config := &BlockIndexerRunnerConfig{QueueChannelSize: 2}
 	runner := NewBlockIndexerRunner(handlerMock, config, hclog.NewNullLogger())
+	runner.loopFinishedCh = make(chan struct{})
 	ch := make(chan bool)
 
-	runner.Start()
+	runner.runMainLoop()
 
 	go func() {
 		<-runner.ErrorCh()
@@ -60,13 +63,13 @@ func TestBlockIndexerRunner_Start(t *testing.T) {
 	}()
 
 	go func() {
-		_ = runner.RollBackward(BlockPoint{})
-		_ = runner.RollBackward(BlockPoint{})
+		_ = runner.RollBackward(BlockPoint{BlockSlot: 1})
+		_ = runner.RollBackward(BlockPoint{BlockSlot: 2})
 		_ = runner.RollForward(BlockHeader{}, &BlockTxsRetrieverMock{})
-		_ = runner.RollBackward(BlockPoint{})
+		_ = runner.RollBackward(BlockPoint{BlockSlot: 3})
 		_ = runner.RollForward(BlockHeader{}, &BlockTxsRetrieverMock{})
 		_ = runner.RollForward(BlockHeader{}, &BlockTxsRetrieverMock{})
-		_ = runner.RollBackward(BlockPoint{})
+		_ = runner.RollBackward(BlockPoint{BlockSlot: 4})
 	}()
 
 	select {
@@ -99,7 +102,7 @@ func TestBlockIndexerRunner_Reset(t *testing.T) {
 	config := &BlockIndexerRunnerConfig{QueueChannelSize: 2000}
 	runner := NewBlockIndexerRunner(handlerMock, config, hclog.NewNullLogger())
 
-	runner.Start()
+	_, _ = runner.Reset()
 
 	go func() {
 		<-time.After(time.Millisecond * 100)
@@ -122,7 +125,8 @@ func TestBlockIndexerRunner_Reset(t *testing.T) {
 
 	select {
 	case <-runner.closeCh:
-	case <-time.After(time.Second):
+		require.Greater(t, lastNum, uint64(10))
+	case <-time.After(time.Second * 2):
 		t.Fatalf("timeout")
 	}
 }

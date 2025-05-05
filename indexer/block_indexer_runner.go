@@ -3,6 +3,7 @@ package indexer
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -24,7 +25,6 @@ func (qi blockIndexerRunnerQueueItem) String() string {
 }
 
 type BlockIndexerRunnerConfig struct {
-	AutoStart        bool          `json:"autoStart"`
 	QueueChannelSize int           `json:"queueChannelSize"`
 	RetryDelay       time.Duration `json:"retryDelay"`
 }
@@ -33,11 +33,11 @@ type BlockIndexerRunner struct {
 	blockSyncerHandler BlockSyncerHandler
 	config             *BlockIndexerRunnerConfig
 	isClosed           uint32
-	isLoopStarted      uint32
+	lock               sync.RWMutex
 	errorCh            chan error
+	closeCh            chan struct{}
 	stopLoopCh         chan struct{}
 	loopFinishedCh     chan struct{}
-	closeCh            chan struct{}
 	queueCh            chan blockIndexerRunnerQueueItem
 	logger             hclog.Logger
 }
@@ -54,54 +54,16 @@ func NewBlockIndexerRunner(
 		blockSyncerHandler: blockSyncerHandler,
 		config:             config,
 		errorCh:            make(chan error, 1),
-		loopFinishedCh:     make(chan struct{}, 1),
 		closeCh:            make(chan struct{}),
-		stopLoopCh:         make(chan struct{}, 1),
+		loopFinishedCh:     make(chan struct{}),
+		stopLoopCh:         make(chan struct{}),
 		queueCh:            make(chan blockIndexerRunnerQueueItem, config.QueueChannelSize),
 		logger:             logger,
 	}
 
-	if config.AutoStart {
-		runner.Start()
-	}
+	close(runner.loopFinishedCh) // signal once for Reset
 
 	return runner
-}
-
-func (br *BlockIndexerRunner) Start() {
-	go func() {
-		// check if loop is already started
-		if !atomic.CompareAndSwapUint32(&br.isLoopStarted, 0, 1) {
-			return
-		}
-
-		br.logger.Info("Block indexer runner has been started")
-
-		defer func() {
-			br.logger.Info("Block indexer runner has been stopped")
-			// Signal that the loop has finished (Reset method requires this signal)
-			// The signal will only be sent if there is already a listener waiting for the loop to end
-			select {
-			case br.loopFinishedCh <- struct{}{}:
-			default:
-			}
-		}()
-
-		for {
-			select {
-			case <-br.closeCh:
-				return
-			case <-br.stopLoopCh:
-				return
-			case item := <-br.queueCh:
-				if err := br.execute(item); err != nil {
-					br.errorCh <- err // quit if error is uncoverable error
-
-					return
-				}
-			}
-		}
-	}()
 }
 
 func (br *BlockIndexerRunner) Close() error {
@@ -115,36 +77,57 @@ func (br *BlockIndexerRunner) Close() error {
 }
 
 func (br *BlockIndexerRunner) RollBackward(point BlockPoint) error {
-	br.queueCh <- blockIndexerRunnerQueueItem{Point: &point}
+	br.lock.RLock()
+	queueCh := br.queueCh
+	stopLoopCh := br.stopLoopCh
+	br.lock.RUnlock()
+
+	select {
+	case queueCh <- blockIndexerRunnerQueueItem{Point: &point}:
+	case <-stopLoopCh:
+	case <-br.closeCh:
+	}
 
 	return nil
 }
 
 func (br *BlockIndexerRunner) RollForward(blockHeader BlockHeader, txsRetriever BlockTxsRetriever) error {
-	br.queueCh <- blockIndexerRunnerQueueItem{BlockHeader: &blockHeader, TxsRetriever: txsRetriever}
+	br.lock.RLock()
+	queueCh := br.queueCh
+	stopLoopCh := br.stopLoopCh
+	br.lock.RUnlock()
+
+	select {
+	case queueCh <- blockIndexerRunnerQueueItem{BlockHeader: &blockHeader, TxsRetriever: txsRetriever}:
+	case <-stopLoopCh:
+	case <-br.closeCh:
+	}
 
 	return nil
 }
 
 func (br *BlockIndexerRunner) Reset() (BlockPoint, error) {
-	// stop main runner loop only if it is started
-	if atomic.LoadUint32(&br.isLoopStarted) == 1 {
-		br.stopLoopCh <- struct{}{} // notify that the main loop needs to terminate
-		// wait for runner main loop to finish
-		select {
-		case <-br.loopFinishedCh:
-		case <-br.closeCh:
-		}
+	// stop main runner loop if started
+	close(br.stopLoopCh)
+	// wait for runner main loop to finish
+	select {
+	case <-br.loopFinishedCh:
+	case <-br.closeCh:
+		return BlockPoint{}, nil
 	}
-	// reset indexer before recreating queue channel and restart main runner loop
+	// reset indexer before recreating channels and restart main runner loop
 	bp, err := br.blockSyncerHandler.Reset()
 	if err != nil {
 		return bp, err
 	}
-	// create queue channel again
+	// create channels again
+	br.lock.Lock()
 	br.queueCh = make(chan blockIndexerRunnerQueueItem, br.config.QueueChannelSize)
+	br.loopFinishedCh = make(chan struct{})
+	br.stopLoopCh = make(chan struct{})
+	br.lock.Unlock()
 	// start runner main loop again
-	br.Start()
+	br.runMainLoop()
 
 	return bp, nil
 }
@@ -153,7 +136,41 @@ func (br *BlockIndexerRunner) ErrorCh() <-chan error {
 	return br.errorCh
 }
 
-func (br *BlockIndexerRunner) execute(item blockIndexerRunnerQueueItem) (err error) {
+func (br *BlockIndexerRunner) runMainLoop() {
+	go func() {
+		br.logger.Info("Block indexer runner has been started")
+
+		br.lock.RLock()
+		queueCh := br.queueCh
+		stopLoopCh := br.stopLoopCh
+		loopFinishedCh := br.loopFinishedCh
+		br.lock.RUnlock()
+
+		defer func() {
+			br.logger.Info("Block indexer runner has been stopped")
+			// Signal that the loop has finished (Reset method requires this signal)
+			close(loopFinishedCh)
+		}()
+
+		for {
+			select {
+			case <-br.closeCh:
+				return
+			case <-stopLoopCh:
+				return
+			case item := <-queueCh:
+				if br.execute(item, stopLoopCh) {
+					return
+				}
+			}
+		}
+	}()
+}
+
+func (br *BlockIndexerRunner) execute(
+	item blockIndexerRunnerQueueItem, stopLoopCh <-chan struct{},
+) (breakLoop bool) {
+	var err error
 	// each item from the queue must be processed before moving to the next
 	// the loop is infinite if the item cannot be processed and the error is non-fatal
 	for {
@@ -164,20 +181,22 @@ func (br *BlockIndexerRunner) execute(item blockIndexerRunnerQueueItem) (err err
 		}
 
 		if err == nil {
-			return nil // item processed successfully
+			return false // item processed successfully
 		}
 
 		br.logger.Error("Runner failed", "item", item, "error", err)
 
 		if errors.Is(err, ErrBlockIndexerFatal) {
-			return err
+			br.errorCh <- err // send fatal error to error channel
+
+			return true
 		}
 
 		select {
 		case <-br.closeCh:
-			return nil
-		case <-br.stopLoopCh:
-			return nil
+			return true
+		case <-stopLoopCh:
+			return true
 		case <-time.After(br.config.RetryDelay):
 		}
 	}
