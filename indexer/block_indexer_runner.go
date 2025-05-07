@@ -170,7 +170,11 @@ func (br *BlockIndexerRunner) runMainLoop() {
 func (br *BlockIndexerRunner) execute(
 	item blockIndexerRunnerQueueItem, stopLoopCh <-chan struct{},
 ) (breakLoop bool) {
-	var err error
+	var (
+		err                      error
+		processConfirmedBlockErr processConfirmedBlockError
+	)
+
 	// each item from the queue must be processed before moving to the next
 	// the loop is infinite if the item cannot be processed and the error is non-fatal
 	for {
@@ -187,9 +191,14 @@ func (br *BlockIndexerRunner) execute(
 		br.logger.Error("Runner failed", "item", item, "error", err)
 
 		if errors.Is(err, ErrBlockIndexerFatal) {
-			br.errorCh <- err // send fatal error to error channel
+			br.errorCh <- err // send fatal error to the error channel
 
 			return true
+		} else if !errors.As(err, &processConfirmedBlockErr) {
+			// if the error is not of type processConfirmedBlockErr, we should stop retrying
+			// that is why `unprocessedTxs, err := dbs.GetUnprocessedConfirmedTxs(0)`
+			// is important in custom block confirmation handler
+			return false
 		}
 
 		select {

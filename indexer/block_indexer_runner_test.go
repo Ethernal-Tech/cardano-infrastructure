@@ -11,11 +11,12 @@ import (
 )
 
 func TestBlockIndexerRunner_CloseTerminates(t *testing.T) {
-	handlerMock := &BlockSyncerHandlerMock{}
+	handlerMock := NewBlockSyncerHandlerMock(1000, "ff")
 	config := &BlockIndexerRunnerConfig{QueueChannelSize: 2}
 	runner := NewBlockIndexerRunner(handlerMock, config, hclog.NewNullLogger())
 
-	runner.Reset()
+	_, err := runner.Reset()
+	require.NoError(t, err)
 
 	<-time.After(time.Millisecond * 100)
 
@@ -37,7 +38,7 @@ func TestBlockIndexerRunner_runMainLoop(t *testing.T) {
 			if newValue == 2 && atomic.AddInt32(&tries, 1) < 3 {
 				atomic.AddInt32(&forward, -1)
 				// return error if second item is called first two times
-				return errors.New("dummy")
+				return processConfirmedBlockError{err: errors.New("dummy")}
 			}
 
 			return nil
