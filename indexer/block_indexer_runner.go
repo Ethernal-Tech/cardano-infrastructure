@@ -172,7 +172,7 @@ func (br *BlockIndexerRunner) execute(
 ) (breakLoop bool) {
 	var (
 		err                      error
-		processConfirmedBlockErr processConfirmedBlockError
+		processConfirmedBlockErr *processConfirmedBlockError
 	)
 
 	// each item from the queue must be processed before moving to the next

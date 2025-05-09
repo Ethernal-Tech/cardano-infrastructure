@@ -38,7 +38,7 @@ func TestBlockIndexerRunner_runMainLoop(t *testing.T) {
 			if newValue == 2 && atomic.AddInt32(&tries, 1) < 3 {
 				atomic.AddInt32(&forward, -1)
 				// return error if second item is called first two times
-				return processConfirmedBlockError{err: errors.New("dummy")}
+				return &processConfirmedBlockError{err: errors.New("dummy")}
 			}
 
 			return nil
@@ -130,4 +130,31 @@ func TestBlockIndexerRunner_Reset(t *testing.T) {
 	case <-time.After(time.Second * 2):
 		t.Fatalf("timeout")
 	}
+}
+
+func TestBlockIndexerRunner_Execute(t *testing.T) {
+	defaultErr := errors.New("error")
+	handlerMock := &BlockSyncerHandlerMock{}
+	handlerMock.RollForwardFn = func(bh BlockHeader, btr BlockTxsRetriever) error {
+		switch bh.Slot {
+		case 1:
+			return &processConfirmedBlockError{err: defaultErr}
+		case 2:
+			return defaultErr
+		default:
+			return nil
+		}
+	}
+	runner := NewBlockIndexerRunner(handlerMock, &BlockIndexerRunnerConfig{}, hclog.NewNullLogger())
+
+	t.Run("should break loop on stop and return true if processConfirmedBlockErr", func(t *testing.T) {
+		stopLoopCh := make(chan struct{})
+		close(stopLoopCh)
+
+		require.True(t, runner.execute(blockIndexerRunnerQueueItem{BlockHeader: &BlockHeader{Slot: 1}}, stopLoopCh))
+	})
+
+	t.Run("should break loop and return false if normal error", func(t *testing.T) {
+		require.False(t, runner.execute(blockIndexerRunnerQueueItem{BlockHeader: &BlockHeader{Slot: 2}}, nil))
+	})
 }

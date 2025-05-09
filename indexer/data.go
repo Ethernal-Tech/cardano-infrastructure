@@ -89,12 +89,11 @@ type processConfirmedBlockError struct {
 	err error
 }
 
-// Error implements error.
-func (e processConfirmedBlockError) Error() string {
-	return fmt.Sprintf("process confirmed block error: %s", e.err.Error())
+func (e *processConfirmedBlockError) Error() string {
+	return "process confirmed block error: " + e.err.Error()
 }
 
-func (e processConfirmedBlockError) Unwrap() error {
+func (e *processConfirmedBlockError) Unwrap() error {
 	return e.err
 }
 
