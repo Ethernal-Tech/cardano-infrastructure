@@ -94,7 +94,7 @@ func startSyncer(ctx context.Context, chainType int, id int, baseDirectory strin
 	}
 	runnerConfig := &indexer.BlockIndexerRunnerConfig{
 		QueueChannelSize: 100,
-		AutoStart:        true,
+		RetryDelay:       time.Millisecond * 500,
 	}
 
 	indexerObj := indexer.NewBlockIndexer(indexerConfig, confirmedBlockHandler, dbs, logger.Named("block_indexer"))

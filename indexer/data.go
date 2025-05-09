@@ -85,6 +85,18 @@ type TxInfo struct {
 	Outputs  []*TxOutput `json:"outputs,omitempty"`
 }
 
+type processConfirmedBlockError struct {
+	err error
+}
+
+func (e *processConfirmedBlockError) Error() string {
+	return "process confirmed block error: " + e.err.Error()
+}
+
+func (e *processConfirmedBlockError) Unwrap() error {
+	return e.err
+}
+
 func (h Hash) String() string {
 	return hex.EncodeToString(h[:])
 }

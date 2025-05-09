@@ -116,12 +116,12 @@ func (bi *BlockIndexer) RollForward(blockHeader BlockHeader, txsRetriever BlockT
 
 	txs, err := txsRetriever.GetBlockTransactions(firstBlockHeader)
 	if err != nil {
-		return err
+		return &processConfirmedBlockError{err: err}
 	}
 
 	confirmedBlock, confirmedTxs, latestBlockPoint, err := bi.processConfirmedBlock(firstBlockHeader, txs)
 	if err != nil {
-		return err
+		return &processConfirmedBlockError{err: err}
 	}
 
 	// update latest block point in memory if we have confirmed block

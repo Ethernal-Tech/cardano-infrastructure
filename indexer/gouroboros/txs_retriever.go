@@ -7,14 +7,21 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-type BlockTxsRetrieverImpl struct {
+type blockTxsRetrieverImpl struct {
 	connection *ouroboros.Connection
 	logger     hclog.Logger
 }
 
-var _ indexer.BlockTxsRetriever = (*BlockTxsRetrieverImpl)(nil)
+var _ indexer.BlockTxsRetriever = (*blockTxsRetrieverImpl)(nil)
 
-func (br *BlockTxsRetrieverImpl) GetBlockTransactions(blockHeader indexer.BlockHeader) ([]*indexer.Tx, error) {
+func newBlockTxsRetrieverImpl(conn *ouroboros.Connection, logger hclog.Logger) *blockTxsRetrieverImpl {
+	return &blockTxsRetrieverImpl{
+		connection: conn,
+		logger:     logger,
+	}
+}
+
+func (br *blockTxsRetrieverImpl) GetBlockTransactions(blockHeader indexer.BlockHeader) ([]*indexer.Tx, error) {
 	br.logger.Debug("Get block transactions", "slot", blockHeader.Slot, "hash", blockHeader.Hash)
 
 	block, err := br.connection.BlockFetch().Client.GetBlock(

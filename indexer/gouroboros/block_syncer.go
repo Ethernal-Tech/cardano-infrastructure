@@ -59,9 +59,9 @@ func NewBlockSyncer(
 	return &BlockSyncerImpl{
 		blockHandler: blockHandler,
 		config:       config,
-		logger:       logger,
 		errorCh:      make(chan error, 1),
 		closeCh:      make(chan struct{}),
+		logger:       logger,
 	}
 }
 
@@ -210,10 +210,7 @@ func (bs *BlockSyncerImpl) rollForwardCallback(
 		Hash:   indexer.NewHashFromHexString(blockHeader.Hash()),
 		Number: blockHeader.BlockNumber(),
 		EraID:  blockHeader.Era().Id,
-	}, &BlockTxsRetrieverImpl{
-		connection: conn,
-		logger:     bs.logger,
-	})
+	}, newBlockTxsRetrieverImpl(conn, bs.logger))
 }
 
 func (bs *BlockSyncerImpl) errorHandler(errorCh <-chan error) {
