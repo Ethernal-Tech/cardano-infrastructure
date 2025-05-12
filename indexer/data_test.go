@@ -2,14 +2,13 @@ package indexer
 
 import (
 	"encoding/binary"
-	"slices"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestTxInputKey(t *testing.T) {
+func TestTxInput_Key(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -21,15 +20,15 @@ func TestTxInputKey(t *testing.T) {
 		Hash:  NewHashFromHexString(hash),
 		Index: index,
 	}
+	inp2 := TxInput{}
 
-	inp2, err := NewTxInputFromBytes(inp.Key())
-	require.NoError(t, err)
+	require.NoError(t, inp2.Set(inp.Key()))
 
 	require.Equal(t, inp, inp2)
 	require.Equal(t, strings.ToLower(hash)[:64], inp2.Hash.String())
 }
 
-func TestTxKey(t *testing.T) {
+func TestTx_Key(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -53,7 +52,7 @@ func TestTxKey(t *testing.T) {
 	require.Equal(t, idx, idx)
 }
 
-func TestCardanoBlockKey(t *testing.T) {
+func TestCardanoBlock_Key(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -72,48 +71,14 @@ func TestCardanoBlockKey(t *testing.T) {
 	require.Equal(t, blockSlot, bs)
 }
 
-func TestSortTxInputOutputs(t *testing.T) {
-	inputs := []*TxInputOutput{
-		{
-			Input: TxInput{
-				Hash:  Hash{1, 1},
-				Index: 0,
-			},
-			Output: TxOutput{
-				Slot: 500,
-			},
-		},
-		{
-			Input: TxInput{
-				Hash:  Hash{1, 2},
-				Index: 5,
-			},
-			Output: TxOutput{
-				Slot: 200,
-			},
-		},
-		{
-			Input: TxInput{
-				Hash:  Hash{89, 2},
-				Index: 1,
-			},
-			Output: TxOutput{
-				Slot: 200,
-			},
-		},
-		{
-			Input: TxInput{
-				Hash:  Hash{1, 2},
-				Index: 3,
-			},
-			Output: TxOutput{
-				Slot: 200,
-			},
-		},
-	}
-	sorted := SortTxInputOutputs(slices.Clone(inputs))
+func TestTokenAmount_StringFuncs(t *testing.T) {
+	token := &TokenAmount{PolicyID: "policyId", Name: "tokenName", Amount: 100}
 
-	require.Equal(t, []*TxInputOutput{
-		inputs[3], inputs[1], inputs[2], inputs[0],
-	}, sorted)
+	t.Run("TokenName", func(t *testing.T) {
+		require.Equal(t, "policyId.746f6b656e4e616d65", token.TokenName())
+	})
+
+	t.Run("String", func(t *testing.T) {
+		require.Equal(t, "100 policyId.746f6b656e4e616d65", token.String())
+	})
 }
