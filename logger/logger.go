@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,7 +35,7 @@ func NewLogger(config LoggerConfig) (hclog.Logger, error) {
 		return newRotatingLogger(config)
 	}
 
-	output, err := getLogFileWriter(config.LogFilePath, config.AppendFile)
+	output, err := getLogFileWriter(config)
 	if err != nil {
 		return nil, fmt.Errorf("could not create or open log file: %w", err)
 	}
@@ -48,8 +49,13 @@ func NewLogger(config LoggerConfig) (hclog.Logger, error) {
 }
 
 func newRotatingLogger(config LoggerConfig) (hclog.Logger, error) {
-	logFilePath, _, err := createLogDir(config.LogFilePath)
-	if err != nil {
+	logFilePath := strings.Trim(config.LogFilePath, " ")
+	// for rotating logger file is mandatory
+	if logFilePath == "" {
+		return nil, errors.New("log file path not specified")
+	}
+
+	if err := common.CreateDirSafe(filepath.Dir(logFilePath), 0770); err != nil {
 		return nil, err
 	}
 
@@ -67,13 +73,20 @@ func newRotatingLogger(config LoggerConfig) (hclog.Logger, error) {
 	}), nil
 }
 
-func getLogFileWriter(logFilePath string, appendFile bool) (*os.File, error) {
-	logFilePath, logFileDirectory, err := createLogDir(logFilePath)
-	if err != nil {
+func getLogFileWriter(config LoggerConfig) (*os.File, error) {
+	logFilePath := strings.Trim(config.LogFilePath, " ")
+	// if logFilePath is empty that means that logger won't use file
+	if logFilePath == "" {
+		return nil, nil
+	}
+
+	logFileDirectory := filepath.Dir(logFilePath)
+
+	if err := common.CreateDirSafe(logFileDirectory, 0770); err != nil {
 		return nil, err
 	}
 
-	if !appendFile {
+	if !config.AppendFile {
 		suffix := strings.Replace(strings.Replace(time.Now().UTC().Format(time.RFC3339), ":", "_", -1), "-", "_", -1)
 		logFileName := filepath.Base(logFilePath)
 
@@ -87,15 +100,4 @@ func getLogFileWriter(logFilePath string, appendFile bool) (*os.File, error) {
 	}
 
 	return os.OpenFile(logFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0660)
-}
-
-func createLogDir(logFilePath string) (string, string, error) {
-	logFilePathTrimmed := strings.Trim(logFilePath, " ")
-	logFileDirectory := filepath.Dir(logFilePathTrimmed)
-
-	if err := common.CreateDirSafe(logFileDirectory, 0770); err != nil {
-		return "", "", err
-	}
-
-	return logFilePathTrimmed, logFileDirectory, nil
 }

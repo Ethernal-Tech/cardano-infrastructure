@@ -69,14 +69,12 @@ func TestDatabase(t *testing.T) {
 		t.Cleanup(dbCleanup)
 
 		blockPoint1 := &indexer.BlockPoint{
-			BlockSlot:   1,
-			BlockNumber: 1,
-			BlockHash:   indexer.Hash{1},
+			BlockSlot: 1,
+			BlockHash: indexer.Hash{1},
 		}
 		blockPoint2 := &indexer.BlockPoint{
-			BlockSlot:   2,
-			BlockNumber: 2,
-			BlockHash:   indexer.Hash{12},
+			BlockSlot: 2,
+			BlockHash: indexer.Hash{12},
 		}
 
 		db := &BBoltDatabase{}

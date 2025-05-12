@@ -190,25 +190,21 @@ func (bd *BBoltDatabase) GetAllTxOutputs(address string, onlyNotUsed bool) ([]*c
 		cursor := tx.Bucket(txOutputsBucket).Cursor()
 
 		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-			var output core.TxOutput
+			var item core.TxInputOutput
 
-			if err := json.Unmarshal(v, &output); err != nil {
+			if err := json.Unmarshal(v, &item.Output); err != nil {
 				return err
 			}
 
-			if output.Address != address || (onlyNotUsed && output.IsUsed) {
+			if item.Output.Address != address || (onlyNotUsed && item.Output.IsUsed) {
 				continue
 			}
 
-			input, err := core.NewTxInputFromBytes(k)
-			if err != nil {
+			if err := item.Input.Set(k); err != nil {
 				return err
 			}
 
-			result = append(result, &core.TxInputOutput{
-				Input:  input,
-				Output: output,
-			})
+			result = append(result, &item)
 		}
 
 		return nil

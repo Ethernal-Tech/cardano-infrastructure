@@ -5,7 +5,7 @@ type DBTransactionWriter interface {
 	AddTxOutputs(txOutputs []*TxInputOutput) DBTransactionWriter
 	AddConfirmedBlock(block *CardanoBlock) DBTransactionWriter
 	AddConfirmedTxs(txs []*Tx) DBTransactionWriter
-	RemoveTxOutputs(txInputs []*TxInput, softDelete bool) DBTransactionWriter
+	RemoveTxOutputs(txInputs []TxInput, softDelete bool) DBTransactionWriter
 	DeleteAllTxOutputsPhysically() DBTransactionWriter
 	Execute() error
 }

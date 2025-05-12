@@ -1,24 +1,13 @@
 package db
 
 import (
-	"strings"
-
 	"github.com/Ethernal-Tech/cardano-infrastructure/indexer"
 	indexerbbolt "github.com/Ethernal-Tech/cardano-infrastructure/indexer/db/bbolt"
-	indexerleveldb "github.com/Ethernal-Tech/cardano-infrastructure/indexer/db/leveldb"
 )
 
-func NewDatabase(name string) indexer.Database {
-	switch strings.ToLower(name) {
-	case "leveldb":
-		return &indexerleveldb.LevelDBDatabase{}
-	default:
-		return &indexerbbolt.BBoltDatabase{}
-	}
-}
-
 func NewDatabaseInit(name string, filePath string) (indexer.Database, error) {
-	db := NewDatabase(name)
+	// currently name is not used because only bbolt is supported
+	db := &indexerbbolt.BBoltDatabase{}
 	if err := db.Init(filePath); err != nil {
 		return nil, err
 	}
