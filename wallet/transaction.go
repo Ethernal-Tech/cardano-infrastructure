@@ -255,7 +255,7 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 	}
 
 	feeOutput, err := runCommand(b.cardanoCliBinary, append([]string{
-		"transaction", "calculate-min-fee",
+		"latest", "transaction", "calculate-min-fee",
 		"--tx-body-file", filepath.Join(b.baseDirectory, draftTxFile),
 		"--tx-in-count", strconv.Itoa(len(b.inputs)),
 		"--tx-out-count", strconv.Itoa(len(b.outputs)),
@@ -280,7 +280,7 @@ func (b *TxBuilder) CalculateMinUtxo(output TxOutput) (uint64, error) {
 	}
 
 	result, err := runCommand(b.cardanoCliBinary, []string{
-		"transaction", "calculate-min-required-utxo",
+		"latest", "transaction", "calculate-min-required-utxo",
 		"--protocol-params-file", protocolParamsFilePath,
 		"--tx-out", output.String(),
 	})
@@ -343,7 +343,7 @@ func (b *TxBuilder) CheckOutputs() error {
 
 func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error {
 	args := []string{
-		"transaction", "build-raw",
+		"latest", "transaction", "build-raw",
 		"--protocol-params-file", protocolParamsFilePath,
 		"--fee", strconv.FormatUint(fee, 10),
 		"--invalid-hereafter", strconv.FormatUint(b.timeToLive, 10),

@@ -137,7 +137,7 @@ func (cu CliUtils) GetPolicyID(policyScript IPolicyScript) (string, error) {
 	}
 
 	response, err := runCommand(cu.cardanoCliBinary, []string{
-		"transaction", "policyid", "--script-file", policyScriptFilePath,
+		"latest", "transaction", "policyid", "--script-file", policyScriptFilePath,
 	})
 	if err != nil {
 		return "", err
