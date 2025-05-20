@@ -445,6 +445,12 @@ func (txSnd *TxSender) populateTxBuilder(
 		utxos = txSnd.utxosTransformer.TransformUtxos(utxos)
 	}
 
+	// The condition for lovelace is:
+	// `currLovelace == condLovelace || currLovelace >= condLovelace + minUtxoLovelace`
+	// However, since the fee payer is the same address that is funding the outputs,
+	// we must skip the `currLovelace == condLovelace` case.
+	// This can be achieved by setting `minUtxoLovelace` to 0,
+	// and instead adding `minUtxoLovelace` directly to the lovelace condition.
 	inputs, err := GetUTXOsForAmounts(utxos, conditions, 0, txSnd.maxInputsPerTx, 1)
 	if err != nil {
 		return nil, err

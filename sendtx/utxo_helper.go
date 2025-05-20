@@ -12,16 +12,17 @@ import (
 // to a maximum input limit per transaction.
 //
 // Parameters:
-// - utxos: A list of available UTXOs for selection.
-// - conditions: A map defining required token conditions (e.g., exact or minimum amounts).
-// - minUtxoLovelace: for lovelace, the condition must be met exactly, or there must be at least
-// minUtxoLovelace worth of additional tokens to create change
-// - maxInputsPerTx: The maximum number of UTXOs that should be returned.
-// - tryAtLeastInputsPerTx: If possible it should be returned at least this number of UTXOs
+//   - utxos: A list of available UTXOs for selection.
+//   - conditions: A map defining required token conditions (e.g., exact or minimum amounts).
+//   - minUtxoLovelace: For lovelace, the condition must be met exactly,
+//     or there must be at least `minUtxoLovelace` more to allow for change creation.
+//     Can be set to zero if we want to skip the exact match condition.
+//   - maxInputs: The maximum number of UTXOs that should be returned.
+//   - tryAtLeastInputs: If possible it should be returned at least this number of UTXOs
 //
 // Returns:
-// - cardanowallet.TxInputs: Selected UTXOs and their total sum if conditions are met.
-// - error: An error if no valid selection can satisfy the conditions.
+// - Selected UTXOs and their total sum if conditions are met (cardanowallet.TxInputs)
+// - An error if no valid selection can satisfy the conditions.
 //
 // The function iteratively selects UTXOs, replacing the smallest ones when the limit is reached,
 // until the specified conditions are satisfied or no valid selection is possible.
