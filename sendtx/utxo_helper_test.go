@@ -71,6 +71,49 @@ func TestGetUTXOsForAmounts(t *testing.T) {
 		require.Equal(t, len(utxos), len(mp))
 	}
 
+	t.Run("exact amount with zero minUtxoLovelace", func(t *testing.T) {
+		utxosNew := []cardanowallet.Utxo{
+			{
+				Hash:   "1",
+				Amount: 20,
+			},
+			{
+				Hash:   "2",
+				Amount: 100,
+				Tokens: []cardanowallet.TokenAmount{
+					cardanowallet.NewTokenAmount(cardanowallet.NewToken("1", "1"), 100),
+				},
+			},
+			{
+				Hash:   "3",
+				Amount: 15,
+			},
+			{
+				Hash:   "4",
+				Amount: 30,
+			},
+		}
+		txInputs, err := GetUTXOsForAmounts(utxosNew, map[string]uint64{
+			cardanowallet.AdaTokenName: 130,
+		}, 0, 2, 1)
+
+		require.NoError(t, err)
+		assert.Equal(t, map[string]uint64{
+			cardanowallet.AdaTokenName: 130,
+			"1.31":                     100,
+		}, txInputs.Sum)
+		assert.Equal(t, []cardanowallet.TxInput{
+			{
+				Hash: "2",
+			},
+			{
+				Hash: "4",
+			},
+		}, txInputs.Inputs)
+
+		checkAllAreThere(t, utxosNew)
+	})
+
 	t.Run("exact amount", func(t *testing.T) {
 		utxosNew := slices.Clone(utxos)
 
