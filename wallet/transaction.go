@@ -9,9 +9,7 @@ import (
 	"strings"
 )
 
-const (
-	draftTxFile = "tx.draft"
-)
+const draftTxFile = "tx.draft"
 
 type TxInput struct {
 	Hash  string `json:"hsh"`
@@ -66,11 +64,22 @@ type TxBuilder struct {
 	timeToLive         uint64
 	testNetMagic       uint
 	fee                uint64
+	era                string
+	realEraName        string
 	cardanoCliBinary   string
 }
 
 func NewTxBuilder(cardanoCliBinary string) (*TxBuilder, error) {
+	return NewTxBuilderForEra(cardanoCliBinary, DefaultEra)
+}
+
+func NewTxBuilderForEra(cardanoCliBinary string, era string) (*TxBuilder, error) {
 	baseDirectory, err := os.MkdirTemp("", "cardano-txs")
+	if err != nil {
+		return nil, err
+	}
+
+	realEraName, err := NewCliUtilsForEra(cardanoCliBinary, era).GetRealEraName()
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +87,8 @@ func NewTxBuilder(cardanoCliBinary string) (*TxBuilder, error) {
 	return &TxBuilder{
 		baseDirectory:    baseDirectory,
 		cardanoCliBinary: cardanoCliBinary,
+		realEraName:      realEraName,
+		era:              era,
 	}, nil
 }
 
@@ -227,7 +238,7 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 	}
 
 	feeOutput, err := runCommand(b.cardanoCliBinary, append([]string{
-		"transaction", "calculate-min-fee",
+		b.era, "transaction", "calculate-min-fee",
 		"--tx-body-file", filepath.Join(b.baseDirectory, draftTxFile),
 		"--tx-in-count", strconv.Itoa(len(b.inputs)),
 		"--tx-out-count", strconv.Itoa(len(b.outputs)),
@@ -252,7 +263,7 @@ func (b *TxBuilder) CalculateMinUtxo(output TxOutput) (uint64, error) {
 	}
 
 	result, err := runCommand(b.cardanoCliBinary, []string{
-		"transaction", "calculate-min-required-utxo",
+		b.era, "transaction", "calculate-min-required-utxo",
 		"--protocol-params-file", protocolParamsFilePath,
 		"--tx-out", output.String(),
 	})
@@ -260,7 +271,8 @@ func (b *TxBuilder) CalculateMinUtxo(output TxOutput) (uint64, error) {
 		return 0, err
 	}
 
-	result = strings.TrimSpace(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(result)), AdaTokenName))
+	result = strings.TrimPrefix(
+		strings.TrimSpace(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(result)), AdaTokenName)), "coin ")
 
 	return strconv.ParseUint(result, 0, 64)
 }
@@ -293,7 +305,7 @@ func (b *TxBuilder) Build() ([]byte, string, error) {
 		return nil, "", err
 	}
 
-	txHash, err := NewCliUtils(b.cardanoCliBinary).getTxHash(txRaw, b.baseDirectory)
+	txHash, err := NewCliUtilsForEra(b.cardanoCliBinary, b.era).getTxHash(txRaw, b.baseDirectory, b.realEraName)
 	if err != nil {
 		return nil, "", err
 	}
@@ -315,7 +327,7 @@ func (b *TxBuilder) CheckOutputs() error {
 
 func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error {
 	args := []string{
-		"transaction", "build-raw",
+		b.era, "transaction", "build-raw",
 		"--protocol-params-file", protocolParamsFilePath,
 		"--fee", strconv.FormatUint(fee, 10),
 		"--invalid-hereafter", strconv.FormatUint(b.timeToLive, 10),
@@ -370,7 +382,7 @@ func (b *TxBuilder) CreateTxWitness(txRaw []byte, wallet ITxSigner) ([]byte, err
 	signingKeyPath := filepath.Join(b.baseDirectory, "tx.skey")
 	signingKey, _ := wallet.GetPaymentKeys()
 
-	txBytes, err := transactionUnwitnessedRaw(txRaw).ToJSON()
+	txBytes, err := transactionUnwitnessedRaw(txRaw).ToJSON(b.realEraName)
 	if err != nil {
 		return nil, err
 	}
@@ -381,9 +393,9 @@ func (b *TxBuilder) CreateTxWitness(txRaw []byte, wallet ITxSigner) ([]byte, err
 
 	var title string
 	if len(signingKey) > KeySize {
-		title = "PaymentExtendedSigningKeyShelley_ed25519_bip32"
+		title = paymentExtendedSigningKeyShelley
 	} else {
-		title = "PaymentSigningKeyShelley_ed25519"
+		title = paymentSigningKeyShelley
 	}
 
 	key, err := NewKeyFromBytes(title, "", signingKey)
@@ -396,7 +408,7 @@ func (b *TxBuilder) CreateTxWitness(txRaw []byte, wallet ITxSigner) ([]byte, err
 	}
 
 	args := append([]string{
-		"transaction", "witness",
+		b.era, "transaction", "witness",
 		"--signing-key-file", signingKeyPath,
 		"--tx-body-file", txFilePath,
 		"--out-file", outFilePath},
@@ -423,7 +435,7 @@ func (b *TxBuilder) AssembleTxWitnesses(txRaw []byte, witnesses [][]byte) ([]byt
 	for i, witness := range witnesses {
 		witnessesFilePaths[i] = filepath.Join(b.baseDirectory, fmt.Sprintf("witness-%d", i+1))
 
-		content, err := TxWitnessRaw(witness).ToJSON()
+		content, err := TxWitnessRaw(witness).ToJSON(b.realEraName)
 		if err != nil {
 			return nil, err
 		}
@@ -433,7 +445,7 @@ func (b *TxBuilder) AssembleTxWitnesses(txRaw []byte, witnesses [][]byte) ([]byt
 		}
 	}
 
-	txBytes, err := transactionUnwitnessedRaw(txRaw).ToJSON()
+	txBytes, err := transactionUnwitnessedRaw(txRaw).ToJSON(b.realEraName)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +455,7 @@ func (b *TxBuilder) AssembleTxWitnesses(txRaw []byte, witnesses [][]byte) ([]byt
 	}
 
 	args := []string{
-		"transaction", "assemble",
+		b.era, "transaction", "assemble",
 		"--tx-body-file", txFilePath,
 		"--out-file", outFilePath}
 
