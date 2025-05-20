@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/wallet/bech32"
@@ -21,11 +22,17 @@ type AddressInfo struct {
 
 type CliUtils struct {
 	cardanoCliBinary string
+	era              string
 }
 
 func NewCliUtils(cardanoCliBinary string) CliUtils {
+	return NewCliUtilsForEra(cardanoCliBinary, DefaultEra)
+}
+
+func NewCliUtilsForEra(cardanoCliBinary string, era string) CliUtils {
 	return CliUtils{
 		cardanoCliBinary: cardanoCliBinary,
+		era:              era,
 	}
 }
 
@@ -51,7 +58,7 @@ func (cu CliUtils) GetPolicyScriptBaseAddress(
 	}
 
 	args := []string{
-		"address", "build",
+		cu.era, "address", "build",
 		"--payment-script-file", policyScriptFilePath,
 		"--stake-script-file", stakePolicyScriptFilePath,
 	}
@@ -81,7 +88,7 @@ func (cu CliUtils) GetPolicyScriptEnterpriseAddress(
 	}
 
 	args := []string{
-		"address", "build",
+		cu.era, "address", "build",
 		"--payment-script-file", policyScriptFilePath,
 	}
 
@@ -110,7 +117,7 @@ func (cu CliUtils) GetPolicyScriptRewardAddress(
 	}
 
 	args := []string{
-		"stake-address", "build",
+		cu.era, "stake-address", "build",
 		"--stake-script-file", policyScriptFilePath,
 	}
 
@@ -137,7 +144,7 @@ func (cu CliUtils) GetPolicyID(policyScript IPolicyScript) (string, error) {
 	}
 
 	response, err := runCommand(cu.cardanoCliBinary, []string{
-		"transaction", "policyid", "--script-file", policyScriptFilePath,
+		cu.era, "transaction", "policyid", "--script-file", policyScriptFilePath,
 	})
 	if err != nil {
 		return "", err
@@ -151,7 +158,7 @@ func (cu CliUtils) GetAddressInfo(address string) (AddressInfo, error) {
 	var ai AddressInfo
 
 	res, err := runCommand(cu.cardanoCliBinary, []string{
-		"address", "info", "--address", address,
+		cu.era, "address", "info", "--address", address,
 	})
 	if err != nil {
 		return ai, errors.Join(ErrInvalidAddressData, err)
@@ -176,7 +183,7 @@ func (cu CliUtils) GetWalletAddress(
 	// enterprise address
 	if len(stakeVerificationKey) == 0 {
 		addr, err = runCommand(cu.cardanoCliBinary, append([]string{
-			"address", "build",
+			cu.era, "address", "build",
 			"--payment-verification-key", bech32String,
 		}, getTestNetMagicArgs(testNetMagic)...))
 
@@ -189,7 +196,7 @@ func (cu CliUtils) GetWalletAddress(
 	}
 
 	addr, err = runCommand(cu.cardanoCliBinary, append([]string{
-		"address", "build",
+		cu.era, "address", "build",
 		"--payment-verification-key", bech32String,
 		"--stake-verification-key", bech32StakeString,
 	}, getTestNetMagicArgs(testNetMagic)...))
@@ -198,7 +205,7 @@ func (cu CliUtils) GetWalletAddress(
 	}
 
 	stakeAddr, err = runCommand(cu.cardanoCliBinary, append([]string{
-		"stake-address", "build",
+		cu.era, "stake-address", "build",
 		"--stake-verification-key", bech32StakeString,
 	}, getTestNetMagicArgs(testNetMagic)...))
 
@@ -212,7 +219,7 @@ func (cu CliUtils) GetKeyHash(key []byte) (string, error) {
 	}
 
 	resultKeyHash, err := runCommand(cu.cardanoCliBinary, []string{
-		"address", "key-hash",
+		cu.era, "address", "key-hash",
 		"--payment-verification-key", bech32String,
 	})
 	if err != nil {
@@ -231,13 +238,39 @@ func (cu CliUtils) GetTxHash(txRaw []byte) (string, error) {
 
 	defer os.RemoveAll(baseDirectory)
 
-	return cu.getTxHash(txRaw, baseDirectory)
+	realEraName, err := cu.GetRealEraName()
+	if err != nil {
+		return "", err
+	}
+
+	return cu.getTxHash(txRaw, baseDirectory, realEraName)
 }
 
-func (cu CliUtils) getTxHash(txRaw []byte, baseDirectory string) (string, error) {
+func (cu CliUtils) GetRealEraName() (string, error) {
+	if strings.ToLower(cu.era) != "latest" {
+		return strings.ToUpper(cu.era[:1]) + cu.era[1:], nil
+	}
+
+	list, err := runCommand(cu.cardanoCliBinary, []string{"--help"})
+	if err != nil {
+		return "", err
+	}
+
+	// Find the match
+	matches := regexp.MustCompile(`Latest era commands \(([^)]+)\)`).FindStringSubmatch(list)
+	if len(matches) >= 2 {
+		// matches[0] = full match ("Latest era commands (Babbage/Conway)")
+		// matches[1] = first captured group ("Babbage/Conway")
+		return matches[1], nil
+	}
+
+	return "", errors.New("unknown era")
+}
+
+func (cu CliUtils) getTxHash(txRaw []byte, baseDirectory, eraName string) (string, error) {
 	txFilePath := filepath.Join(baseDirectory, "tx.tmp")
 
-	txBytes, err := transactionUnwitnessedRaw(txRaw).ToJSON()
+	txBytes, err := transactionUnwitnessedRaw(txRaw).ToJSON(eraName)
 	if err != nil {
 		return "", err
 	}
@@ -247,7 +280,7 @@ func (cu CliUtils) getTxHash(txRaw []byte, baseDirectory string) (string, error)
 	}
 
 	args := []string{
-		"transaction", "txid",
+		cu.era, "transaction", "txid",
 		"--tx-body-file", txFilePath}
 
 	res, err := runCommand(cu.cardanoCliBinary, args)
@@ -255,7 +288,7 @@ func (cu CliUtils) getTxHash(txRaw []byte, baseDirectory string) (string, error)
 		return "", err
 	}
 
-	return strings.Trim(res, "\n"), err
+	return strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(res), `{"txhash":"`), `"}`), nil
 }
 
 func (cu CliUtils) CreateRegistrationCertificate(
@@ -271,7 +304,7 @@ func (cu CliUtils) CreateRegistrationCertificate(
 	certFilePath := filepath.Join(baseDirectory, "registration.cert")
 
 	args := []string{
-		"stake-address", "registration-certificate",
+		cu.era, "stake-address", "registration-certificate",
 		"--stake-address", stakeAddress,
 		"--key-reg-deposit-amt", fmt.Sprintf("%d", keyRegDepositAmount),
 		"--out-file", certFilePath}
@@ -308,14 +341,17 @@ func (cu CliUtils) CreateDelegationCertificate(
 	// On update to newer version this will fail because of the change:
 	// delegation-certificate -> stake-delegation-certificate
 	args := []string{
-		"stake-address", "delegation-certificate",
+		cu.era, "stake-address", "delegation-certificate",
 		"--stake-address", stakeAddress,
 		"--stake-pool-id", poolID,
 		"--out-file", certFilePath}
 
-	_, err = runCommand(cu.cardanoCliBinary, args)
-	if err != nil {
-		return nil, fmt.Errorf("failed to delegate certificate: %w", err)
+	if _, err = runCommand(cu.cardanoCliBinary, args); err != nil {
+		args[2] = "stake-delegation-certificate"
+
+		if _, err = runCommand(cu.cardanoCliBinary, args); err != nil {
+			return nil, fmt.Errorf("failed to delegate certificate: %w", err)
+		}
 	}
 
 	bytes, err := os.ReadFile(certFilePath)

@@ -36,6 +36,27 @@ func NewProtocolParametersPriceMemorySteps(memory, steps float64) ProtocolParame
 	}
 }
 
+type VotingThresholds struct {
+	CommitteeNoConfidence float64 `json:"committeeNoConfidence"`
+	CommitteeNormal       float64 `json:"committeeNormal"`
+	HardForkInitiation    float64 `json:"hardForkInitiation"`
+	MotionNoConfidence    float64 `json:"motionNoConfidence"`
+	PPEconomicGroup       float64 `json:"ppEconomicGroup"`
+	PPGovGroup            float64 `json:"ppGovGroup"`
+	PPNetworkGroup        float64 `json:"ppNetworkGroup"`
+	PPTechnicalGroup      float64 `json:"ppTechnicalGroup"`
+	TreasuryWithdrawal    float64 `json:"treasuryWithdrawal"`
+	UpdateToConstitution  float64 `json:"updateToConstitution"`
+}
+
+type PoolVotingThresholds struct {
+	CommitteeNoConfidence float64 `json:"committeeNoConfidence"`
+	CommitteeNormal       float64 `json:"committeeNormal"`
+	HardForkInitiation    float64 `json:"hardForkInitiation"`
+	MotionNoConfidence    float64 `json:"motionNoConfidence"`
+	PPSecurityGroup       float64 `json:"ppSecurityGroup"`
+}
+
 type ProtocolParameters struct {
 	CostModels             map[string][]int64                 `json:"costModels"`
 	ProtocolVersion        ProtocolParametersVersion          `json:"protocolVersion"`
@@ -62,4 +83,14 @@ type ProtocolParameters struct {
 	ExtraPraosEntropy      *uint64                            `json:"extraPraosEntropy"`
 	Decentralization       *uint64                            `json:"decentralization"`
 	MinUTxOValue           *uint64                            `json:"minUTxOValue"`
+	// conway
+	PoolVotingThresholds       *PoolVotingThresholds `json:"poolVotingThresholds"`
+	DRepVotingThresholds       *VotingThresholds     `json:"dRepVotingThresholds"`
+	DRepActivity               *uint64               `json:"dRepActivity"`
+	DRepDeposit                *uint64               `json:"dRepDeposit"`
+	GovActionDeposit           *uint64               `json:"govActionDeposit"`
+	GovActionLifetime          *uint64               `json:"govActionLifetime"`
+	MinFeeRefScriptCostPerByte *float64              `json:"minFeeRefScriptCostPerByte"`
+	CommitteeMaxTermLength     *uint64               `json:"committeeMaxTermLength"`
+	CommitteeMinSize           *uint64               `json:"committeeMinSize"`
 }

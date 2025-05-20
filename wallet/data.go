@@ -11,6 +11,7 @@ import (
 const (
 	AdaTokenPolicyID = "ada"
 	AdaTokenName     = "lovelace"
+	DefaultEra       = "latest"
 )
 
 type TokenAmount struct {

@@ -16,12 +16,23 @@ type TxProviderCli struct {
 	testNetMagic     uint
 	socketPath       string
 	cardanoCliBinary string
+	realEraName      string
+	era              string
 }
 
 var _ ITxProvider = (*TxProviderCli)(nil)
 
-func NewTxProviderCli(testNetMagic uint, socketPath string, cardanoCliBinary string) (*TxProviderCli, error) {
+func NewTxProviderCli(testNetMagic uint, socketPath, cardanoCliBinary string) (*TxProviderCli, error) {
+	return NewTxProviderCliForEra(testNetMagic, socketPath, cardanoCliBinary, DefaultEra)
+}
+
+func NewTxProviderCliForEra(testNetMagic uint, socketPath, cardanoCliBinary, era string) (*TxProviderCli, error) {
 	baseDirectory, err := os.MkdirTemp("", "cardano-txs")
+	if err != nil {
+		return nil, err
+	}
+
+	realEraName, err := NewCliUtilsForEra(cardanoCliBinary, era).GetRealEraName()
 	if err != nil {
 		return nil, err
 	}
@@ -31,6 +42,8 @@ func NewTxProviderCli(testNetMagic uint, socketPath string, cardanoCliBinary str
 		testNetMagic:     testNetMagic,
 		socketPath:       socketPath,
 		cardanoCliBinary: cardanoCliBinary,
+		era:              era,
+		realEraName:      realEraName,
 	}, nil
 }
 
@@ -40,7 +53,7 @@ func (b *TxProviderCli) Dispose() {
 
 func (b *TxProviderCli) GetProtocolParameters(_ context.Context) ([]byte, error) {
 	args := append([]string{
-		"query", "protocol-parameters",
+		b.era, "query", "protocol-parameters",
 		"--socket-path", b.socketPath,
 	}, getTestNetMagicArgs(b.testNetMagic)...)
 
@@ -54,7 +67,7 @@ func (b *TxProviderCli) GetProtocolParameters(_ context.Context) ([]byte, error)
 
 func (b *TxProviderCli) GetUtxos(_ context.Context, addr string) ([]Utxo, error) {
 	args := append([]string{
-		"query", "utxo",
+		b.era, "query", "utxo",
 		"--socket-path", b.socketPath,
 		"--address", addr,
 	}, getTestNetMagicArgs(b.testNetMagic)...)
@@ -128,7 +141,7 @@ func (b *TxProviderCli) GetUtxos(_ context.Context, addr string) ([]Utxo, error)
 
 func (b *TxProviderCli) GetTip(_ context.Context) (QueryTipData, error) {
 	args := append([]string{
-		"query", "tip",
+		b.era, "query", "tip",
 		"--socket-path", b.socketPath,
 	}, getTestNetMagicArgs(b.testNetMagic)...)
 
@@ -149,7 +162,7 @@ func (b *TxProviderCli) GetTip(_ context.Context) (QueryTipData, error) {
 func (b *TxProviderCli) SubmitTx(_ context.Context, txSigned []byte) error {
 	txFilePath := filepath.Join(b.baseDirectory, "tx.send")
 
-	txBytes, err := transactionWitnessedRaw(txSigned).ToJSON()
+	txBytes, err := transactionWitnessedRaw(txSigned).ToJSON(b.realEraName)
 	if err != nil {
 		return err
 	}
@@ -159,7 +172,7 @@ func (b *TxProviderCli) SubmitTx(_ context.Context, txSigned []byte) error {
 	}
 
 	args := append([]string{
-		"transaction", "submit",
+		b.era, "transaction", "submit",
 		"--socket-path", b.socketPath,
 		"--tx-file", txFilePath,
 	}, getTestNetMagicArgs(b.testNetMagic)...)

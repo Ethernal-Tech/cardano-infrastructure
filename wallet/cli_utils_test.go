@@ -98,3 +98,15 @@ func TestDelegationCertificate(t *testing.T) {
 	require.Equal(t, "Stake Delegation Certificate", stakeRegistrationCert.Description)
 	require.Equal(t, "83028201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f581c5acc3f8fbc6ecfb86ce73543217a860387c4281bb394b4a123f35b24", stakeRegistrationCert.CborHex)
 }
+
+func TestGetRealEraName(t *testing.T) {
+	eraName, err := NewCliUtilsForEra(ResolveCardanoCliBinary(MainNetNetwork), "latest").GetRealEraName()
+
+	require.NoError(t, err)
+	assert.Equal(t, "Babbage", eraName)
+
+	eraName, err = NewCliUtilsForEra(ResolveCardanoCliBinary(MainNetNetwork), "conway").GetRealEraName()
+
+	require.NoError(t, err)
+	assert.Equal(t, "Conway", eraName)
+}
