@@ -14,9 +14,6 @@ import (
 // Parameters:
 //   - utxos: A list of available UTXOs for selection.
 //   - conditions: A map defining required token conditions (e.g., exact or minimum amounts).
-//   - minUtxoLovelace: For lovelace, the condition must be met exactly,
-//     or there must be at least `minUtxoLovelace` more to allow for change creation.
-//     Can be set to zero if we want to skip the exact match condition.
 //   - maxInputs: The maximum number of UTXOs that should be returned.
 //   - tryAtLeastInputs: If possible it should be returned at least this number of UTXOs
 //
@@ -29,7 +26,6 @@ import (
 func GetUTXOsForAmounts(
 	utxos []cardanowallet.Utxo,
 	conditions map[string]uint64,
-	minUtxoLovelace uint64,
 	maxInputs int,
 	tryAtLeastInputs int,
 ) (cardanowallet.TxInputs, error) {
@@ -50,7 +46,7 @@ func GetUTXOsForAmounts(
 			currentSumTotal[token.TokenName()] += token.Amount
 		}
 
-		if doesSumSatisfyCondition(currentSum, conditions, minUtxoLovelace) {
+		if doesSumSatisfyCondition(currentSum, conditions) {
 			return prepareTxInputs(utxos, currentSum, maxInputs, tryAtLeastInputs, choosenCount), nil
 		}
 
@@ -69,7 +65,7 @@ func GetUTXOsForAmounts(
 		}
 	}
 
-	if doesSumSatisfyCondition(currentSumTotal, conditions, minUtxoLovelace) {
+	if doesSumSatisfyCondition(currentSumTotal, conditions) {
 		return cardanowallet.TxInputs{}, fmt.Errorf(
 			"%w: %s vs %s", cardanowallet.ErrUTXOsLimitReached,
 			mapStrUInt64ToStr(currentSumTotal), mapStrUInt64ToStr(conditions))
@@ -145,15 +141,10 @@ func findMinUtxo(
 }
 
 func doesSumSatisfyCondition(
-	currentSum map[string]uint64, conditions map[string]uint64, minUtoxLovelace uint64,
+	currentSum map[string]uint64, conditions map[string]uint64,
 ) bool {
-	currLovelace, condLovelace := currentSum[cardanowallet.AdaTokenName], conditions[cardanowallet.AdaTokenName]
-	if currLovelace != condLovelace && currLovelace < condLovelace+minUtoxLovelace {
-		return false
-	}
-
 	for tokenName, desiredAmount := range conditions {
-		if tokenName != cardanowallet.AdaTokenName && currentSum[tokenName] < desiredAmount {
+		if currentSum[tokenName] < desiredAmount {
 			return false
 		}
 	}
