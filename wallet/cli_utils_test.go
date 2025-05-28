@@ -49,3 +49,15 @@ func TestIsValidCardanoAddress(t *testing.T) {
 		}
 	}
 }
+
+func TestGetRealEraName(t *testing.T) {
+	eraName, err := NewCliUtilsForEra(ResolveCardanoCliBinary(MainNetNetwork), "latest").GetRealEraName()
+
+	require.NoError(t, err)
+	assert.Equal(t, "Babbage", eraName)
+
+	eraName, err = NewCliUtilsForEra(ResolveCardanoCliBinary(MainNetNetwork), "conwey").GetRealEraName()
+
+	require.NoError(t, err)
+	assert.Equal(t, "Conwey", eraName)
+}

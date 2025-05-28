@@ -208,7 +208,7 @@ func (cu CliUtils) GetTxHash(txRaw []byte) (string, error) {
 
 func (cu CliUtils) GetRealEraName() (string, error) {
 	if strings.ToLower(cu.era) != "latest" {
-		return cu.era, nil
+		return strings.ToUpper(cu.era[:1]) + cu.era[1:], nil
 	}
 
 	list, err := runCommand(cu.cardanoCliBinary, []string{"--help"})
