@@ -158,3 +158,36 @@ func TestPolicyScript_GetCount(t *testing.T) {
 		},
 	}).GetCount())
 }
+
+func TestGetPolicyScriptRewardAddress(t *testing.T) {
+	t.Parallel()
+
+	var (
+		err       error
+		wallets   = [6]*Wallet{}
+		keyHashes = [6]string{}
+	)
+
+	for i := range wallets {
+		wallets[i], err = GenerateWallet(true)
+		require.NoError(t, err)
+
+		keyHashes[i], err = GetKeyHash(wallets[i].VerificationKey)
+		require.NoError(t, err)
+	}
+
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
+
+	ps := NewPolicyScript(keyHashes[:4], 4)
+
+	cliAddr, err := cliUtils.GetPolicyScriptRewardAddress(MainNetProtocolMagic, ps)
+	require.NoError(t, err)
+
+	pid, err := cliUtils.GetPolicyID(ps)
+	require.NoError(t, err)
+
+	addr, err := NewPolicyScriptRewardAddress(MainNetNetwork, pid)
+	require.NoError(t, err)
+
+	require.Equal(t, cliAddr, addr.String())
+}

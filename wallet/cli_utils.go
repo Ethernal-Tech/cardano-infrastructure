@@ -77,6 +77,39 @@ func (cu CliUtils) GetPolicyScriptAddress(
 	return strings.Trim(response, "\n"), nil
 }
 
+func (cu CliUtils) GetPolicyScriptRewardAddress(
+	testNetMagic uint, policyScript *PolicyScript,
+) (string, error) {
+	baseDirectory, err := os.MkdirTemp("", "ps-reward-multisig-addr")
+	if err != nil {
+		return "", err
+	}
+
+	defer os.RemoveAll(baseDirectory)
+
+	policyScriptBytes, err := json.Marshal(policyScript)
+	if err != nil {
+		return "", err
+	}
+
+	policyScriptFilePath := filepath.Join(baseDirectory, "policy-script.json")
+	if err := os.WriteFile(policyScriptFilePath, policyScriptBytes, FilePermission); err != nil {
+		return "", err
+	}
+
+	args := []string{
+		"stake-address", "build",
+		"--stake-script-file", policyScriptFilePath,
+	}
+
+	response, err := runCommand(cu.cardanoCliBinary, append(args, getTestNetMagicArgs(testNetMagic)...))
+	if err != nil {
+		return "", err
+	}
+
+	return strings.Trim(response, "\n"), nil
+}
+
 // GetPolicyID returns policy id
 func (cu CliUtils) GetPolicyID(policyScript any) (string, error) {
 	baseDirectory, err := os.MkdirTemp("", "ps-policy-id")

@@ -64,7 +64,7 @@ func (ps PolicyScript) GetCount() (cnt int) {
 	return cnt
 }
 
-// GetAddress returns address for this policy script
+// NewPolicyScriptAddress returns address for policy script (stake policy script is optional)
 func NewPolicyScriptAddress(
 	networkID CardanoNetworkType, policyID string, policyIDStake ...string,
 ) (*CardanoAddress, error) {
@@ -98,6 +98,25 @@ func NewPolicyScriptAddress(
 		},
 		Stake: &CardanoAddressPayload{
 			Payload:  [KeyHashSize]byte(policyIDStakeBytes),
+			IsScript: true,
+		},
+	}.ToCardanoAddress()
+}
+
+// NewPolicyScriptRewardAddress returns reward address for this policy script
+func NewPolicyScriptRewardAddress(
+	networkID CardanoNetworkType, policyID string,
+) (*CardanoAddress, error) {
+	policyIDBytes, err := hex.DecodeString(policyID)
+	if err != nil {
+		return nil, err
+	}
+
+	return CardanoAddressInfo{
+		AddressType: RewardAddress,
+		Network:     networkID,
+		Stake: &CardanoAddressPayload{
+			Payload:  [KeyHashSize]byte(policyIDBytes),
 			IsScript: true,
 		},
 	}.ToCardanoAddress()
