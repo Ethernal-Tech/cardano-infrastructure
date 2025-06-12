@@ -3,33 +3,38 @@ package wallet
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
 )
 
-var (
-	witnessJSONType       = "TxWitness BabbageEra"
-	witnessJSONDesc       = "Key Witness ShelleyEra"
-	txUnwitnessedJSONType = "Unwitnessed Tx BabbageEra"
-	txUnwitnessedJSONDesc = "Ledger Cddl Format"
-	txWitnessedJSONType   = "Witnessed Tx BabbageEra"
-	txWitnessedJSONDesc   = "Ledger Cddl Format"
+const (
+	paymentExtendedSigningKeyShelley = "PaymentExtendedSigningKeyShelley_ed25519_bip32"
+	paymentSigningKeyShelley         = "PaymentSigningKeyShelley_ed25519"
+	witnessJSONDesc                  = "Key Witness ShelleyEra"
+	ledgerCddlFormatDesc             = "Ledger Cddl Format"
 )
 
 type TxWitnessRaw []byte // cbor slice of bytes
 
-func (w TxWitnessRaw) ToJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"type":        witnessJSONType,
+func (w TxWitnessRaw) ToJSON(era string) ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"type":        fmt.Sprintf("TxWitness %sEra", era),
 		"description": witnessJSONDesc,
 		"cborHex":     hex.EncodeToString(w),
 	})
 }
 
 func (w TxWitnessRaw) GetSignatureAndVKey() ([]byte, []byte, error) {
+	bytes := w
+	// skip prefix bytes for conway
+	if len(bytes) >= 2 && bytes[0] == 0x82 && bytes[1] == 0x00 {
+		bytes = bytes[2:]
+	}
+
 	var signatureWitness [2][]byte // Use the appropriate type for your CBOR structure
 
-	if err := cbor.Unmarshal(w, &signatureWitness); err != nil {
+	if err := cbor.Unmarshal(bytes, &signatureWitness); err != nil {
 		return nil, nil, err
 	}
 
@@ -39,24 +44,19 @@ func (w TxWitnessRaw) GetSignatureAndVKey() ([]byte, []byte, error) {
 type transactionUnwitnessedRaw []byte
 
 func newTransactionUnwitnessedRawFromJSON(bytes []byte) (transactionUnwitnessedRaw, error) {
-	var data map[string]interface{}
+	var data map[string]any
 
 	if err := json.Unmarshal(bytes, &data); err != nil {
 		return nil, err
 	}
 
-	// a little hack so we have always correct witness key and description for json
-	// (cardano-cli can return error otherwise)
-	txUnwitnessedJSONType = data["type"].(string)        //nolint:forcetypeassert
-	txUnwitnessedJSONDesc = data["description"].(string) //nolint:forcetypeassert
-
 	return hex.DecodeString(data["cborHex"].(string)) //nolint:forcetypeassert
 }
 
-func (tx transactionUnwitnessedRaw) ToJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"type":        txUnwitnessedJSONType,
-		"description": txUnwitnessedJSONDesc,
+func (tx transactionUnwitnessedRaw) ToJSON(era string) ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"type":        fmt.Sprintf("Unwitnessed Tx %sEra", era),
+		"description": ledgerCddlFormatDesc,
 		"cborHex":     hex.EncodeToString(tx),
 	})
 }
@@ -64,24 +64,19 @@ func (tx transactionUnwitnessedRaw) ToJSON() ([]byte, error) {
 type transactionWitnessedRaw []byte
 
 func newTransactionWitnessedRawFromJSON(bytes []byte) (transactionWitnessedRaw, error) {
-	var data map[string]interface{}
+	var data map[string]any
 
 	if err := json.Unmarshal(bytes, &data); err != nil {
 		return nil, err
 	}
 
-	// a little hack so we have always correct witness key and description for json
-	// (cardano-cli can return error otherwise)
-	txWitnessedJSONType = data["type"].(string)        //nolint:forcetypeassert
-	txWitnessedJSONDesc = data["description"].(string) //nolint:forcetypeassert
-
 	return hex.DecodeString(data["cborHex"].(string)) //nolint:forcetypeassert
 }
 
-func (tx transactionWitnessedRaw) ToJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"type":        txWitnessedJSONType,
-		"description": txWitnessedJSONDesc,
+func (tx transactionWitnessedRaw) ToJSON(era string) ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"type":        fmt.Sprintf("Witnessed Tx %sEra", era),
+		"description": ledgerCddlFormatDesc,
 		"cborHex":     hex.EncodeToString(tx),
 	})
 }
