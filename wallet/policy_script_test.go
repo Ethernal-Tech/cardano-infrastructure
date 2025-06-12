@@ -42,18 +42,18 @@ func TestPolicyScript(t *testing.T) {
 	policyIDStake, err := cliUtils.GetPolicyID(psStake)
 	require.NoError(t, err)
 
-	cliAddrStake, err := cliUtils.GetPolicyScriptAddress(MainNetProtocolMagic, ps, psStake)
+	cliAddrStake, err := cliUtils.GetPolicyScriptBaseAddress(MainNetProtocolMagic, ps, psStake)
 	require.NoError(t, err)
 
-	addrStake, err := NewPolicyScriptAddress(MainNetNetwork, policyID, policyIDStake)
+	addrStake, err := NewPolicyScriptBaseAddress(MainNetNetwork, policyID, policyIDStake)
 	require.NoError(t, err)
 
 	require.Equal(t, cliAddrStake, addrStake.String())
 
-	cliAddr, err := cliUtils.GetPolicyScriptAddress(MainNetProtocolMagic, ps)
+	cliAddr, err := cliUtils.GetPolicyScriptEnterpriseAddress(MainNetProtocolMagic, ps)
 	require.NoError(t, err)
 
-	addr, err := NewPolicyScriptAddress(MainNetNetwork, policyID)
+	addr, err := NewPolicyScriptEnterpriseAddress(MainNetNetwork, policyID)
 	require.NoError(t, err)
 
 	require.Equal(t, cliAddr, addr.String())
@@ -121,10 +121,10 @@ func TestPolicyScript_SpecificKeysAllPermutations(t *testing.T) {
 		policyID, err := cliUtils.GetPolicyID(ps)
 		require.NoError(t, err)
 
-		cliAddr, err := cliUtils.GetPolicyScriptAddress(TestNetProtocolMagic, ps)
+		cliAddr, err := cliUtils.GetPolicyScriptEnterpriseAddress(TestNetProtocolMagic, ps)
 		require.NoError(t, err)
 
-		addr, err := NewPolicyScriptAddress(TestNetNetwork, policyID)
+		addr, err := NewPolicyScriptEnterpriseAddress(TestNetNetwork, policyID)
 		require.NoError(t, err)
 
 		require.Equal(t, cliAddr, addr.String())
@@ -157,4 +157,37 @@ func TestPolicyScript_GetCount(t *testing.T) {
 			*ps,
 		},
 	}).GetCount())
+}
+
+func TestGetPolicyScriptRewardAddress(t *testing.T) {
+	t.Parallel()
+
+	var (
+		err       error
+		wallets   = [6]*Wallet{}
+		keyHashes = [6]string{}
+	)
+
+	for i := range wallets {
+		wallets[i], err = GenerateWallet(true)
+		require.NoError(t, err)
+
+		keyHashes[i], err = GetKeyHash(wallets[i].VerificationKey)
+		require.NoError(t, err)
+	}
+
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
+
+	ps := NewPolicyScript(keyHashes[:4], 4)
+
+	cliAddr, err := cliUtils.GetPolicyScriptRewardAddress(MainNetProtocolMagic, ps)
+	require.NoError(t, err)
+
+	pid, err := cliUtils.GetPolicyID(ps)
+	require.NoError(t, err)
+
+	addr, err := NewPolicyScriptRewardAddress(MainNetNetwork, pid)
+	require.NoError(t, err)
+
+	require.Equal(t, cliAddr, addr.String())
 }
