@@ -64,27 +64,16 @@ func (ps PolicyScript) GetCount() (cnt int) {
 	return cnt
 }
 
-// NewPolicyScriptAddress returns address for policy script (stake policy script is optional)
-func NewPolicyScriptAddress(
-	networkID CardanoNetworkType, policyID string, policyIDStake ...string,
+// NewPolicyScriptBaseAddress returns base address for policy script IDs
+func NewPolicyScriptBaseAddress(
+	networkID CardanoNetworkType, policyID, stakePolicyID string,
 ) (*CardanoAddress, error) {
 	policyIDBytes, err := hex.DecodeString(policyID)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(policyIDStake) == 0 {
-		return CardanoAddressInfo{
-			AddressType: EnterpriseAddress,
-			Network:     networkID,
-			Payment: &CardanoAddressPayload{
-				Payload:  [KeyHashSize]byte(policyIDBytes),
-				IsScript: true,
-			},
-		}.ToCardanoAddress()
-	}
-
-	policyIDStakeBytes, err := hex.DecodeString(policyIDStake[0])
+	policyIDStakeBytes, err := hex.DecodeString(stakePolicyID)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +87,25 @@ func NewPolicyScriptAddress(
 		},
 		Stake: &CardanoAddressPayload{
 			Payload:  [KeyHashSize]byte(policyIDStakeBytes),
+			IsScript: true,
+		},
+	}.ToCardanoAddress()
+}
+
+// NewPolicyScriptEnterpriseAddress returns enterprise address for policy script ID
+func NewPolicyScriptEnterpriseAddress(
+	networkID CardanoNetworkType, policyID string,
+) (*CardanoAddress, error) {
+	policyIDBytes, err := hex.DecodeString(policyID)
+	if err != nil {
+		return nil, err
+	}
+
+	return CardanoAddressInfo{
+		AddressType: EnterpriseAddress,
+		Network:     networkID,
+		Payment: &CardanoAddressPayload{
+			Payload:  [KeyHashSize]byte(policyIDBytes),
 			IsScript: true,
 		},
 	}.ToCardanoAddress()

@@ -42,18 +42,18 @@ func TestPolicyScript(t *testing.T) {
 	policyIDStake, err := cliUtils.GetPolicyID(psStake)
 	require.NoError(t, err)
 
-	cliAddrStake, err := cliUtils.GetPolicyScriptAddress(MainNetProtocolMagic, ps, psStake)
+	cliAddrStake, err := cliUtils.GetPolicyScriptBaseAddress(MainNetProtocolMagic, ps, psStake)
 	require.NoError(t, err)
 
-	addrStake, err := NewPolicyScriptAddress(MainNetNetwork, policyID, policyIDStake)
+	addrStake, err := NewPolicyScriptBaseAddress(MainNetNetwork, policyID, policyIDStake)
 	require.NoError(t, err)
 
 	require.Equal(t, cliAddrStake, addrStake.String())
 
-	cliAddr, err := cliUtils.GetPolicyScriptAddress(MainNetProtocolMagic, ps)
+	cliAddr, err := cliUtils.GetPolicyScriptEnterpriseAddress(MainNetProtocolMagic, ps)
 	require.NoError(t, err)
 
-	addr, err := NewPolicyScriptAddress(MainNetNetwork, policyID)
+	addr, err := NewPolicyScriptEnterpriseAddress(MainNetNetwork, policyID)
 	require.NoError(t, err)
 
 	require.Equal(t, cliAddr, addr.String())
@@ -121,10 +121,10 @@ func TestPolicyScript_SpecificKeysAllPermutations(t *testing.T) {
 		policyID, err := cliUtils.GetPolicyID(ps)
 		require.NoError(t, err)
 
-		cliAddr, err := cliUtils.GetPolicyScriptAddress(TestNetProtocolMagic, ps)
+		cliAddr, err := cliUtils.GetPolicyScriptEnterpriseAddress(TestNetProtocolMagic, ps)
 		require.NoError(t, err)
 
-		addr, err := NewPolicyScriptAddress(TestNetNetwork, policyID)
+		addr, err := NewPolicyScriptEnterpriseAddress(TestNetNetwork, policyID)
 		require.NoError(t, err)
 
 		require.Equal(t, cliAddr, addr.String())
