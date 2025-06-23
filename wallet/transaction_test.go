@@ -47,10 +47,10 @@ func Test_TransactionBuilder(t *testing.T) {
 	feeMultisigPolicyID, err := cliUtils.GetPolicyID(policyScriptFeeMultiSig)
 	require.NoError(t, err)
 
-	multiSigAddr, err := NewPolicyScriptAddress(TestNetNetwork, multisigPolicyID)
+	multiSigAddr, err := NewPolicyScriptEnterpriseAddress(TestNetNetwork, multisigPolicyID)
 	require.NoError(t, err)
 
-	multiSigFeeAddr, err := NewPolicyScriptAddress(TestNetNetwork, feeMultisigPolicyID)
+	multiSigFeeAddr, err := NewPolicyScriptEnterpriseAddress(TestNetNetwork, feeMultisigPolicyID)
 	require.NoError(t, err)
 
 	type metaDataKey0 struct {
