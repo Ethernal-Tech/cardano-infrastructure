@@ -75,46 +75,93 @@ func NewCardanoStakeCertBuilder() *CardanoStakeCertBuilder {
 	return &CardanoStakeCertBuilder{}
 }
 
-// CreateStakeRegistrationCert creates a stake registration certificate
-func (b *CardanoStakeCertBuilder) CreateStakeRegistrationCert(stakingPubKeyBytes []byte, credentialType CredentialType) (StakeRegistrationCert, error) {
-	stakeKeyHash, err := GetKeyHashBytes(stakingPubKeyBytes)
+// CreateKeyStakeRegistrationCert creates a stake registration certificate for stake address
+//
+// Returns the CBOR encoded certificate
+func (b *CardanoStakeCertBuilder) CreateKeyStakeRegistrationCert(stakePubKeyBytes []byte) ([]byte, error) {
+	stakeKeyHash, err := GetKeyHashBytes(stakePubKeyBytes)
 	if err != nil {
-		return StakeRegistrationCert{}, nil
+		return nil, fmt.Errorf("failed to get key hash: %w", err)
 	}
 
-	stakeCredential := StakeCredential{
-		Type: credentialType,
-		Hash: stakeKeyHash,
-	}
-
-	return StakeRegistrationCert{
-		Type:       StakeRegistration,
-		Credential: stakeCredential,
-	}, nil
+	return b.createStakeRegistrationCert(stakeKeyHash, KeyCredential)
 }
 
-// CreateStakeDelegationCert creates a stake delegation certificate
-func (b *CardanoStakeCertBuilder) CreateStakeDelegationCert(stakingPubKeyBytes []byte, poolId string, credentialType CredentialType) (StakeDelegationCert, error) {
-	stakeKeyHash, err := GetKeyHashBytes(stakingPubKeyBytes)
-	if err != nil {
-		return StakeDelegationCert{}, err
+// CreateScriptStakeRegistrationCert creates a stake registration certificate for script address
+//
+// Returns the CBOR encoded certificate
+func (b *CardanoStakeCertBuilder) CreateScriptStakeRegistrationCert(stakeScriptHashBytes []byte) ([]byte, error) {
+	return b.createStakeRegistrationCert(stakeScriptHashBytes, ScriptCredential)
+}
+
+// createStakeRegistrationCert creates a stake registration certificate
+func (b *CardanoStakeCertBuilder) createStakeRegistrationCert(keyHashBytes []byte, credentialType CredentialType) ([]byte, error) {
+	stakeCredential := StakeCredential{
+		Type: credentialType,
+		Hash: keyHashBytes,
 	}
+
+	certificate := StakeRegistrationCert{
+		Type:       StakeRegistration,
+		Credential: stakeCredential,
+	}
+
+	// Encode to CBOR
+	cborData, err := b.encodeRegistrationCertificateToCBOR(certificate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode certificate to CBOR: %w", err)
+	}
+
+	return cborData, nil
+}
+
+// CreateKeyStakeDelegationCert creates a stake delegation certificate for stake address
+//
+// Returns the CBOR encoded certificate
+func (b *CardanoStakeCertBuilder) CreateKeyStakeDelegationCert(stakingPubKeyBytes []byte, poolId string) ([]byte, error) {
+	stakeKeyHashBytes, err := GetKeyHashBytes(stakingPubKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get key hash: %w", err)
+	}
+
+	return b.createStakeDelegationCert(stakeKeyHashBytes, poolId, KeyCredential)
+}
+
+// CreateScriptStakeDelegationCert creates a stake delegation certificate for script address
+//
+// Returns the CBOR encoded certificate
+func (b *CardanoStakeCertBuilder) CreateScriptStakeDelegationCert(stakeScriptHashBytes []byte, poolId string) ([]byte, error) {
+	return b.createStakeDelegationCert(stakeScriptHashBytes, poolId, ScriptCredential)
+}
+
+// createStakeDelegationCert creates a stake delegation certificate
+//
+// Returns the CBOR encoded certificate
+func (b *CardanoStakeCertBuilder) createStakeDelegationCert(keyHashBytes []byte, poolId string, credentialType CredentialType) ([]byte, error) {
 
 	stakeCredential := StakeCredential{
 		Type: credentialType,
-		Hash: stakeKeyHash,
+		Hash: keyHashBytes,
 	}
 
 	poolKeyHashBytes, err := b.decodePoolKeyHashFromBech32(poolId)
 	if err != nil {
-		return StakeDelegationCert{}, err
+		return nil, fmt.Errorf("failed to decode pool key hash: %w", err)
 	}
 
-	return StakeDelegationCert{
+	certificate := StakeDelegationCert{
 		Type:        StakeDelegation,
 		Credential:  stakeCredential,
 		PoolKeyHash: poolKeyHashBytes,
-	}, nil
+	}
+
+	// Encode to CBOR
+	cborData, err := b.encodeDelegationCertificateToCBOR(certificate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode certificate to CBOR: %w", err)
+	}
+
+	return cborData, nil
 }
 
 func (b *CardanoStakeCertBuilder) CreateCertFile(cert []byte, era string) (*CertificateFile, error) {
@@ -130,103 +177,35 @@ func (b *CardanoStakeCertBuilder) CreateCertFile(cert []byte, era string) (*Cert
 			return nil, fmt.Errorf("invalid credential format")
 		}
 
-		credType, ok := credential[0].(uint64)
-		if !ok {
-			return nil, fmt.Errorf("invalid credential type format")
-		}
-
-		credHash, ok := credential[1].([]byte)
-		if !ok {
-			return nil, fmt.Errorf("invalid credential hash format")
-		}
-
-		stakeRegistrationCert := StakeRegistrationCert{
-			Type: StakeRegistration,
-			Credential: StakeCredential{
-				Type: CredentialType(credType),
-				Hash: credHash,
-			},
-		}
-		return b.createStakeRegistrationCertFile(stakeRegistrationCert, era)
+		return b.createCertFile(cert, "Registration", era)
 	} else if decoded[0].(uint64) == StakeDelegation {
 		credential, ok := decoded[1].([]interface{})
 		if !ok || len(credential) != 2 {
 			return nil, fmt.Errorf("invalid credential format")
 		}
 
-		credType, ok := credential[0].(uint64)
-		if !ok {
-			return nil, fmt.Errorf("invalid credential type format")
-		}
-
-		credHash, ok := credential[1].([]byte)
-		if !ok {
-			return nil, fmt.Errorf("invalid credential hash format")
-		}
-
-		if len(decoded) < 3 {
-			return nil, fmt.Errorf("invalid delegation certificate: missing pool key hash")
-		}
-
-		poolKeyHash, ok := decoded[2].([]byte)
-		if !ok {
-			return nil, fmt.Errorf("invalid pool key hash format")
-		}
-
-		stakeDelegationCert := StakeDelegationCert{
-			Type: StakeDelegation,
-			Credential: StakeCredential{
-				Type: CredentialType(credType),
-				Hash: credHash,
-			},
-			PoolKeyHash: poolKeyHash,
-		}
-		return b.createStakeDelegationCertFile(stakeDelegationCert, era)
+		return b.createCertFile(cert, "Delegation", era)
 	}
 
 	return nil, fmt.Errorf("invalid certificate type: %d", decoded[0].(uint64))
 }
 
 // CreateStakeRegistrationCertFile creates a stake registration certificate in a file
-func (b *CardanoStakeCertBuilder) createStakeRegistrationCertFile(stakeRegistrationCert StakeRegistrationCert, era string) (*CertificateFile, error) {
-	stakeRegistrationCertBytes, err := b.EncodeRegistrationCertificateToCBOR(stakeRegistrationCert)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode stake registration certificate to CBOR: %w", err)
-	}
-
+func (b *CardanoStakeCertBuilder) createCertFile(cert []byte, certificateType string, era string) (*CertificateFile, error) {
 	certType := "CertificateShelley"
-	if era == "Conway" || era == "latest" {
+	if era == "conway" || era == "latest" {
 		certType = "CertificateConway"
 	}
 
 	return &CertificateFile{
 		Type:        certType,
-		Description: "Stake Address Registration Certificate",
-		CborHex:     hex.EncodeToString(stakeRegistrationCertBytes),
-	}, nil
-}
-
-// CreateStakeDelegationCertFile creates a stake delegation certificate in a file
-func (b *CardanoStakeCertBuilder) createStakeDelegationCertFile(stakeDelegationCert StakeDelegationCert, era string) (*CertificateFile, error) {
-	stakeDelegationCertBytes, err := b.EncodeDelegationCertificateToCBOR(stakeDelegationCert)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode stake delegation certificate to CBOR: %w", err)
-	}
-
-	certType := "CertificateShelley"
-	if era == "Conway" || era == "latest" {
-		certType = "CertificateConway"
-	}
-
-	return &CertificateFile{
-		Type:        certType,
-		Description: "Stake Address Delegation Certificate",
-		CborHex:     hex.EncodeToString(stakeDelegationCertBytes),
+		Description: fmt.Sprintf("Stake Address %s Certificate", certificateType),
+		CborHex:     hex.EncodeToString(cert),
 	}, nil
 }
 
 // EncodeRegistrationCertificateToCBOR encodes a stake registration certificate to CBOR
-func (b *CardanoStakeCertBuilder) EncodeRegistrationCertificateToCBOR(cert StakeRegistrationCert) ([]byte, error) {
+func (b *CardanoStakeCertBuilder) encodeRegistrationCertificateToCBOR(cert StakeRegistrationCert) ([]byte, error) {
 	// CBOR structure for stake registration certificate:
 	// [cert_type, [cred_type, key_hash]]
 
@@ -252,7 +231,7 @@ func (b *CardanoStakeCertBuilder) EncodeRegistrationCertificateToCBOR(cert Stake
 }
 
 // EncodeDelegationCertificateToCBOR encodes a stake delegation certificate to CBOR
-func (b *CardanoStakeCertBuilder) EncodeDelegationCertificateToCBOR(cert StakeDelegationCert) ([]byte, error) {
+func (b *CardanoStakeCertBuilder) encodeDelegationCertificateToCBOR(cert StakeDelegationCert) ([]byte, error) {
 	// CBOR structure for stake delegation certificate:
 	// [cert_type, [cred_type, key_hash], pool_key_hash]
 
