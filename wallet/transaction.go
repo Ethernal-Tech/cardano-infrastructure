@@ -61,11 +61,13 @@ type TxBuilder struct {
 	inputs             []txInputWithPolicyScript
 	outputs            []TxOutput
 	mints              txTokenMintInputs
+	certificate        txCertificateWithPolicyScript
 	metadata           []byte
 	protocolParameters []byte
 	timeToLive         uint64
 	testNetMagic       uint
 	fee                uint64
+	withdrawalData     txWithdrawalDataPolicyScript
 	cardanoCliBinary   string
 }
 
@@ -204,6 +206,33 @@ func (b *TxBuilder) SetTimeToLive(timeToLive uint64) *TxBuilder {
 	return b
 }
 
+func (b *TxBuilder) SetWithdrawalData(stakeAddress string, rewardsAmount uint64, policyScript IPolicyScript) *TxBuilder {
+	b.withdrawalData = txWithdrawalDataPolicyScript{
+		stakeAddress: stakeAddress,
+		rewardAmount: rewardsAmount,
+		policyScript: policyScript,
+	}
+
+	return b
+}
+
+func (b *TxBuilder) SetCertificate(certificate []byte, policyScript IPolicyScript) *TxBuilder {
+	b.certificate = txCertificateWithPolicyScript{
+		certificate:  certificate,
+		policyScript: policyScript,
+	}
+
+	return b
+}
+
+func (b *TxBuilder) GetRewardAmount() uint64 {
+	if b.withdrawalData.stakeAddress != "" {
+		return b.withdrawalData.rewardAmount
+	}
+
+	return 0
+}
+
 func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 	if b.protocolParameters == nil {
 		return 0, errors.New("protocol parameters not set")
@@ -223,6 +252,8 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 			witnessCount += inp.GetWitnessCount()
 		}
 
+		witnessCount += b.certificate.GetWitnessCount()
+		witnessCount += b.withdrawalData.GetWitnessCount()
 		witnessCount = max(witnessCount, 1)
 	}
 
@@ -329,6 +360,14 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 		}
 
 		args = append(args, "--metadata-json-file", metaDataFilePath)
+	}
+
+	if err := b.certificate.Apply(&args, b.baseDirectory); err != nil {
+		return err
+	}
+
+	if err := b.withdrawalData.Apply(&args, b.baseDirectory); err != nil {
+		return err
 	}
 
 	if err := b.mints.Apply(&args, b.baseDirectory); err != nil {
@@ -463,6 +502,108 @@ func (b *TxBuilder) AssembleTxWitnesses(txRaw []byte, witnesses [][]byte) ([]byt
 	return newTransactionWitnessedRawFromJSON(bytes)
 }
 
+type txCertificateWithPolicyScript struct {
+	certificate  []byte
+	policyScript IPolicyScript
+}
+
+func (txCert txCertificateWithPolicyScript) Apply(
+	args *[]string, basePath string,
+) error {
+	if txCert.certificate == nil {
+		return nil
+	}
+
+	certificateFilePath := filepath.Join(basePath, "certificate.cert")
+	//TODO: Update the era to use the cli set era later
+	certificateFile, err := NewCardanoStakeCertBuilder().CreateCertFile(txCert.certificate, "shelley")
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(certificateFilePath, certificateFile.ToJSON(), FilePermission); err != nil {
+		return err
+	}
+
+	*args = append(*args, "--certificate-file", certificateFilePath)
+
+	if txCert.policyScript == nil {
+		return nil
+	}
+
+	policyScriptJSON, err := txCert.policyScript.GetPolicyScriptJSON()
+	if err != nil {
+		return err
+	}
+
+	policyFilePath := filepath.Join(basePath, "policy_stake.json")
+	if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
+		return err
+	}
+
+	*args = append(*args, "--certificate-script-file", policyFilePath)
+
+	return nil
+}
+
+func (txCert txCertificateWithPolicyScript) GetWitnessCount() int {
+	if txCert.policyScript != nil {
+		return txCert.policyScript.GetCount()
+	}
+
+	if txCert.certificate != nil {
+		return 1
+	}
+
+	return 0
+}
+
+type txWithdrawalDataPolicyScript struct {
+	stakeAddress string
+	rewardAmount uint64
+	policyScript IPolicyScript
+}
+
+func (txWithdrawalData txWithdrawalDataPolicyScript) Apply(
+	args *[]string, basePath string,
+) error {
+	if txWithdrawalData.stakeAddress == "" {
+		return nil
+	}
+
+	*args = append(*args, "--withdrawal", fmt.Sprintf("%s+%d", txWithdrawalData.stakeAddress, txWithdrawalData.rewardAmount))
+
+	if txWithdrawalData.policyScript == nil {
+		return nil
+	}
+
+	policyScriptJSON, err := txWithdrawalData.policyScript.GetPolicyScriptJSON()
+	if err != nil {
+		return err
+	}
+
+	policyFilePath := filepath.Join(basePath, "policy_withdrawal.json")
+	if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
+		return err
+	}
+
+	*args = append(*args, "--withdrawal-script-file", policyFilePath)
+
+	return nil
+}
+
+func (txWithdrawalData txWithdrawalDataPolicyScript) GetWitnessCount() int {
+	if txWithdrawalData.policyScript != nil {
+		return txWithdrawalData.policyScript.GetCount()
+	}
+
+	if txWithdrawalData.stakeAddress != "" {
+		return 1
+	}
+
+	return 0
+}
+
 type txInputWithPolicyScript struct {
 	txInput      TxInput
 	policyScript IPolicyScript
@@ -497,7 +638,7 @@ func (txInputPS txInputWithPolicyScript) GetWitnessCount() int {
 		return txInputPS.policyScript.GetCount()
 	}
 
-	return 0
+	return 1
 }
 
 type txTokenMintInputs struct {

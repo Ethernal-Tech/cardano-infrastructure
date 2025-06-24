@@ -149,6 +149,241 @@ func Test_TransactionBuilder(t *testing.T) {
 	require.Equal(t, txHash, txHashUtil)
 }
 
+func Test_TransactionBuilderWithRegistrationCertificate(t *testing.T) {
+	protocolParams := []byte(`{"collateralPercentage": 150,"costModels": {"PlutusV1": [197209,0,1,1,396231,621,0,1,150000,1000,0,1,150000,32,2477736,29175,4,29773,100,29773,100,29773,100,29773,100,29773,100,29773,100,100,100,29773,100,150000,32,150000,32,150000,32,150000,1000,0,1,150000,32,150000,1000,0,8,148000,425507,118,0,1,1,150000,1000,0,8,150000,112536,247,1,150000,10000,1,136542,1326,1,1000,150000,1000,1,150000,32,150000,32,150000,32,1,1,150000,1,150000,4,103599,248,1,103599,248,1,145276,1366,1,179690,497,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,148000,425507,118,0,1,1,61516,11218,0,1,150000,32,148000,425507,118,0,1,1,148000,425507,118,0,1,1,2477736,29175,4,0,82363,4,150000,5000,0,1,150000,32,197209,0,1,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,3345831,1,1],"PlutusV2": [205665,812,1,1,1000,571,0,1,1000,24177,4,1,1000,32,117366,10475,4,23000,100,23000,100,23000,100,23000,100,23000,100,23000,100,100,100,23000,100,19537,32,175354,32,46417,4,221973,511,0,1,89141,32,497525,14068,4,2,196500,453240,220,0,1,1,1000,28662,4,2,245000,216773,62,1,1060367,12586,1,208512,421,1,187000,1000,52998,1,80436,32,43249,32,1000,32,80556,1,57667,4,1000,10,197145,156,1,197145,156,1,204924,473,1,208896,511,1,52467,32,64832,32,65493,32,22558,32,16563,32,76511,32,196500,453240,220,0,1,1,69522,11687,0,1,60091,32,196500,453240,220,0,1,1,196500,453240,220,0,1,1,1159724,392670,0,2,806990,30482,4,1927926,82523,4,265318,0,4,0,85931,32,205665,812,1,1,41182,32,212342,32,31220,32,32696,32,43357,32,32247,32,38314,32,35892428,10,9462713,1021,10,38887044,32947,10]},"decentralization": null,"executionUnitPrices": {"priceMemory": 5.77e-2,"priceSteps": 7.21e-5},"extraPraosEntropy": null,"maxBlockBodySize": 65536,"maxBlockExecutionUnits": {"memory": 80000000,"steps": 40000000000},"maxBlockHeaderSize": 1100,"maxCollateralInputs": 3,"maxTxExecutionUnits": {"memory": 16000000,"steps": 10000000000},"maxTxSize": 16384,"maxValueSize": 5000,"minPoolCost": 0,"minUTxOValue": null,"monetaryExpansion": 5.5e-3,"poolPledgeInfluence": 0,"poolRetireMaxEpoch": 18,"protocolVersion": {"major": 7,"minor": 0},"stakeAddressDeposit": 0,"stakePoolDeposit": 0,"stakePoolTargetNum": 100,"treasuryCut": 1.0e-6,"txFeeFixed": 155381,"txFeePerByte": 44,"utxoCostPerByte": 4310}`)
+
+	policyPaymentKeyHashes := []string{
+		"0fb340e2fc18865fbf406dce76f743de13c46d2eb91d6e87e6eb63c6",
+		"41b46f772b622e7e5bc8970d128faccb7a457c610a48d514801a0411",
+		"5282885af1f234cb9407f05b120f2eb06872f297864ca9066a657011",
+		"6a2f73455484b658c168c18ed54222d189e7e746ec3dc2d8d8891e42",
+	}
+
+	policyStakeKeyHashes := []string{
+		"30356731c6f4d92598732163a68d9dcec7c386075d5da4f1dca5724d",
+		"794eb34ded015c701fcf7b6ec4e0476e3dc2054a8831f636361680c9",
+		"8d2f93fdc4dbe32b1cb6951a441f081d2d111cb4a4c79a69f27d00a9",
+		"9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7db",
+	}
+
+	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
+	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+
+	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
+	require.NoError(t, err)
+
+	multisigStakePolicyID, err := cliUtils.GetPolicyID(policyScriptStakeMultiSig)
+	require.NoError(t, err)
+
+	multiSigAddr, err := NewPolicyScriptBaseAddress(TestNetNetwork, multisigPaymentPolicyID, multisigStakePolicyID)
+	require.NoError(t, err)
+
+	require.Equal(t, "addr_test1xqdt3kene0l87agrdcsn7jzspfrj83h5svgmaw8rnzzva644n47f76yle0p2r8dzdz0elefvtaju8v79ddahutcg790s37mp24", multiSigAddr.String())
+
+	// Create registration certificate
+	multisigStakePolicyIDBytes, err := hex.DecodeString(multisigStakePolicyID)
+	require.NoError(t, err)
+	registrationCertificate, err := NewCardanoStakeCertBuilder().CreateScriptStakeRegistrationCert(multisigStakePolicyIDBytes)
+	require.NoError(t, err)
+	stakeRegistrationCertHex := hex.EncodeToString(registrationCertificate)
+	require.Equal(t, stakeRegistrationCertHex, "82008201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f")
+
+	builder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	require.NoError(t, err)
+
+	defer builder.Dispose()
+
+	multiSigInputs := TxInputs{
+		Inputs: []TxInput{
+			{
+				Hash:  "bb88a2541d545044e400d37c3db3eeb7a452fd9f2c461c89451f7191cc4f4079",
+				Index: 0,
+			},
+		},
+		Sum: map[string]uint64{
+			AdaTokenName: uint64(10_000_000),
+		},
+	}
+
+	builder.SetTimeToLive(uint64(9211)).SetProtocolParameters(protocolParams)
+	builder.SetTestNetMagic(2)
+	builder.AddInputsWithScript(policyScriptPaymentMultiSig, multiSigInputs.Inputs...)
+	builder.AddOutputs(TxOutput{
+		Addr: multiSigAddr.String(),
+	})
+	builder.SetCertificate(registrationCertificate, policyScriptStakeMultiSig)
+
+	fee, err := builder.CalculateFee(0)
+	require.NoError(t, err)
+	require.Equal(t, uint64(207917), fee)
+
+	builder.SetFee(fee)
+
+	builder.UpdateOutputAmount(-1, multiSigInputs.Sum[AdaTokenName]-fee)
+
+	_, txHash, err := builder.Build()
+	require.NoError(t, err)
+
+	require.Equal(t, "c6edbde4bf6421ddf7f51643da7ce602cd63ef396053c7a39bc081d332ca8009", txHash)
+
+}
+
+func Test_TransactionBuilderWithDelegationCertificate(t *testing.T) {
+	protocolParams := []byte(`{"collateralPercentage": 150,"costModels": {"PlutusV1": [197209,0,1,1,396231,621,0,1,150000,1000,0,1,150000,32,2477736,29175,4,29773,100,29773,100,29773,100,29773,100,29773,100,29773,100,100,100,29773,100,150000,32,150000,32,150000,32,150000,1000,0,1,150000,32,150000,1000,0,8,148000,425507,118,0,1,1,150000,1000,0,8,150000,112536,247,1,150000,10000,1,136542,1326,1,1000,150000,1000,1,150000,32,150000,32,150000,32,1,1,150000,1,150000,4,103599,248,1,103599,248,1,145276,1366,1,179690,497,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,148000,425507,118,0,1,1,61516,11218,0,1,150000,32,148000,425507,118,0,1,1,148000,425507,118,0,1,1,2477736,29175,4,0,82363,4,150000,5000,0,1,150000,32,197209,0,1,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,3345831,1,1],"PlutusV2": [205665,812,1,1,1000,571,0,1,1000,24177,4,1,1000,32,117366,10475,4,23000,100,23000,100,23000,100,23000,100,23000,100,23000,100,100,100,23000,100,19537,32,175354,32,46417,4,221973,511,0,1,89141,32,497525,14068,4,2,196500,453240,220,0,1,1,1000,28662,4,2,245000,216773,62,1,1060367,12586,1,208512,421,1,187000,1000,52998,1,80436,32,43249,32,1000,32,80556,1,57667,4,1000,10,197145,156,1,197145,156,1,204924,473,1,208896,511,1,52467,32,64832,32,65493,32,22558,32,16563,32,76511,32,196500,453240,220,0,1,1,69522,11687,0,1,60091,32,196500,453240,220,0,1,1,196500,453240,220,0,1,1,1159724,392670,0,2,806990,30482,4,1927926,82523,4,265318,0,4,0,85931,32,205665,812,1,1,41182,32,212342,32,31220,32,32696,32,43357,32,32247,32,38314,32,35892428,10,9462713,1021,10,38887044,32947,10]},"decentralization": null,"executionUnitPrices": {"priceMemory": 5.77e-2,"priceSteps": 7.21e-5},"extraPraosEntropy": null,"maxBlockBodySize": 65536,"maxBlockExecutionUnits": {"memory": 80000000,"steps": 40000000000},"maxBlockHeaderSize": 1100,"maxCollateralInputs": 3,"maxTxExecutionUnits": {"memory": 16000000,"steps": 10000000000},"maxTxSize": 16384,"maxValueSize": 5000,"minPoolCost": 0,"minUTxOValue": null,"monetaryExpansion": 5.5e-3,"poolPledgeInfluence": 0,"poolRetireMaxEpoch": 18,"protocolVersion": {"major": 7,"minor": 0},"stakeAddressDeposit": 0,"stakePoolDeposit": 0,"stakePoolTargetNum": 100,"treasuryCut": 1.0e-6,"txFeeFixed": 155381,"txFeePerByte": 44,"utxoCostPerByte": 4310}`)
+
+	policyPaymentKeyHashes := []string{
+		"0fb340e2fc18865fbf406dce76f743de13c46d2eb91d6e87e6eb63c6",
+		"41b46f772b622e7e5bc8970d128faccb7a457c610a48d514801a0411",
+		"5282885af1f234cb9407f05b120f2eb06872f297864ca9066a657011",
+		"6a2f73455484b658c168c18ed54222d189e7e746ec3dc2d8d8891e42",
+	}
+
+	policyStakeKeyHashes := []string{
+		"30356731c6f4d92598732163a68d9dcec7c386075d5da4f1dca5724d",
+		"794eb34ded015c701fcf7b6ec4e0476e3dc2054a8831f636361680c9",
+		"8d2f93fdc4dbe32b1cb6951a441f081d2d111cb4a4c79a69f27d00a9",
+		"9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7db",
+	}
+
+	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
+	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+
+	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
+	require.NoError(t, err)
+
+	multisigStakePolicyID, err := cliUtils.GetPolicyID(policyScriptStakeMultiSig)
+	require.NoError(t, err)
+
+	multiSigAddr, err := NewPolicyScriptBaseAddress(TestNetNetwork, multisigPaymentPolicyID, multisigStakePolicyID)
+	require.NoError(t, err)
+
+	require.Equal(t, "addr_test1xqdt3kene0l87agrdcsn7jzspfrj83h5svgmaw8rnzzva644n47f76yle0p2r8dzdz0elefvtaju8v79ddahutcg790s37mp24", multiSigAddr.String())
+
+	// Create delegation certificate
+	poolId := "pool1ttxrlraudm8msm88x4pjz75xqwrug2qmkw2tfgfr7ddjgqfa43q"
+	multisigStakePolicyIDBytes, err := hex.DecodeString(multisigStakePolicyID)
+	require.NoError(t, err)
+	registrationCertificate, err := NewCardanoStakeCertBuilder().CreateScriptStakeDelegationCert(multisigStakePolicyIDBytes, poolId)
+	require.NoError(t, err)
+	require.Equal(t, "83028201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f581c5acc3f8fbc6ecfb86ce73543217a860387c4281bb394b4a123f35b24", hex.EncodeToString(registrationCertificate))
+
+	builder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	require.NoError(t, err)
+
+	defer builder.Dispose()
+
+	multiSigInputs := TxInputs{
+		Inputs: []TxInput{
+			{
+				Hash:  "c6edbde4bf6421ddf7f51643da7ce602cd63ef396053c7a39bc081d332ca8009",
+				Index: 0,
+			},
+		},
+		Sum: map[string]uint64{
+			AdaTokenName: uint64(9792083),
+		},
+	}
+
+	builder.SetTimeToLive(uint64(11704)).SetProtocolParameters(protocolParams)
+	builder.SetTestNetMagic(2)
+	builder.AddInputsWithScript(policyScriptPaymentMultiSig, multiSigInputs.Inputs...)
+	builder.AddOutputs(TxOutput{
+		Addr: multiSigAddr.String(),
+	})
+	builder.SetCertificate(registrationCertificate, policyScriptStakeMultiSig)
+
+	fee, err := builder.CalculateFee(0)
+	require.NoError(t, err)
+	require.Equal(t, uint64(215045), fee)
+
+	builder.SetFee(fee)
+
+	builder.UpdateOutputAmount(-1, multiSigInputs.Sum[AdaTokenName]-fee)
+
+	_, txHash, err := builder.Build()
+	require.NoError(t, err)
+
+	require.Equal(t, "19fc8df9a93cd82d0c3a36d2bf7b8b8d9bc00f1918b0e0ac1ec11ee49345d6ff", txHash)
+}
+
+func Test_TransactionBuilderWithWithdraw(t *testing.T) {
+	protocolParams := []byte(`{"collateralPercentage": 150,"costModels": {"PlutusV1": [197209,0,1,1,396231,621,0,1,150000,1000,0,1,150000,32,2477736,29175,4,29773,100,29773,100,29773,100,29773,100,29773,100,29773,100,100,100,29773,100,150000,32,150000,32,150000,32,150000,1000,0,1,150000,32,150000,1000,0,8,148000,425507,118,0,1,1,150000,1000,0,8,150000,112536,247,1,150000,10000,1,136542,1326,1,1000,150000,1000,1,150000,32,150000,32,150000,32,1,1,150000,1,150000,4,103599,248,1,103599,248,1,145276,1366,1,179690,497,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,148000,425507,118,0,1,1,61516,11218,0,1,150000,32,148000,425507,118,0,1,1,148000,425507,118,0,1,1,2477736,29175,4,0,82363,4,150000,5000,0,1,150000,32,197209,0,1,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,3345831,1,1],"PlutusV2": [205665,812,1,1,1000,571,0,1,1000,24177,4,1,1000,32,117366,10475,4,23000,100,23000,100,23000,100,23000,100,23000,100,23000,100,100,100,23000,100,19537,32,175354,32,46417,4,221973,511,0,1,89141,32,497525,14068,4,2,196500,453240,220,0,1,1,1000,28662,4,2,245000,216773,62,1,1060367,12586,1,208512,421,1,187000,1000,52998,1,80436,32,43249,32,1000,32,80556,1,57667,4,1000,10,197145,156,1,197145,156,1,204924,473,1,208896,511,1,52467,32,64832,32,65493,32,22558,32,16563,32,76511,32,196500,453240,220,0,1,1,69522,11687,0,1,60091,32,196500,453240,220,0,1,1,196500,453240,220,0,1,1,1159724,392670,0,2,806990,30482,4,1927926,82523,4,265318,0,4,0,85931,32,205665,812,1,1,41182,32,212342,32,31220,32,32696,32,43357,32,32247,32,38314,32,35892428,10,9462713,1021,10,38887044,32947,10]},"decentralization": null,"executionUnitPrices": {"priceMemory": 5.77e-2,"priceSteps": 7.21e-5},"extraPraosEntropy": null,"maxBlockBodySize": 65536,"maxBlockExecutionUnits": {"memory": 80000000,"steps": 40000000000},"maxBlockHeaderSize": 1100,"maxCollateralInputs": 3,"maxTxExecutionUnits": {"memory": 16000000,"steps": 10000000000},"maxTxSize": 16384,"maxValueSize": 5000,"minPoolCost": 0,"minUTxOValue": null,"monetaryExpansion": 5.5e-3,"poolPledgeInfluence": 0,"poolRetireMaxEpoch": 18,"protocolVersion": {"major": 7,"minor": 0},"stakeAddressDeposit": 0,"stakePoolDeposit": 0,"stakePoolTargetNum": 100,"treasuryCut": 1.0e-6,"txFeeFixed": 155381,"txFeePerByte": 44,"utxoCostPerByte": 4310}`)
+
+	policyPaymentKeyHashes := []string{
+		"0fb340e2fc18865fbf406dce76f743de13c46d2eb91d6e87e6eb63c6",
+		"41b46f772b622e7e5bc8970d128faccb7a457c610a48d514801a0411",
+		"5282885af1f234cb9407f05b120f2eb06872f297864ca9066a657011",
+		"6a2f73455484b658c168c18ed54222d189e7e746ec3dc2d8d8891e42",
+	}
+
+	policyStakeKeyHashes := []string{
+		"30356731c6f4d92598732163a68d9dcec7c386075d5da4f1dca5724d",
+		"794eb34ded015c701fcf7b6ec4e0476e3dc2054a8831f636361680c9",
+		"8d2f93fdc4dbe32b1cb6951a441f081d2d111cb4a4c79a69f27d00a9",
+		"9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7db",
+	}
+
+	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
+	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+
+	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
+	require.NoError(t, err)
+
+	multisigStakePolicyID, err := cliUtils.GetPolicyID(policyScriptStakeMultiSig)
+	require.NoError(t, err)
+
+	multiSigAddr, err := NewPolicyScriptBaseAddress(TestNetNetwork, multisigPaymentPolicyID, multisigStakePolicyID)
+	require.NoError(t, err)
+	multiSigRewardAddr, err := NewPolicyScriptRewardAddress(TestNetNetwork, multisigStakePolicyID)
+	require.NoError(t, err)
+
+	require.Equal(t, "addr_test1xqdt3kene0l87agrdcsn7jzspfrj83h5svgmaw8rnzzva644n47f76yle0p2r8dzdz0elefvtaju8v79ddahutcg790s37mp24", multiSigAddr.String())
+	require.Equal(t, "stake_test17z6e6lyldz0uhs4pnk3x38ulu5k97ewrk0zkk7m79uy0zhcp9x067", multiSigRewardAddr.String())
+
+	builder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	require.NoError(t, err)
+
+	defer builder.Dispose()
+
+	multiSigInputs := TxInputs{
+		Inputs: []TxInput{
+			{
+				Hash:  "19fc8df9a93cd82d0c3a36d2bf7b8b8d9bc00f1918b0e0ac1ec11ee49345d6ff",
+				Index: 0,
+			},
+		},
+		Sum: map[string]uint64{
+			AdaTokenName: uint64(9577038),
+		},
+	}
+
+	builder.SetTimeToLive(uint64(19910)).SetProtocolParameters(protocolParams)
+	builder.SetTestNetMagic(2)
+	builder.AddInputsWithScript(policyScriptPaymentMultiSig, multiSigInputs.Inputs...)
+	builder.AddOutputs(TxOutput{
+		Addr: multiSigAddr.String(),
+	})
+
+	rewardAmount := uint64(1539043)
+	builder.SetWithdrawalData(multiSigRewardAddr.String(), rewardAmount, policyScriptStakeMultiSig)
+
+	fee, err := builder.CalculateFee(0)
+	require.NoError(t, err)
+	require.Equal(t, uint64(213813), fee)
+
+	builder.SetFee(fee)
+
+	builder.UpdateOutputAmount(-1, multiSigInputs.Sum[AdaTokenName]+rewardAmount-fee)
+
+	_, txHash, err := builder.Build()
+	require.NoError(t, err)
+
+	require.Equal(t, "176a8396965f93426300f0cb88e0909b4e321c1a74e0f799f7af5124f81082a5", txHash)
+}
+
 func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
 	t.Parallel()
 
