@@ -110,6 +110,7 @@ type ITxSigner interface {
 type ISerializable interface {
 	GetBytesJSON() ([]byte, error)
 }
+
 type IPolicyScript interface {
 	ISerializable
 	GetCount() int
@@ -125,7 +126,7 @@ type Certificate struct {
 	CborHex     string `json:"cborHex"`
 }
 
-// GetCertificateJSON returns certificate as JSON byte array.
+// GetBytesJSON returns certificate as JSON byte array.
 func (c Certificate) GetBytesJSON() ([]byte, error) {
 	return json.MarshalIndent(c, "", "  ")
 }

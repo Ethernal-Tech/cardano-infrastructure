@@ -259,9 +259,8 @@ func (cu CliUtils) getTxHash(txRaw []byte, baseDirectory string) (string, error)
 }
 
 func (cu CliUtils) CreateRegistrationCertificate(
-	stakeAddress string,
-	keyRegDepositAmount uint64,
-) (*Certificate, error) {
+	stakeAddress string, keyRegDepositAmount uint64,
+) (cert *Certificate, err error) {
 	baseDirectory, err := os.MkdirTemp("", "registration-cert")
 	if err != nil {
 		return nil, err
@@ -279,24 +278,24 @@ func (cu CliUtils) CreateRegistrationCertificate(
 
 	_, err = runCommand(cu.cardanoCliBinary, args)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to register certificate: %w", err)
 	}
 
 	bytes, err := os.ReadFile(certFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read certificate: %w", err)
 	}
-
-	var cert Certificate
 
 	if err := json.Unmarshal(bytes, &cert); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal certificate: %w", err)
 	}
 
-	return &cert, nil
+	return cert, nil
 }
 
-func (cu CliUtils) CreateDelegationCertificate(stakeAddress string, poolId string) (*Certificate, error) {
+func (cu CliUtils) CreateDelegationCertificate(
+	stakeAddress string, poolID string,
+) (cert *Certificate, err error) {
 	baseDirectory, err := os.MkdirTemp("", "delegation-cert")
 	if err != nil {
 		return nil, err
@@ -311,26 +310,24 @@ func (cu CliUtils) CreateDelegationCertificate(stakeAddress string, poolId strin
 	args := []string{
 		"stake-address", "delegation-certificate",
 		"--stake-address", stakeAddress,
-		"--stake-pool-id", poolId,
+		"--stake-pool-id", poolID,
 		"--out-file", certFilePath}
 
 	_, err = runCommand(cu.cardanoCliBinary, args)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to delegate certificate: %w", err)
 	}
 
 	bytes, err := os.ReadFile(certFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read certificate: %w", err)
 	}
-
-	var cert Certificate
 
 	if err := json.Unmarshal(bytes, &cert); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal certificate: %w", err)
 	}
 
-	return &cert, nil
+	return cert, nil
 }
 
 func getBech32Key(key []byte, prefix string) (string, error) {

@@ -60,10 +60,10 @@ func TestRegistrationCertificate(t *testing.T) {
 
 	policyScript := NewPolicyScript(keyHashes, 3)
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
-	policyId, err := cliUtils.GetPolicyID(policyScript)
+	policyID, err := cliUtils.GetPolicyID(policyScript)
 	require.NoError(t, err)
 
-	stakeAddress, err := NewPolicyScriptRewardAddress(MainNetNetwork, policyId)
+	stakeAddress, err := NewPolicyScriptRewardAddress(MainNetNetwork, policyID)
 	require.NoError(t, err)
 
 	stakeRegistrationCert, err := cliUtils.CreateRegistrationCertificate(stakeAddress.String(), 0)
@@ -81,17 +81,17 @@ func TestDelegationCertificate(t *testing.T) {
 		"8d2f93fdc4dbe32b1cb6951a441f081d2d111cb4a4c79a69f27d00a9",
 		"9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7db",
 	}
-	poolId := "pool1ttxrlraudm8msm88x4pjz75xqwrug2qmkw2tfgfr7ddjgqfa43q"
+	poolID := "pool1ttxrlraudm8msm88x4pjz75xqwrug2qmkw2tfgfr7ddjgqfa43q"
 
 	policyScript := NewPolicyScript(keyHashes, 3)
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
-	policyId, err := cliUtils.GetPolicyID(policyScript)
+	policyID, err := cliUtils.GetPolicyID(policyScript)
 	require.NoError(t, err)
 
-	stakeAddress, err := NewPolicyScriptRewardAddress(MainNetNetwork, policyId)
+	stakeAddress, err := NewPolicyScriptRewardAddress(MainNetNetwork, policyID)
 	require.NoError(t, err)
 
-	stakeRegistrationCert, err := cliUtils.CreateDelegationCertificate(stakeAddress.String(), poolId)
+	stakeRegistrationCert, err := cliUtils.CreateDelegationCertificate(stakeAddress.String(), poolID)
 	require.NoError(t, err)
 
 	require.Equal(t, "CertificateShelley", stakeRegistrationCert.Type)

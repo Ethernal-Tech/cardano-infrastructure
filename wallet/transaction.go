@@ -206,7 +206,9 @@ func (b *TxBuilder) SetTimeToLive(timeToLive uint64) *TxBuilder {
 	return b
 }
 
-func (b *TxBuilder) SetWithdrawalData(stakeAddress string, rewardsAmount uint64, policyScript IPolicyScript) *TxBuilder {
+func (b *TxBuilder) SetWithdrawalData(
+	stakeAddress string, rewardsAmount uint64, policyScript IPolicyScript,
+) *TxBuilder {
 	b.withdrawalData = txWithdrawalDataPolicyScript{
 		stakeAddress: stakeAddress,
 		rewardAmount: rewardsAmount,
@@ -513,7 +515,7 @@ func (txInputPS txInputWithPolicyScript) Apply(
 	*args = append(*args, "--tx-in", txInputPS.txInput.String())
 
 	if txInputPS.policyScript != nil {
-		filePath, err := writeSerializableToFile(txInputPS.policyScript, basePath, fmt.Sprintf("policy_%d.json", indx))
+		filePath, err := writeSerializableToFile(txInputPS.policyScript, basePath, fmt.Sprintf("ps_%d.json", indx))
 		if err != nil {
 			return err
 		}
@@ -557,7 +559,7 @@ func (txMint txTokenMintInputs) Apply(
 	*args = append(*args, "--mint", sb.String())
 
 	for indx, policyScript := range txMint.policyScripts {
-		policyFilePath, err := writeSerializableToFile(policyScript, basePath, fmt.Sprintf("policy_mint_%d.json", indx))
+		policyFilePath, err := writeSerializableToFile(policyScript, basePath, fmt.Sprintf("ps_mint_%d.json", indx))
 		if err != nil {
 			return err
 		}
@@ -626,7 +628,8 @@ func (txWithdrawalData txWithdrawalDataPolicyScript) Apply(
 		return nil
 	}
 
-	*args = append(*args, "--withdrawal", fmt.Sprintf("%s+%d", txWithdrawalData.stakeAddress, txWithdrawalData.rewardAmount))
+	*args = append(*args, "--withdrawal",
+		fmt.Sprintf("%s+%d", txWithdrawalData.stakeAddress, txWithdrawalData.rewardAmount))
 
 	if txWithdrawalData.policyScript == nil {
 		return nil

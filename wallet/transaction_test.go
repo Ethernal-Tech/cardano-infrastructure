@@ -267,8 +267,8 @@ func Test_TransactionBuilderWithDelegationCertificate(t *testing.T) {
 	require.Equal(t, "stake_test17z6e6lyldz0uhs4pnk3x38ulu5k97ewrk0zkk7m79uy0zhcp9x067", multiSigStakeAddr.String())
 
 	// Create delegation certificate
-	poolId := "pool1ttxrlraudm8msm88x4pjz75xqwrug2qmkw2tfgfr7ddjgqfa43q"
-	delegationCertificate, err := cliUtils.CreateDelegationCertificate(multiSigStakeAddr.String(), poolId)
+	poolID := "pool1ttxrlraudm8msm88x4pjz75xqwrug2qmkw2tfgfr7ddjgqfa43q"
+	delegationCertificate, err := cliUtils.CreateDelegationCertificate(multiSigStakeAddr.String(), poolID)
 	require.NoError(t, err)
 	require.Equal(t, "CertificateShelley", delegationCertificate.Type)
 	require.Equal(t, "Stake Delegation Certificate", delegationCertificate.Description)
