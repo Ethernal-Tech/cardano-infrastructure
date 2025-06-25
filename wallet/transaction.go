@@ -61,11 +61,13 @@ type TxBuilder struct {
 	inputs             []txInputWithPolicyScript
 	outputs            []TxOutput
 	mints              txTokenMintInputs
+	certificate        txCertificateWithPolicyScript
 	metadata           []byte
 	protocolParameters []byte
 	timeToLive         uint64
 	testNetMagic       uint
 	fee                uint64
+	withdrawalData     txWithdrawalDataPolicyScript
 	cardanoCliBinary   string
 }
 
@@ -204,6 +206,33 @@ func (b *TxBuilder) SetTimeToLive(timeToLive uint64) *TxBuilder {
 	return b
 }
 
+func (b *TxBuilder) SetWithdrawalData(stakeAddress string, rewardsAmount uint64, policyScript IPolicyScript) *TxBuilder {
+	b.withdrawalData = txWithdrawalDataPolicyScript{
+		stakeAddress: stakeAddress,
+		rewardAmount: rewardsAmount,
+		policyScript: policyScript,
+	}
+
+	return b
+}
+
+func (b *TxBuilder) SetCertificate(certificate ICertificate, policyScript IPolicyScript) *TxBuilder {
+	b.certificate = txCertificateWithPolicyScript{
+		certificate:  certificate,
+		policyScript: policyScript,
+	}
+
+	return b
+}
+
+func (b *TxBuilder) GetRewardAmount() uint64 {
+	if b.withdrawalData.stakeAddress != "" {
+		return b.withdrawalData.rewardAmount
+	}
+
+	return 0
+}
+
 func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 	if b.protocolParameters == nil {
 		return 0, errors.New("protocol parameters not set")
@@ -223,6 +252,8 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 			witnessCount += inp.GetWitnessCount()
 		}
 
+		witnessCount += b.certificate.GetWitnessCount()
+		witnessCount += b.withdrawalData.GetWitnessCount()
 		witnessCount = max(witnessCount, 1)
 	}
 
@@ -329,6 +360,14 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 		}
 
 		args = append(args, "--metadata-json-file", metaDataFilePath)
+	}
+
+	if err := b.certificate.Apply(&args, b.baseDirectory); err != nil {
+		return err
+	}
+
+	if err := b.withdrawalData.Apply(&args, b.baseDirectory); err != nil {
+		return err
 	}
 
 	if err := b.mints.Apply(&args, b.baseDirectory); err != nil {
@@ -473,21 +512,14 @@ func (txInputPS txInputWithPolicyScript) Apply(
 ) error {
 	*args = append(*args, "--tx-in", txInputPS.txInput.String())
 
-	if txInputPS.policyScript == nil {
-		return nil
-	}
+	if txInputPS.policyScript != nil {
+		filePath, err := writePolicyScriptFile(txInputPS.policyScript, basePath, fmt.Sprintf("policy_%d", indx))
+		if err != nil {
+			return err
+		}
 
-	policyScriptJSON, err := txInputPS.policyScript.GetPolicyScriptJSON()
-	if err != nil {
-		return err
+		*args = append(*args, "--tx-in-script-file", filePath)
 	}
-
-	policyFilePath := filepath.Join(basePath, fmt.Sprintf("policy_%d.json", indx))
-	if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
-		return err
-	}
-
-	*args = append(*args, "--tx-in-script-file", policyFilePath)
 
 	return nil
 }
@@ -497,7 +529,7 @@ func (txInputPS txInputWithPolicyScript) GetWitnessCount() int {
 		return txInputPS.policyScript.GetCount()
 	}
 
-	return 0
+	return 1
 }
 
 type txTokenMintInputs struct {
@@ -525,13 +557,8 @@ func (txMint txTokenMintInputs) Apply(
 	*args = append(*args, "--mint", sb.String())
 
 	for indx, policyScript := range txMint.policyScripts {
-		policyScriptJSON, err := policyScript.GetPolicyScriptJSON()
+		policyFilePath, err := writePolicyScriptFile(policyScript, basePath, fmt.Sprintf("policy_mint_%d", indx))
 		if err != nil {
-			return err
-		}
-
-		policyFilePath := filepath.Join(basePath, fmt.Sprintf("policy_mint_%d.json", indx))
-		if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
 			return err
 		}
 
@@ -539,4 +566,90 @@ func (txMint txTokenMintInputs) Apply(
 	}
 
 	return nil
+}
+
+type txCertificateWithPolicyScript struct {
+	certificate  ICertificate
+	policyScript IPolicyScript
+}
+
+func (txCert txCertificateWithPolicyScript) Apply(
+	args *[]string, basePath string,
+) error {
+	if txCert.certificate == nil {
+		return nil
+	}
+
+	certificateFilePath, err := writeCertificateFile(txCert.certificate, basePath, "certificate.cert")
+	if err != nil {
+		return err
+	}
+
+	*args = append(*args, "--certificate-file", certificateFilePath)
+
+	if txCert.policyScript == nil {
+		return nil
+	}
+
+	policyFilePath, err := writePolicyScriptFile(txCert.policyScript, basePath, "policy_stake.json")
+	if err != nil {
+		return err
+	}
+
+	*args = append(*args, "--certificate-script-file", policyFilePath)
+
+	return nil
+}
+
+func (txCert txCertificateWithPolicyScript) GetWitnessCount() int {
+	if txCert.policyScript != nil {
+		return txCert.policyScript.GetCount()
+	}
+
+	if txCert.certificate != nil {
+		return 1
+	}
+
+	return 0
+}
+
+type txWithdrawalDataPolicyScript struct {
+	stakeAddress string
+	rewardAmount uint64
+	policyScript IPolicyScript
+}
+
+func (txWithdrawalData txWithdrawalDataPolicyScript) Apply(
+	args *[]string, basePath string,
+) error {
+	if txWithdrawalData.stakeAddress == "" {
+		return nil
+	}
+
+	*args = append(*args, "--withdrawal", fmt.Sprintf("%s+%d", txWithdrawalData.stakeAddress, txWithdrawalData.rewardAmount))
+
+	if txWithdrawalData.policyScript == nil {
+		return nil
+	}
+
+	policyFilePath, err := writePolicyScriptFile(txWithdrawalData.policyScript, basePath, "policy_withdrawal.json")
+	if err != nil {
+		return err
+	}
+
+	*args = append(*args, "--withdrawal-script-file", policyFilePath)
+
+	return nil
+}
+
+func (txWithdrawalData txWithdrawalDataPolicyScript) GetWitnessCount() int {
+	if txWithdrawalData.policyScript != nil {
+		return txWithdrawalData.policyScript.GetCount()
+	}
+
+	if txWithdrawalData.stakeAddress != "" {
+		return 1
+	}
+
+	return 0
 }
