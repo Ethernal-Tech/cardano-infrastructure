@@ -1,4 +1,4 @@
-name: Lint
+name: Unit Test
 
 on:
   pull_request:
@@ -7,8 +7,8 @@ on:
       - feat/skyline
 
 jobs:
-  golangci_lint:
-    name: Run Lint
+  unit_test:
+    name: Run Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -20,7 +20,9 @@ jobs:
         with:
           go-version: 1.23.1
           cache: false
-      - name: Lint
-        uses: golangci/golangci-lint-action@v4.0.0
+      - name: Install Cardano tools
+        uses: milos-ethernal/cardano-node-action@26dcf8e4b11bef82122de0f64ef7ab3b4fad15a8
         with:
-          args: --timeout 10m --verbose
+          tag: 8.7.3
+      - name: Run Unit Tests
+        run: go test -v ./... 
