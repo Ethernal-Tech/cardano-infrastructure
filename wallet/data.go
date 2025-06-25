@@ -107,13 +107,16 @@ type ITxSigner interface {
 	GetPaymentKeys() ([]byte, []byte)
 }
 
+type ISerializable interface {
+	GetBytesJSON() ([]byte, error)
+}
 type IPolicyScript interface {
-	GetPolicyScriptJSON() ([]byte, error)
+	ISerializable
 	GetCount() int
 }
 
 type ICertificate interface {
-	GetCertificateJSON() ([]byte, error)
+	ISerializable
 }
 
 type Certificate struct {
@@ -123,6 +126,6 @@ type Certificate struct {
 }
 
 // GetCertificateJSON returns certificate as JSON byte array.
-func (c Certificate) GetCertificateJSON() ([]byte, error) {
+func (c Certificate) GetBytesJSON() ([]byte, error) {
 	return json.MarshalIndent(c, "", "  ")
 }

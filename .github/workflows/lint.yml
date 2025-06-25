@@ -7,24 +7,23 @@ on:
       - feat/skyline
 
 jobs:
-  lint-and-test:
-    name: Run golangci-lint and tests
+  golangci_lint:
+    name: Run Lint
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/checkout@v4.1.1
         with:
-          go-version: '1.23.1'
-          cache: true
-          
-      - name: Run golangci-lint
+          fetch-depth: 0
+      - name: Install Go
+        uses: actions/setup-go@v5.0.0
+        with:
+          go-version: 1.23.1
+          cache: false
+      - name: Lint
         uses: golangci/golangci-lint-action@v4.0.0
         with:
-          args: --timeout 10m --verbose --config .golangci.bck.yml
+          args: --timeout 10m --verbose
           
       - name: Run tests
         run: go test -v ./... 

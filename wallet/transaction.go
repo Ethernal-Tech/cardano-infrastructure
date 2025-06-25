@@ -513,7 +513,7 @@ func (txInputPS txInputWithPolicyScript) Apply(
 	*args = append(*args, "--tx-in", txInputPS.txInput.String())
 
 	if txInputPS.policyScript != nil {
-		filePath, err := writePolicyScriptFile(txInputPS.policyScript, basePath, fmt.Sprintf("policy_%d", indx))
+		filePath, err := writeSerializableToFile(txInputPS.policyScript, basePath, fmt.Sprintf("policy_%d.json", indx))
 		if err != nil {
 			return err
 		}
@@ -557,7 +557,7 @@ func (txMint txTokenMintInputs) Apply(
 	*args = append(*args, "--mint", sb.String())
 
 	for indx, policyScript := range txMint.policyScripts {
-		policyFilePath, err := writePolicyScriptFile(policyScript, basePath, fmt.Sprintf("policy_mint_%d", indx))
+		policyFilePath, err := writeSerializableToFile(policyScript, basePath, fmt.Sprintf("policy_mint_%d.json", indx))
 		if err != nil {
 			return err
 		}
@@ -580,7 +580,7 @@ func (txCert txCertificateWithPolicyScript) Apply(
 		return nil
 	}
 
-	certificateFilePath, err := writeCertificateFile(txCert.certificate, basePath, "certificate.cert")
+	certificateFilePath, err := writeSerializableToFile(txCert.certificate, basePath, "certificate.cert")
 	if err != nil {
 		return err
 	}
@@ -591,7 +591,7 @@ func (txCert txCertificateWithPolicyScript) Apply(
 		return nil
 	}
 
-	policyFilePath, err := writePolicyScriptFile(txCert.policyScript, basePath, "policy_stake.json")
+	policyFilePath, err := writeSerializableToFile(txCert.policyScript, basePath, "policy_stake.json")
 	if err != nil {
 		return err
 	}
@@ -632,7 +632,7 @@ func (txWithdrawalData txWithdrawalDataPolicyScript) Apply(
 		return nil
 	}
 
-	policyFilePath, err := writePolicyScriptFile(txWithdrawalData.policyScript, basePath, "policy_withdrawal.json")
+	policyFilePath, err := writeSerializableToFile(txWithdrawalData.policyScript, basePath, "policy_withdrawal.json")
 	if err != nil {
 		return err
 	}

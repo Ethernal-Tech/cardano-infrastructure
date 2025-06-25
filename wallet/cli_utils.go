@@ -40,12 +40,12 @@ func (cu CliUtils) GetPolicyScriptBaseAddress(
 
 	defer os.RemoveAll(baseDirectory)
 
-	policyScriptFilePath, err := writePolicyScriptFile(policyScript, baseDirectory, "ps")
+	policyScriptFilePath, err := writeSerializableToFile(policyScript, baseDirectory, "ps.json")
 	if err != nil {
 		return "", err
 	}
 
-	stakePolicyScriptFilePath, err := writePolicyScriptFile(stakePolicyScript, baseDirectory, "stake-ps")
+	stakePolicyScriptFilePath, err := writeSerializableToFile(stakePolicyScript, baseDirectory, "stake-ps.json")
 	if err != nil {
 		return "", err
 	}
@@ -75,7 +75,7 @@ func (cu CliUtils) GetPolicyScriptEnterpriseAddress(
 
 	defer os.RemoveAll(baseDirectory)
 
-	policyScriptFilePath, err := writePolicyScriptFile(policyScript, baseDirectory, "ps")
+	policyScriptFilePath, err := writeSerializableToFile(policyScript, baseDirectory, "ps.json")
 	if err != nil {
 		return "", err
 	}
@@ -104,7 +104,7 @@ func (cu CliUtils) GetPolicyScriptRewardAddress(
 
 	defer os.RemoveAll(baseDirectory)
 
-	policyScriptFilePath, err := writePolicyScriptFile(policyScript, baseDirectory, "ps")
+	policyScriptFilePath, err := writeSerializableToFile(policyScript, baseDirectory, "ps.json")
 	if err != nil {
 		return "", err
 	}
@@ -131,7 +131,7 @@ func (cu CliUtils) GetPolicyID(policyScript IPolicyScript) (string, error) {
 
 	defer os.RemoveAll(baseDirectory)
 
-	policyScriptFilePath, err := writePolicyScriptFile(policyScript, baseDirectory, "policy-script")
+	policyScriptFilePath, err := writeSerializableToFile(policyScript, baseDirectory, "policy-script.json")
 	if err != nil {
 		return "", err
 	}
@@ -258,10 +258,13 @@ func (cu CliUtils) getTxHash(txRaw []byte, baseDirectory string) (string, error)
 	return strings.Trim(res, "\n"), err
 }
 
-func (cu CliUtils) CreateRegistrationCertificate(stakeAddress string, keyRegDepositAmount uint64) (Certificate, error) {
+func (cu CliUtils) CreateRegistrationCertificate(
+	stakeAddress string,
+	keyRegDepositAmount uint64,
+) (*Certificate, error) {
 	baseDirectory, err := os.MkdirTemp("", "registration-cert")
 	if err != nil {
-		return Certificate{}, err
+		return nil, err
 	}
 
 	defer os.RemoveAll(baseDirectory)
@@ -276,27 +279,27 @@ func (cu CliUtils) CreateRegistrationCertificate(stakeAddress string, keyRegDepo
 
 	_, err = runCommand(cu.cardanoCliBinary, args)
 	if err != nil {
-		return Certificate{}, err
+		return nil, err
 	}
 
 	bytes, err := os.ReadFile(certFilePath)
 	if err != nil {
-		return Certificate{}, err
+		return nil, err
 	}
 
 	var cert Certificate
 
 	if err := json.Unmarshal(bytes, &cert); err != nil {
-		return Certificate{}, err
+		return nil, err
 	}
 
-	return cert, nil
+	return &cert, nil
 }
 
-func (cu CliUtils) CreateDelegationCertificate(stakeAddress string, poolId string) (Certificate, error) {
+func (cu CliUtils) CreateDelegationCertificate(stakeAddress string, poolId string) (*Certificate, error) {
 	baseDirectory, err := os.MkdirTemp("", "delegation-cert")
 	if err != nil {
-		return Certificate{}, err
+		return nil, err
 	}
 
 	defer os.RemoveAll(baseDirectory)
@@ -313,21 +316,21 @@ func (cu CliUtils) CreateDelegationCertificate(stakeAddress string, poolId strin
 
 	_, err = runCommand(cu.cardanoCliBinary, args)
 	if err != nil {
-		return Certificate{}, err
+		return nil, err
 	}
 
 	bytes, err := os.ReadFile(certFilePath)
 	if err != nil {
-		return Certificate{}, err
+		return nil, err
 	}
 
 	var cert Certificate
 
 	if err := json.Unmarshal(bytes, &cert); err != nil {
-		return Certificate{}, err
+		return nil, err
 	}
 
-	return cert, nil
+	return &cert, nil
 }
 
 func getBech32Key(key []byte, prefix string) (string, error) {
@@ -344,27 +347,16 @@ func getBech32Key(key []byte, prefix string) (string, error) {
 	return bech32String, nil
 }
 
-func writePolicyScriptFile(ps IPolicyScript, baseDirectory, fileName string) (string, error) {
-	bytes, err := ps.GetPolicyScriptJSON()
+// writeSerializableToFile writes a serializable object to a file
+//
+// fileName should always include the file extension
+func writeSerializableToFile(ps ISerializable, baseDirectory, fileName string) (string, error) {
+	bytes, err := ps.GetBytesJSON()
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal policy script: %w", err)
 	}
 
-	fullFilePath := filepath.Join(baseDirectory, fileName+".json")
-	if err := os.WriteFile(fullFilePath, bytes, FilePermission); err != nil {
-		return "", fmt.Errorf("failed to save policy script: %w", err)
-	}
-
-	return fullFilePath, nil
-}
-
-func writeCertificateFile(c ICertificate, baseDirectory, fileName string) (string, error) {
-	bytes, err := c.GetCertificateJSON()
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal policy script: %w", err)
-	}
-
-	fullFilePath := filepath.Join(baseDirectory, fileName+".json")
+	fullFilePath := filepath.Join(baseDirectory, fileName)
 	if err := os.WriteFile(fullFilePath, bytes, FilePermission); err != nil {
 		return "", fmt.Errorf("failed to save policy script: %w", err)
 	}
