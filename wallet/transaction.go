@@ -614,21 +614,14 @@ func (txInputPS txInputWithPolicyScript) Apply(
 ) error {
 	*args = append(*args, "--tx-in", txInputPS.txInput.String())
 
-	if txInputPS.policyScript == nil {
-		return nil
-	}
+	if txInputPS.policyScript != nil {
+		filePath, err := writePolicyScriptFile(txInputPS.policyScript, basePath, fmt.Sprintf("policy_%d", indx))
+		if err != nil {
+			return err
+		}
 
-	policyScriptJSON, err := txInputPS.policyScript.GetPolicyScriptJSON()
-	if err != nil {
-		return err
+		*args = append(*args, "--tx-in-script-file", filePath)
 	}
-
-	policyFilePath := filepath.Join(basePath, fmt.Sprintf("policy_%d.json", indx))
-	if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
-		return err
-	}
-
-	*args = append(*args, "--tx-in-script-file", policyFilePath)
 
 	return nil
 }
@@ -666,13 +659,8 @@ func (txMint txTokenMintInputs) Apply(
 	*args = append(*args, "--mint", sb.String())
 
 	for indx, policyScript := range txMint.policyScripts {
-		policyScriptJSON, err := policyScript.GetPolicyScriptJSON()
+		policyFilePath, err := writePolicyScriptFile(policyScript, basePath, fmt.Sprintf("policy_mint_%d", indx))
 		if err != nil {
-			return err
-		}
-
-		policyFilePath := filepath.Join(basePath, fmt.Sprintf("policy_mint_%d.json", indx))
-		if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
 			return err
 		}
 
