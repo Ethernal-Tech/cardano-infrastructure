@@ -502,6 +502,72 @@ func (b *TxBuilder) AssembleTxWitnesses(txRaw []byte, witnesses [][]byte) ([]byt
 	return newTransactionWitnessedRawFromJSON(bytes)
 }
 
+type txInputWithPolicyScript struct {
+	txInput      TxInput
+	policyScript IPolicyScript
+}
+
+func (txInputPS txInputWithPolicyScript) Apply(
+	args *[]string, basePath string, indx int,
+) error {
+	*args = append(*args, "--tx-in", txInputPS.txInput.String())
+
+	if txInputPS.policyScript != nil {
+		filePath, err := writePolicyScriptFile(txInputPS.policyScript, basePath, fmt.Sprintf("policy_%d", indx))
+		if err != nil {
+			return err
+		}
+
+		*args = append(*args, "--tx-in-script-file", filePath)
+	}
+
+	return nil
+}
+
+func (txInputPS txInputWithPolicyScript) GetWitnessCount() int {
+	if txInputPS.policyScript != nil {
+		return txInputPS.policyScript.GetCount()
+	}
+
+	return 1
+}
+
+type txTokenMintInputs struct {
+	tokens        []TokenAmount
+	policyScripts []IPolicyScript
+}
+
+func (txMint txTokenMintInputs) Apply(
+	args *[]string, basePath string,
+) error {
+	if len(txMint.tokens) == 0 {
+		return nil
+	}
+
+	var sb strings.Builder
+
+	for _, token := range txMint.tokens {
+		if sb.Len() > 0 {
+			sb.WriteRune('+')
+		}
+
+		sb.WriteString(token.String())
+	}
+
+	*args = append(*args, "--mint", sb.String())
+
+	for indx, policyScript := range txMint.policyScripts {
+		policyFilePath, err := writePolicyScriptFile(policyScript, basePath, fmt.Sprintf("policy_mint_%d", indx))
+		if err != nil {
+			return err
+		}
+
+		*args = append(*args, "--minting-script-file", policyFilePath)
+	}
+
+	return nil
+}
+
 type txCertificateWithPolicyScript struct {
 	certificate  []byte
 	policyScript IPolicyScript
@@ -592,70 +658,4 @@ func (txWithdrawalData txWithdrawalDataPolicyScript) GetWitnessCount() int {
 	}
 
 	return 0
-}
-
-type txInputWithPolicyScript struct {
-	txInput      TxInput
-	policyScript IPolicyScript
-}
-
-func (txInputPS txInputWithPolicyScript) Apply(
-	args *[]string, basePath string, indx int,
-) error {
-	*args = append(*args, "--tx-in", txInputPS.txInput.String())
-
-	if txInputPS.policyScript != nil {
-		filePath, err := writePolicyScriptFile(txInputPS.policyScript, basePath, fmt.Sprintf("policy_%d", indx))
-		if err != nil {
-			return err
-		}
-
-		*args = append(*args, "--tx-in-script-file", filePath)
-	}
-
-	return nil
-}
-
-func (txInputPS txInputWithPolicyScript) GetWitnessCount() int {
-	if txInputPS.policyScript != nil {
-		return txInputPS.policyScript.GetCount()
-	}
-
-	return 1
-}
-
-type txTokenMintInputs struct {
-	tokens        []TokenAmount
-	policyScripts []IPolicyScript
-}
-
-func (txMint txTokenMintInputs) Apply(
-	args *[]string, basePath string,
-) error {
-	if len(txMint.tokens) == 0 {
-		return nil
-	}
-
-	var sb strings.Builder
-
-	for _, token := range txMint.tokens {
-		if sb.Len() > 0 {
-			sb.WriteRune('+')
-		}
-
-		sb.WriteString(token.String())
-	}
-
-	*args = append(*args, "--mint", sb.String())
-
-	for indx, policyScript := range txMint.policyScripts {
-		policyFilePath, err := writePolicyScriptFile(policyScript, basePath, fmt.Sprintf("policy_mint_%d", indx))
-		if err != nil {
-			return err
-		}
-
-		*args = append(*args, "--minting-script-file", policyFilePath)
-	}
-
-	return nil
 }
