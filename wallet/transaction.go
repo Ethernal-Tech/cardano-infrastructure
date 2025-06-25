@@ -531,13 +531,8 @@ func (txCert txCertificateWithPolicyScript) Apply(
 		return nil
 	}
 
-	policyScriptJSON, err := txCert.policyScript.GetPolicyScriptJSON()
+	policyFilePath, err := writePolicyScriptFile(txCert.policyScript, basePath, "policy_stake.json")
 	if err != nil {
-		return err
-	}
-
-	policyFilePath := filepath.Join(basePath, "policy_stake.json")
-	if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
 		return err
 	}
 
@@ -577,13 +572,8 @@ func (txWithdrawalData txWithdrawalDataPolicyScript) Apply(
 		return nil
 	}
 
-	policyScriptJSON, err := txWithdrawalData.policyScript.GetPolicyScriptJSON()
+	policyFilePath, err := writePolicyScriptFile(txWithdrawalData.policyScript, basePath, "policy_withdrawal.json")
 	if err != nil {
-		return err
-	}
-
-	policyFilePath := filepath.Join(basePath, "policy_withdrawal.json")
-	if err := os.WriteFile(policyFilePath, policyScriptJSON, FilePermission); err != nil {
 		return err
 	}
 
