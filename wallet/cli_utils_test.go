@@ -49,3 +49,52 @@ func TestIsValidCardanoAddress(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistrationCertificate(t *testing.T) {
+	keyHashes := []string{
+		"30356731c6f4d92598732163a68d9dcec7c386075d5da4f1dca5724d",
+		"794eb34ded015c701fcf7b6ec4e0476e3dc2054a8831f636361680c9",
+		"8d2f93fdc4dbe32b1cb6951a441f081d2d111cb4a4c79a69f27d00a9",
+		"9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7db",
+	}
+
+	policyScript := NewPolicyScript(keyHashes, 3)
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
+	policyID, err := cliUtils.GetPolicyID(policyScript)
+	require.NoError(t, err)
+
+	stakeAddress, err := NewPolicyScriptRewardAddress(MainNetNetwork, policyID)
+	require.NoError(t, err)
+
+	stakeRegistrationCert, err := cliUtils.CreateRegistrationCertificate(stakeAddress.String(), 0)
+	require.NoError(t, err)
+
+	require.Equal(t, "CertificateShelley", stakeRegistrationCert.Type)
+	require.Equal(t, "Stake Address Registration Certificate", stakeRegistrationCert.Description)
+	require.Equal(t, "82008201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f", stakeRegistrationCert.CborHex)
+}
+
+func TestDelegationCertificate(t *testing.T) {
+	keyHashes := []string{
+		"30356731c6f4d92598732163a68d9dcec7c386075d5da4f1dca5724d",
+		"794eb34ded015c701fcf7b6ec4e0476e3dc2054a8831f636361680c9",
+		"8d2f93fdc4dbe32b1cb6951a441f081d2d111cb4a4c79a69f27d00a9",
+		"9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7db",
+	}
+	poolID := "pool1ttxrlraudm8msm88x4pjz75xqwrug2qmkw2tfgfr7ddjgqfa43q"
+
+	policyScript := NewPolicyScript(keyHashes, 3)
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
+	policyID, err := cliUtils.GetPolicyID(policyScript)
+	require.NoError(t, err)
+
+	stakeAddress, err := NewPolicyScriptRewardAddress(MainNetNetwork, policyID)
+	require.NoError(t, err)
+
+	stakeRegistrationCert, err := cliUtils.CreateDelegationCertificate(stakeAddress.String(), poolID)
+	require.NoError(t, err)
+
+	require.Equal(t, "CertificateShelley", stakeRegistrationCert.Type)
+	require.Equal(t, "Stake Delegation Certificate", stakeRegistrationCert.Description)
+	require.Equal(t, "83028201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f581c5acc3f8fbc6ecfb86ce73543217a860387c4281bb394b4a123f35b24", stakeRegistrationCert.CborHex)
+}
