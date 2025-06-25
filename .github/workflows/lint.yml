@@ -24,7 +24,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v4.0.0
         with:
-          args: --config .golangci.bck.yml
+          args: --timeout 10m --verbose
           
       - name: Run tests
         run: go test -v ./... 
