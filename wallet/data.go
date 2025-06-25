@@ -3,6 +3,7 @@ package wallet
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -147,7 +148,26 @@ type ITxSigner interface {
 	GetPaymentKeys() ([]byte, []byte)
 }
 
+type ISerializable interface {
+	GetBytesJSON() ([]byte, error)
+}
+
 type IPolicyScript interface {
-	GetPolicyScriptJSON() ([]byte, error)
+	ISerializable
 	GetCount() int
+}
+
+type ICertificate interface {
+	ISerializable
+}
+
+type Certificate struct {
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	CborHex     string `json:"cborHex"`
+}
+
+// GetBytesJSON returns certificate as JSON byte array.
+func (c Certificate) GetBytesJSON() ([]byte, error) {
+	return json.MarshalIndent(c, "", "  ")
 }
