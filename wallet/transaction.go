@@ -227,14 +227,6 @@ func (b *TxBuilder) SetCertificate(certificate ICertificate, policyScript IPolic
 	return b
 }
 
-func (b *TxBuilder) GetRewardAmount() uint64 {
-	if b.withdrawalData.stakeAddress != "" {
-		return b.withdrawalData.rewardAmount
-	}
-
-	return 0
-}
-
 func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 	if b.protocolParameters == nil {
 		return 0, errors.New("protocol parameters not set")
