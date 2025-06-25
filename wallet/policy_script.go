@@ -41,7 +41,7 @@ func NewPolicyScript(keyHashes []string, atLeastSignersCount int) *PolicyScript 
 	}
 }
 
-func (ps PolicyScript) GetPolicyScriptJSON() ([]byte, error) {
+func (ps PolicyScript) GetBytesJSON() ([]byte, error) {
 	return json.MarshalIndent(ps, "", "  ")
 }
 
