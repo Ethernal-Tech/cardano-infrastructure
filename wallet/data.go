@@ -118,6 +118,7 @@ type IPolicyScript interface {
 
 type ICertificate interface {
 	ISerializable
+	IsRegistrationCertificate() bool
 }
 
 type Certificate struct {
@@ -129,4 +130,8 @@ type Certificate struct {
 // GetBytesJSON returns certificate as JSON byte array.
 func (c Certificate) GetBytesJSON() ([]byte, error) {
 	return json.MarshalIndent(c, "", "  ")
+}
+
+func (c Certificate) IsRegistrationCertificate() bool {
+	return c.Description == "Stake Address Registration Certificate"
 }
