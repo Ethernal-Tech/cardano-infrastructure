@@ -178,3 +178,52 @@ func (b *TxProviderCli) SubmitTx(_ context.Context, txSigned []byte) error {
 func (b *TxProviderCli) GetTxByHash(ctx context.Context, hash string) (map[string]interface{}, error) {
 	panic("not implemented") //nolint:gocritic
 }
+
+// GetStakePools implements ITxProvider.
+func (b *TxProviderCli) GetStakePools(ctx context.Context) ([]string, error) {
+	args := append([]string{
+		"query", "stake-pools",
+		"--socket-path", b.socketPath,
+	}, getTestNetMagicArgs(b.testNetMagic)...)
+
+	res, err := runCommand(b.cardanoCliBinary, args)
+	if err != nil {
+		return []string{}, err
+	}
+
+	lines := strings.Split(strings.TrimSpace(res), "\n")
+	result := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if line != "" {
+			result = append(result, strings.TrimSpace(line))
+		}
+	}
+
+	return result, nil
+}
+
+// GetStakeAddressInfo implements ITxProvider.
+func (b *TxProviderCli) GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error) {
+	args := append([]string{
+		"query", "stake-address-info",
+		"--address", stakeAddress,
+		"--socket-path", b.socketPath,
+	}, getTestNetMagicArgs(b.testNetMagic)...)
+
+	res, err := runCommand(b.cardanoCliBinary, args)
+	if err != nil {
+		return QueryStakeAddressInfo{}, err
+	}
+
+	var result []QueryStakeAddressInfo
+
+	if err := json.Unmarshal([]byte(res), &result); err != nil {
+		return result[0], err
+	}
+
+	if len(result) > 0 {
+		return result[0], nil
+	}
+
+	return QueryStakeAddressInfo{}, fmt.Errorf("stake address is not registered yet")
+}

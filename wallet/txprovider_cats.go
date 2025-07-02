@@ -80,6 +80,16 @@ func (c *TxProviderCats) GetTxByHash(ctx context.Context, hash string) (map[stri
 	panic("not implemented") //nolint:gocritic
 }
 
+// GetStakeAddressInfo implements ITxProvider.
+func (b *TxProviderCats) GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error) {
+	panic("unimplemented")
+}
+
+// GetStakePools implements ITxProvider.
+func (b *TxProviderCats) GetStakePools(ctx context.Context) ([]string, error) {
+	panic("unimplemented")
+}
+
 func (c *TxProviderCats) getURL(parts ...string) string {
 	return strings.Join(append([]string{c.url}, parts...), "/")
 }

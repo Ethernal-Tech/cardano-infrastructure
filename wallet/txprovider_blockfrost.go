@@ -252,6 +252,16 @@ func (b *TxProviderBlockFrost) GetTxByHash(ctx context.Context, hash string) (ma
 	return bfResponse, nil
 }
 
+// GetStakeAddressInfo implements ITxProvider.
+func (b *TxProviderBlockFrost) GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error) {
+	panic("unimplemented")
+}
+
+// GetStakePools implements ITxProvider.
+func (b *TxProviderBlockFrost) GetStakePools(ctx context.Context) ([]string, error) {
+	panic("unimplemented")
+}
+
 func convertProtocolParameters(bytes []byte) ([]byte, error) {
 	var bfpp struct {
 		ProtocolMajorVer    uint64                      `json:"protocol_major_ver"`

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -61,7 +62,7 @@ type TxBuilder struct {
 	inputs             []txInputWithPolicyScript
 	outputs            []TxOutput
 	mints              txTokenMintInputs
-	certificate        txCertificateWithPolicyScript
+	certificates       []txCertificateWithPolicyScript
 	metadata           []byte
 	protocolParameters []byte
 	timeToLive         uint64
@@ -168,6 +169,17 @@ func (b *TxBuilder) UpdateOutputAmount(index int, amount uint64, tokenAmounts ..
 	return b
 }
 
+func (b *TxBuilder) UpdateFeePayerOutputAmount(feePayerAddress string, amount uint64) *TxBuilder {
+	for i, output := range b.outputs {
+		if output.Addr == feePayerAddress {
+			b.outputs[i].Amount = amount
+			break
+		}
+	}
+
+	return b
+}
+
 func (b *TxBuilder) RemoveOutput(index int) *TxBuilder {
 	if index < 0 {
 		index = len(b.outputs) + index
@@ -218,10 +230,12 @@ func (b *TxBuilder) SetWithdrawalData(
 	return b
 }
 
-func (b *TxBuilder) SetCertificate(certificate ICertificate, policyScript IPolicyScript) *TxBuilder {
-	b.certificate = txCertificateWithPolicyScript{
-		certificate:  certificate,
-		policyScript: policyScript,
+func (b *TxBuilder) AddCertificates(script IPolicyScript, certificates ...ICertificate) *TxBuilder {
+	for _, cert := range certificates {
+		b.certificates = append(b.certificates, txCertificateWithPolicyScript{
+			certificate:  cert,
+			policyScript: script,
+		})
 	}
 
 	return b
@@ -246,7 +260,16 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 			witnessCount += inp.GetWitnessCount()
 		}
 
-		witnessCount += b.certificate.GetWitnessCount()
+		processedScripts := make([]IPolicyScript, 0, len(b.certificates))
+		for _, cert := range b.certificates {
+			alreadyProcessed := slices.Contains(processedScripts, cert.policyScript) && cert.policyScript != nil
+			if !alreadyProcessed {
+				witnessCount += cert.GetWitnessCount()
+			}
+
+			processedScripts = append(processedScripts, cert.policyScript)
+		}
+
 		witnessCount += b.withdrawalData.GetWitnessCount()
 		witnessCount = max(witnessCount, 1)
 	}
@@ -356,8 +379,10 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 		args = append(args, "--metadata-json-file", metaDataFilePath)
 	}
 
-	if err := b.certificate.Apply(&args, b.baseDirectory); err != nil {
-		return err
+	for i, cert := range b.certificates {
+		if err := cert.Apply(&args, b.baseDirectory, i); err != nil {
+			return err
+		}
 	}
 
 	if err := b.withdrawalData.Apply(&args, b.baseDirectory); err != nil {
@@ -568,13 +593,17 @@ type txCertificateWithPolicyScript struct {
 }
 
 func (txCert txCertificateWithPolicyScript) Apply(
-	args *[]string, basePath string,
+	args *[]string, basePath string, index int,
 ) error {
 	if txCert.certificate == nil {
 		return nil
 	}
 
-	certificateFilePath, err := writeSerializableToFile(txCert.certificate, basePath, "certificate.cert")
+	certificateFilePath, err := writeSerializableToFile(
+		txCert.certificate,
+		basePath,
+		fmt.Sprintf("certificate_%d.cert", index),
+	)
 	if err != nil {
 		return err
 	}
@@ -585,7 +614,11 @@ func (txCert txCertificateWithPolicyScript) Apply(
 		return nil
 	}
 
-	policyFilePath, err := writeSerializableToFile(txCert.policyScript, basePath, "policy_stake.json")
+	policyFilePath, err := writeSerializableToFile(
+		txCert.policyScript,
+		basePath,
+		fmt.Sprintf("policy_stake_%d.json", index),
+	)
 	if err != nil {
 		return err
 	}

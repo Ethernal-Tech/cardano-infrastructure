@@ -442,3 +442,11 @@ func (m *txProviderMock) GetUtxos(ctx context.Context, addr string) ([]cardanowa
 func (m *txProviderMock) SubmitTx(ctx context.Context, txSigned []byte) error {
 	return nil
 }
+
+func (m *txProviderMock) GetStakePools(ctx context.Context) ([]string, error) {
+	return []string{}, nil
+}
+
+func (m *txProviderMock) GetStakeAddressInfo(ctx context.Context, addr string) (cardanowallet.QueryStakeAddressInfo, error) {
+	return cardanowallet.QueryStakeAddressInfo{}, nil
+}

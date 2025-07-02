@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 
 	infracommon "github.com/Ethernal-Tech/cardano-infrastructure/common"
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
@@ -159,8 +160,259 @@ func (txSnd *TxSender) CreateTxGeneric(
 		ctx, txBuilder, &srcConfig, senderAddr, receiverAddr, metadata, outputLovelace, outputNativeTokens)
 }
 
+type CertificatesWithScript struct {
+	Certificates []cardanowallet.ICertificate
+	PolicyScript cardanowallet.IPolicyScript
+}
+
+// CreateTxSimple creates tx that doesn't contain any native tokens
+// with 1 sender and N potential receivers
+func (txSnd *TxSender) CreateTxSimple(
+	ctx context.Context,
+	srcChainID string,
+	senderAddr string,
+	receiversAddr []string,
+	amounts []uint64,
+	certificates []*CertificatesWithScript,
+	setFee uint64,
+	fullTransfer bool,
+) (*TxInfo, error) {
+	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
+	if !existsSrc {
+		return nil, fmt.Errorf("chain %s config not found", srcChainID)
+	}
+
+	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+	if err != nil {
+		return nil, err
+	}
+
+	defer txBuilder.Dispose()
+
+	if len(certificates) != 0 {
+		for _, certs := range certificates {
+			txBuilder.AddCertificates(certs.PolicyScript, certs.Certificates...)
+		}
+	}
+
+	if err := txSnd.populateProtocolParameters(ctx, txBuilder, &srcConfig); err != nil {
+		return nil, err
+	}
+
+	totalAmount := uint64(0)
+	for _, amount := range amounts {
+		totalAmount += amount
+	}
+
+	return txSnd.createAdaOnlyTx(
+		ctx, txBuilder, &srcConfig, []string{senderAddr}, []uint64{totalAmount}, receiversAddr, amounts, senderAddr, nil, 0, setFee, fullTransfer)
+}
+
+func (txSnd *TxSender) CreateWithdrawRewardsTx(
+	ctx context.Context,
+	srcChainID string,
+	senderAddr string,
+	stakeAddr string,
+	rewardAmount uint64,
+	receiverAddr string,
+	setFee uint64,
+) (*TxInfo, error) {
+	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
+	if !existsSrc {
+		return nil, fmt.Errorf("chain %s config not found", srcChainID)
+	}
+
+	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+	if err != nil {
+		return nil, err
+	}
+
+	defer txBuilder.Dispose()
+
+	txBuilder.SetWithdrawalData(stakeAddr, rewardAmount, nil)
+
+	if err := txSnd.populateProtocolParameters(ctx, txBuilder, &srcConfig); err != nil {
+		return nil, err
+	}
+
+	if receiverAddr == "" {
+		return txSnd.createAdaOnlyTx(
+			ctx, txBuilder, &srcConfig, []string{senderAddr}, []uint64{srcConfig.PotentialFee}, nil, nil, senderAddr, nil, rewardAmount, setFee, false)
+	}
+
+	return txSnd.createAdaOnlyTx(
+		ctx, txBuilder, &srcConfig, []string{senderAddr}, []uint64{srcConfig.PotentialFee}, []string{receiverAddr}, []uint64{rewardAmount}, senderAddr, nil, rewardAmount, setFee, false)
+}
+
+// CreateUnstakingTx creates unstaking tx that can contain:
+// - multiple staking addresses inputs
+// - fee paid by fee payer address
+// N -> 1
+func (txSnd *TxSender) CreateUnstakingTx(
+	ctx context.Context,
+	srcChainID string,
+	senderAddresses []string,
+	amountPerSender []uint64,
+	feePayerAddress string,
+	receiverAddr string,
+) (*TxInfo, error) {
+	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
+	if !existsSrc {
+		return nil, fmt.Errorf("chain %s config not found", srcChainID)
+	}
+
+	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+	if err != nil {
+		return nil, err
+	}
+
+	defer txBuilder.Dispose()
+
+	if err := txSnd.populateProtocolParameters(ctx, txBuilder, &srcConfig); err != nil {
+		return nil, err
+	}
+
+	receiverAmount := uint64(0)
+	for _, amount := range amountPerSender {
+		receiverAmount += amount
+	}
+
+	return txSnd.createAdaOnlyTx(
+		ctx, txBuilder, &srcConfig, senderAddresses, amountPerSender, []string{receiverAddr}, []uint64{receiverAmount}, feePayerAddress, nil, 0, 0, false)
+}
+
+// N -> N
+func (txSnd *TxSender) CreateComplexTx(
+	ctx context.Context,
+	srcChainID string,
+	senderAddresses []string,
+	amountPerSender []uint64,
+	receiverAddresses []string,
+	amountPerReceiver []uint64,
+	certificates []*CertificatesWithScript,
+	feePayerAddress string,
+) (*TxInfo, error) {
+	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
+	if !existsSrc {
+		return nil, fmt.Errorf("chain %s config not found", srcChainID)
+	}
+
+	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
+	if err != nil {
+		return nil, err
+	}
+
+	defer txBuilder.Dispose()
+
+	if len(certificates) != 0 {
+		for _, certs := range certificates {
+			txBuilder.AddCertificates(certs.PolicyScript, certs.Certificates...)
+		}
+	}
+
+	if err := txSnd.populateProtocolParameters(ctx, txBuilder, &srcConfig); err != nil {
+		return nil, err
+	}
+
+	receiverAmount := uint64(0)
+	for _, amount := range amountPerSender {
+		receiverAmount += amount
+	}
+
+	return txSnd.createAdaOnlyTx(
+		ctx, txBuilder, &srcConfig, senderAddresses, amountPerSender, receiverAddresses, amountPerReceiver, feePayerAddress, nil, 0, 0, false)
+}
+
+func (txSnd *TxSender) createAdaOnlyTx(
+	ctx context.Context,
+	txBuilder *cardanowallet.TxBuilder,
+	srcConfig *ChainConfig,
+	senderAddresses []string,
+	senderAmounts []uint64,
+	receiversAddr []string,
+	receiverAmounts []uint64,
+	feePayerAddress string,
+	metadata []byte,
+	rewardAmount uint64,
+	setFee uint64,
+	fullTransfer bool,
+) (*TxInfo, error) {
+	data, err := txSnd.populateTxBuilderSimple(
+		ctx, txBuilder, srcConfig, senderAddresses, senderAmounts, receiversAddr, receiverAmounts, feePayerAddress, metadata, fullTransfer)
+	if err != nil {
+		return nil, err
+	}
+
+	witnessCount := 0
+	feeCurrencyLovelace := setFee
+	if feeCurrencyLovelace == 0 {
+		feeCurrencyLovelace, err = txBuilder.CalculateFee(witnessCount)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	txBuilder.SetFee(feeCurrencyLovelace)
+
+	populated := slices.Contains(senderAddresses, feePayerAddress)
+
+	if fullTransfer {
+		// Full transfer means transfer all the tokens from the sender to the receivers
+		// by sending all available tokens - tx fee
+		numOfReceivers := uint64(len(receiverAmounts))
+		if numOfReceivers == 0 {
+			numOfReceivers = 1
+		}
+
+		feePerAddress := feeCurrencyLovelace / numOfReceivers
+		feeChange := feeCurrencyLovelace % numOfReceivers
+		for i := range len(receiversAddr) {
+			if i == len(receiverAmounts)-1 {
+				txBuilder.UpdateFeePayerOutputAmount(receiversAddr[i], receiverAmounts[i]-(feePerAddress+feeChange))
+			} else {
+				txBuilder.UpdateFeePayerOutputAmount(receiversAddr[i], receiverAmounts[i]-feePerAddress)
+			}
+		}
+	} else {
+		if !populated {
+			// Populate input for fee address if it isn't already handled
+			_, err := txSnd.populateInputs(ctx, srcConfig, txBuilder, feePayerAddress, feeCurrencyLovelace, feePayerAddress, false)
+			if err != nil {
+				return nil, fmt.Errorf("failed to populate input for fee payer: %e", err)
+			}
+		} else {
+			change := data.ChangeLovelace - feeCurrencyLovelace
+
+			// handle overflow or insufficient amount
+			if change != 0 && change < data.ChangeMinUtxoAmount && setFee != 0 {
+				return nil,
+					fmt.Errorf("insufficient remaining amount %d for fee %d, or minimum UTXO (%d) not satisfied",
+						data.ChangeLovelace, feeCurrencyLovelace, data.ChangeMinUtxoAmount)
+			}
+
+			if change != 0 {
+				txBuilder.UpdateFeePayerOutputAmount(feePayerAddress, change+rewardAmount)
+			} else {
+				txBuilder.RemoveOutput(-1)
+			}
+		}
+	}
+
+	txRaw, txHash, err := txBuilder.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return &TxInfo{
+		TxRaw:               txRaw,
+		TxHash:              txHash,
+		ChangeMinUtxoAmount: data.ChangeMinUtxoAmount,
+		ChosenInputs:        data.ChosenInputs,
+	}, nil
+}
+
 func (txSnd *TxSender) SubmitTx(
-	ctx context.Context, chainID string, txRaw []byte, cardanoWallet cardanowallet.ITxSigner,
+	ctx context.Context, chainID string, txRaw []byte, cardanoWallets []cardanowallet.ITxSigner,
 ) error {
 	chainConfig, existsSrc := txSnd.chainConfigMap[chainID]
 	if !existsSrc {
@@ -174,7 +426,7 @@ func (txSnd *TxSender) SubmitTx(
 
 	defer builder.Dispose()
 
-	txSigned, err := builder.SignTx(txRaw, []cardanowallet.ITxSigner{cardanoWallet})
+	txSigned, err := builder.SignTx(txRaw, cardanoWallets)
 	if err != nil {
 		return err
 	}
@@ -484,6 +736,157 @@ func (txSnd *TxSender) populateTxBuilder(
 	return &txBuilderPopulationData{
 		ChangeLovelace:      inputs.Sum[cardanowallet.AdaTokenName] - outputLovelace,
 		ChangeMinUtxoAmount: srcChangeMinUtxo,
+		ChosenInputs:        inputs,
+	}, nil
+}
+
+func (txSnd *TxSender) populateTxBuilderSimple(
+	ctx context.Context,
+	txBuilder *cardanowallet.TxBuilder,
+	config *ChainConfig,
+	senderAddresses []string,
+	senderAmounts []uint64,
+	receiversAddr []string,
+	receiverAmounts []uint64,
+	feePayerAddress string,
+	metadata []byte,
+	fullTransfer bool,
+) (*txBuilderPopulationData, error) {
+	if len(receiversAddr) != len(receiverAmounts) {
+		return nil, fmt.Errorf("receiver addresses and amounts array length missmatch")
+	}
+
+	outputLovelace := uint64(0)
+	if len(receiversAddr) != 0 {
+		for i, receiverAddr := range receiversAddr {
+			txBuilder.AddOutputs(cardanowallet.TxOutput{
+				Addr:   receiverAddr,
+				Amount: receiverAmounts[i],
+			})
+			outputLovelace += receiverAmounts[i]
+		}
+	}
+	fmt.Println(outputLovelace)
+
+	inputs := cardanowallet.TxInputs{
+		Inputs: []cardanowallet.TxInput{},
+		Sum:    map[string]uint64{},
+	}
+
+	for i, senderAddr := range senderAddresses {
+		senderData, err := txSnd.populateInputs(ctx, config, txBuilder, senderAddr, senderAmounts[i], feePayerAddress, fullTransfer)
+		if err != nil {
+			return nil, err
+		}
+
+		if senderAddr != feePayerAddress {
+			outputLovelace += senderData.ChangeLovelace
+		}
+
+		inputs.Inputs = append(inputs.Inputs, senderData.ChosenInputs.Inputs...)
+
+		for token, amount := range senderData.ChosenInputs.Sum {
+			inputs.Sum[token] += amount
+		}
+	}
+
+	txBuilder.SetMetaData(metadata).
+		SetTestNetMagic(config.TestNetMagic)
+
+	// populate ttl at the end because previous operations could take time
+	if err := txSnd.populateTimeToLive(ctx, txBuilder, config); err != nil {
+		return nil, err
+	}
+
+	return &txBuilderPopulationData{
+		ChangeLovelace:      inputs.Sum[cardanowallet.AdaTokenName] - outputLovelace,
+		ChangeMinUtxoAmount: config.MinUtxoValue,
+		ChosenInputs:        inputs,
+	}, nil
+}
+
+func (txSnd *TxSender) populateInputs(
+	ctx context.Context,
+	config *ChainConfig,
+	txBuilder *cardanowallet.TxBuilder,
+	senderAddr string,
+	amount uint64,
+	feePayerAddress string,
+	fullTransfer bool,
+) (*txBuilderPopulationData, error) {
+	utxos, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]cardanowallet.Utxo, error) {
+		return config.TxProvider.GetUtxos(ctx, senderAddr)
+	}, txSnd.retryOptions...)
+	if err != nil {
+		return nil, err
+	}
+
+	potentialFee := uint64(0)
+	if senderAddr == feePayerAddress && !fullTransfer {
+		potentialFee = setOrDefault(config.PotentialFee, defaultPotentialFee) + config.MinUtxoValue
+	}
+
+	conditions := map[string]uint64{
+		cardanowallet.AdaTokenName: amount + potentialFee,
+	}
+
+	if txSnd.utxosTransformer != nil && !reflect.ValueOf(txSnd.utxosTransformer).IsNil() {
+		utxos = txSnd.utxosTransformer.TransformUtxos(utxos)
+	}
+
+	// Initialy we try for exact amount
+	inputs, err := GetUTXOsForAmounts(utxos, conditions, txSnd.maxInputsPerTx, 1)
+	if err != nil {
+		if senderAddr != feePayerAddress {
+			conditions := map[string]uint64{
+				cardanowallet.AdaTokenName: amount + config.MinUtxoValue,
+			}
+
+			inputs, err = GetUTXOsForAmounts(utxos, conditions, txSnd.maxInputsPerTx, 1)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return nil, err
+	}
+
+	// In case that exact amount was reached with change less than MinUtxo
+	// try again with different condition
+	if senderAddr != feePayerAddress {
+		if inputs.Sum[cardanowallet.AdaTokenName] > amount {
+			// check change
+			if inputs.Sum[cardanowallet.AdaTokenName]-amount < config.MinUtxoValue {
+				// Try again:
+				conditions := map[string]uint64{
+					cardanowallet.AdaTokenName: amount + config.MinUtxoValue,
+				}
+
+				inputs, err = GetUTXOsForAmounts(utxos, conditions, txSnd.maxInputsPerTx, 1)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	txBuilder.AddInputs(inputs.Inputs...)
+
+	change := inputs.Sum[cardanowallet.AdaTokenName] - amount
+	if change > 0 && change < config.MinUtxoValue {
+		return nil, fmt.Errorf("change smaller than min utxo %d", change)
+	}
+
+	if !fullTransfer && change > 0 {
+		txBuilder.AddOutputs(cardanowallet.TxOutput{
+			Addr:   senderAddr,
+			Amount: change,
+			Tokens: []cardanowallet.TokenAmount{},
+		})
+	}
+
+	return &txBuilderPopulationData{
+		ChangeLovelace:      change,
+		ChangeMinUtxoAmount: config.MinUtxoValue,
 		ChosenInputs:        inputs,
 	}, nil
 }

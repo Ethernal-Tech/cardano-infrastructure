@@ -209,6 +209,71 @@ func (o *TxProviderOgmios) GetTxByHash(ctx context.Context, hash string) (map[st
 	panic("not implemented") //nolint:gocritic
 }
 
+// GetStakePools implements ITxProvider.
+func (o *TxProviderOgmios) GetStakePools(ctx context.Context) ([]string, error) {
+	responseData, err := executeHTTPOgmios[ogmiosQueryStakePoolsResponse](
+		ctx, o.url, ogmiosQueryStakePoolsRequest{
+			Jsonrpc: ogmiosJSONRPCVersion,
+			Method:  "queryLedgerState/stakePools",
+			Params: ogmiosQueryStakePoolsRequestParams{
+				IncludeStake: false,
+			},
+			ID: nil,
+		}, true,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	pools := make([]string, 0, len(responseData.Result))
+	for _, pool := range responseData.Result {
+		pools = append(pools, pool.ID)
+	}
+
+	return pools, nil
+}
+
+// GetStakeAddressInfo implements ITxProvider.
+func (o *TxProviderOgmios) GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error) {
+	responseData, err := executeHTTPOgmios[ogmiosQueryStakeAddressInfoResponse](
+		ctx, o.url, ogmiosQueryStakeAddressInfoRequest{
+			Jsonrpc: ogmiosJSONRPCVersion,
+			Method:  "queryLedgerState/rewardAccountSummaries",
+			Params: ogmiosQueryStakeAddressInfoRequestParams{
+				Keys: []string{stakeAddress},
+			},
+			ID: nil,
+		}, true,
+	)
+	if err != nil {
+		return QueryStakeAddressInfo{}, err
+	}
+
+	if len(responseData.Result) == 0 {
+		return QueryStakeAddressInfo{}, fmt.Errorf("stake address is not registered yet")
+	}
+
+	if len(responseData.Result) != 1 {
+		return QueryStakeAddressInfo{}, fmt.Errorf("unexpected multiple responses found: %v", responseData.Result)
+	}
+
+	resp := QueryStakeAddressInfo{
+		Address:              stakeAddress,
+		DelegationDeposit:    0,
+		RewardAccountBalance: 0,
+		StakeDelegation:      "",
+		VoteDelegation:       "",
+	}
+
+	for _, val := range responseData.Result {
+		resp.DelegationDeposit = val.Deposit.Ada.Lovelace
+		resp.RewardAccountBalance = val.Rewards.Ada.Lovelace
+		resp.StakeDelegation = val.Delegate.Id
+	}
+
+	return resp, err
+}
+
 func executeHTTPOgmios[T any](
 	ctx context.Context, url string, request any, notFoundIsNotError bool,
 ) (T, error) {

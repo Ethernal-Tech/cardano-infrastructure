@@ -223,6 +223,16 @@ func (b *TxProviderGoUroBoros) GetTxByHash(ctx context.Context, hash string) (ma
 	panic("not implemented") //nolint:gocritic
 }
 
+// GetStakePools implements ITxProvider.
+func (b *TxProviderGoUroBoros) GetStakePools(ctx context.Context) ([]string, error) {
+	panic("unimplemented")
+}
+
+// GetStakeAddressInfo implements ITxProvider.
+func (b *TxProviderGoUroBoros) GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error) {
+	panic("unimplemented")
+}
+
 func (b *TxProviderGoUroBoros) getConnection() (*gouroboros.Connection, error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
