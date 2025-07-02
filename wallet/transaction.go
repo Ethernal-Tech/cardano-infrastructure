@@ -249,18 +249,7 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 			witnessCount += inp.GetWitnessCount()
 		}
 
-		// In case we have multiple certificates for the same policy script
-		// we don't need to multiply the witness number
-		processedScripts := make([]IPolicyScript, 0, len(b.certificates))
-		for _, cert := range b.certificates {
-			alreadyProcessed := slices.Contains(processedScripts, cert.policyScript) && cert.policyScript != nil
-			if !alreadyProcessed {
-				witnessCount += cert.GetWitnessCount()
-			}
-
-			processedScripts = append(processedScripts, cert.policyScript)
-		}
-
+		witnessCount += getCertfificatesWitnessCount(b.certificates)
 		witnessCount += b.withdrawalData.GetWitnessCount()
 		witnessCount = max(witnessCount, 1)
 	}
@@ -617,6 +606,23 @@ func (txCert txCertificateWithPolicyScript) Apply(
 	*args = append(*args, "--certificate-script-file", policyFilePath)
 
 	return nil
+}
+
+func getCertfificatesWitnessCount(certificates []txCertificateWithPolicyScript) int {
+	witnessCount := 0
+	// In case we have multiple certificates for the same policy script
+	// we don't need to multiply the witness number
+	processedScripts := make([]IPolicyScript, 0, len(certificates))
+	for _, cert := range certificates {
+		alreadyProcessed := cert.policyScript != nil && slices.Contains(processedScripts, cert.policyScript)
+		if !alreadyProcessed {
+			witnessCount += cert.GetWitnessCount()
+		}
+
+		processedScripts = append(processedScripts, cert.policyScript)
+	}
+
+	return witnessCount
 }
 
 func (txCert txCertificateWithPolicyScript) GetWitnessCount() int {
