@@ -292,7 +292,6 @@ func (txSnd *TxSender) prepareBridgingTx(
 
 	outputNativeTokens := ([]cardanowallet.TokenAmount)(nil)
 	outputLovelaceBase, outputNativeTokenAmount := getOutputAmounts(receivers)
-	outputLovelaceBase += bridgingFee + operationFee
 
 	if outputNativeTokenAmount > 0 {
 		nativeToken, err := getTokenFromTokenExchangeConfig(srcConfig.NativeTokens, dstChainID)
@@ -300,8 +299,8 @@ func (txSnd *TxSender) prepareBridgingTx(
 			return nil, err
 		}
 
-		token := cardanowallet.NewTokenAmount(nativeToken, outputNativeTokenAmount)
-		outputNativeTokens = append(outputNativeTokens, token)
+		outputNativeTokens = append(outputNativeTokens,
+			cardanowallet.NewTokenAmount(nativeToken, outputNativeTokenAmount))
 	}
 
 	outputLovelace, err := adjustLovelaceOutput(
@@ -311,8 +310,11 @@ func (txSnd *TxSender) prepareBridgingTx(
 		return nil, err
 	}
 
-	if outputLovelace > outputLovelaceBase {
-		bridgingFee += outputLovelace - outputLovelaceBase
+	outputLovelaceBeforeAdditionalCharges := outputLovelace
+	outputLovelace += bridgingFee + operationFee
+
+	if outputLovelaceBeforeAdditionalCharges > outputLovelaceBase {
+		bridgingFee += outputLovelaceBeforeAdditionalCharges - outputLovelaceBase
 	}
 
 	return &bridgingTxPreparedData{

@@ -263,7 +263,7 @@ func TestGetTokenFromTokenExchangeConfig(t *testing.T) {
 }
 
 func Test_prepareBridgingTx(t *testing.T) {
-	const bridgingFee = uint64(100)
+	const bridgingFee = uint64(1_000_87)
 
 	token := cardanowallet.NewToken(dummyPID, "WADA")
 	txProviderMock := &txProviderMock{
@@ -315,9 +315,11 @@ func Test_prepareBridgingTx(t *testing.T) {
 		defer data.TxBuilder.Dispose()
 
 		expectedTokenAmount := cardanowallet.NewTokenAmount(token, 600_000*2+3)
+		calcMinUtxoLovelaceAmount := uint64(1_034_400)
+		expectedLovelaceAmount := calcMinUtxoLovelaceAmount + bridgingFee
 
-		assert.Equal(t, uint64(1034400), data.OutputLovelace)
-		assert.Equal(t, uint64(1034400-1_000_001), data.BridgingFee)
+		assert.Equal(t, expectedLovelaceAmount, data.OutputLovelace)
+		assert.Equal(t, calcMinUtxoLovelaceAmount-1_000_001+bridgingFee, data.BridgingFee)
 		assert.Len(t, data.OutputNativeTokens, 1)
 		assert.Equal(t, expectedTokenAmount, data.OutputNativeTokens[0])
 	})
