@@ -303,15 +303,13 @@ func (txSnd *TxSender) prepareBridgingTx(
 			cardanowallet.NewTokenAmount(nativeToken, outputNativeTokenAmount))
 	}
 
-	outputLovelace, err := adjustLovelaceOutput(
-		txBuilder, srcConfig.MultiSigAddr, outputNativeTokens,
-		srcConfig.MinUtxoValue, outputLovelaceBase)
+	outputLovelaceBeforeAdditionalCharges, err := adjustLovelaceOutput(
+		txBuilder, srcConfig.MultiSigAddr, outputNativeTokens, srcConfig.MinUtxoValue, outputLovelaceBase)
 	if err != nil {
 		return nil, err
 	}
 
-	outputLovelaceBeforeAdditionalCharges := outputLovelace
-	outputLovelace += bridgingFee + operationFee
+	outputLovelace := outputLovelaceBeforeAdditionalCharges + bridgingFee + operationFee
 
 	if outputLovelaceBeforeAdditionalCharges > outputLovelaceBase {
 		bridgingFee += outputLovelaceBeforeAdditionalCharges - outputLovelaceBase
