@@ -583,7 +583,7 @@ func getTokenFromTokenExchangeConfig(
 	return cardanowallet.Token{}, fmt.Errorf("native token name not specified for destination %s", dstChainID)
 }
 
-// GetOutputAmounts returns amount needed for outputs in lovelace and native tokens
+// getOutputAmounts returns amount needed for outputs in lovelace and native tokens
 func getOutputAmounts(receivers []BridgingTxReceiver) (outputCurrencyLovelace uint64, outputNativeToken uint64) {
 	for _, x := range receivers {
 		if x.BridgingType == BridgingTypeNativeTokenOnSource {
