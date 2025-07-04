@@ -9,6 +9,7 @@ import (
 const (
 	PolicyScriptAtLeastType = "atLeast"
 	PolicyScriptSigType     = "sig"
+	PolicyScriptAfterType   = "after"
 )
 
 type PolicyScript struct {
@@ -21,8 +22,16 @@ type PolicyScript struct {
 	Slot    uint64 `json:"slot,omitempty"`
 }
 
-func NewPolicyScript(keyHashes []string, atLeastSignersCount int) *PolicyScript {
+func NewPolicyScript(keyHashes []string, atLeastSignersCount int, after uint64) *PolicyScript {
 	scripts := make([]PolicyScript, len(keyHashes))
+	if after != 0 {
+		scripts = make([]PolicyScript, len(keyHashes)+1)
+		scripts[len(keyHashes)] = PolicyScript{
+			Type: PolicyScriptAfterType,
+			Slot: after,
+		}
+	}
+
 	for i, keyHash := range keyHashes {
 		scripts[i] = PolicyScript{
 			Type:    PolicyScriptSigType,

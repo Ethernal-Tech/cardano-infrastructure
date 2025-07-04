@@ -37,8 +37,8 @@ func Test_TransactionBuilder(t *testing.T) {
 		"d215701e2eb17c741b9d306cba553f9fbaaca1e12a5925a065b90fa8",
 	}
 
-	policyScriptMultiSig := NewPolicyScript(walletsKeyHashes, len(walletsKeyHashes)*2/3+1)
-	policyScriptFeeMultiSig := NewPolicyScript(walletsFeeKeyHashes, len(walletsFeeKeyHashes)*2/3+1)
+	policyScriptMultiSig := NewPolicyScript(walletsKeyHashes, len(walletsKeyHashes)*2/3+1, 0)
+	policyScriptFeeMultiSig := NewPolicyScript(walletsFeeKeyHashes, len(walletsFeeKeyHashes)*2/3+1, 0)
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
 
 	multisigPolicyID, err := cliUtils.GetPolicyID(policyScriptMultiSig)
@@ -164,8 +164,8 @@ func Test_TransactionBuilderWithRegistrationCertificate(t *testing.T) {
 		"9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7db",
 	}
 
-	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
-	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
+	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1, 0)
+	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1, 0)
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
@@ -245,8 +245,8 @@ func Test_TransactionBuilderWithDelegationCertificate(t *testing.T) {
 		"9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7db",
 	}
 
-	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
-	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
+	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1, 0)
+	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1, 0)
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
@@ -326,8 +326,8 @@ func Test_TransactionBuilderWithRegAndDelegCertificates(t *testing.T) {
 		"9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7db",
 	}
 
-	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
-	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
+	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1, 0)
+	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1, 0)
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
@@ -414,8 +414,8 @@ func Test_TransactionBuilderWithWithdraw(t *testing.T) {
 		"9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7db",
 	}
 
-	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
-	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
+	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1, 0)
+	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1, 0)
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
