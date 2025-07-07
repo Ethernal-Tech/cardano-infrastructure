@@ -292,7 +292,6 @@ func (txSnd *TxSender) prepareBridgingTx(
 
 	outputNativeTokens := ([]cardanowallet.TokenAmount)(nil)
 	outputLovelaceBase, outputNativeTokenAmount := getOutputAmounts(receivers)
-	outputLovelaceBase += bridgingFee + operationFee
 
 	if outputNativeTokenAmount > 0 {
 		nativeToken, err := getTokenFromTokenExchangeConfig(srcConfig.NativeTokens, dstChainID)
@@ -300,19 +299,20 @@ func (txSnd *TxSender) prepareBridgingTx(
 			return nil, err
 		}
 
-		token := cardanowallet.NewTokenAmount(nativeToken, outputNativeTokenAmount)
-		outputNativeTokens = append(outputNativeTokens, token)
+		outputNativeTokens = append(outputNativeTokens,
+			cardanowallet.NewTokenAmount(nativeToken, outputNativeTokenAmount))
 	}
 
-	outputLovelace, err := adjustLovelaceOutput(
-		txBuilder, srcConfig.MultiSigAddr, outputNativeTokens,
-		srcConfig.MinUtxoValue, outputLovelaceBase)
+	outputLovelaceBeforeAdditionalCharges, err := adjustLovelaceOutput(
+		txBuilder, srcConfig.MultiSigAddr, outputNativeTokens, srcConfig.MinUtxoValue, outputLovelaceBase)
 	if err != nil {
 		return nil, err
 	}
 
-	if outputLovelace > outputLovelaceBase {
-		bridgingFee += outputLovelace - outputLovelaceBase
+	outputLovelace := outputLovelaceBeforeAdditionalCharges + bridgingFee + operationFee
+
+	if outputLovelaceBeforeAdditionalCharges > outputLovelaceBase {
+		bridgingFee += outputLovelaceBeforeAdditionalCharges - outputLovelaceBase
 	}
 
 	return &bridgingTxPreparedData{
@@ -581,7 +581,7 @@ func getTokenFromTokenExchangeConfig(
 	return cardanowallet.Token{}, fmt.Errorf("native token name not specified for destination %s", dstChainID)
 }
 
-// GetOutputAmounts returns amount needed for outputs in lovelace and native tokens
+// getOutputAmounts returns amount needed for outputs in lovelace and native tokens
 func getOutputAmounts(receivers []BridgingTxReceiver) (outputCurrencyLovelace uint64, outputNativeToken uint64) {
 	for _, x := range receivers {
 		if x.BridgingType == BridgingTypeNativeTokenOnSource {
