@@ -416,6 +416,7 @@ func (b *TxBuilder) createTxWitness(txRaw []byte, wallet ITxSigner, isStakeWitne
 	txFilePath := filepath.Join(b.baseDirectory, "tx.raw")
 	signingKeyPath := filepath.Join(b.baseDirectory, "tx.skey")
 	signingKey, _ := wallet.GetPaymentKeys()
+
 	if isStakeWitness {
 		signingKey, _ = wallet.GetStakeKeys()
 	}
