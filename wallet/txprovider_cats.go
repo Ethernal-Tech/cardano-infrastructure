@@ -76,6 +76,14 @@ func (c *TxProviderCats) SubmitTx(ctx context.Context, txSigned []byte) error {
 	return err
 }
 
+func (b *TxProviderCats) GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error) {
+	panic("unimplemented") //nolint:gocritic
+}
+
+func (b *TxProviderCats) GetStakePools(ctx context.Context) ([]string, error) {
+	panic("unimplemented") //nolint:gocritic
+}
+
 func (c *TxProviderCats) GetTxByHash(ctx context.Context, hash string) (map[string]interface{}, error) {
 	panic("not implemented") //nolint:gocritic
 }

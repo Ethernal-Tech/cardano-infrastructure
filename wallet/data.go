@@ -121,6 +121,14 @@ type QueryTipData struct {
 	SyncProgress    string `json:"syncProgress"`
 }
 
+type QueryStakeAddressInfo struct {
+	Address              string `json:"address"`
+	DelegationDeposit    uint64 `json:"delegationDeposit"`
+	RewardAccountBalance uint64 `json:"rewardAccountBalance"`
+	StakeDelegation      string `json:"delegation"`
+	VoteDelegation       string `json:"voteDelegation"`
+}
+
 type ITxSubmitter interface {
 	// SubmitTx submits transaction - txSigned should be cbor serialized signed transaction
 	SubmitTx(ctx context.Context, txSigned []byte) error
@@ -139,10 +147,16 @@ type IUTxORetriever interface {
 	GetUtxos(ctx context.Context, addr string) ([]Utxo, error)
 }
 
+type IStakeDataRetriever interface {
+	GetStakePools(ctx context.Context) ([]string, error)
+	GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error)
+}
+
 type ITxProvider interface {
 	ITxSubmitter
 	ITxDataRetriever
 	IUTxORetriever
+	IStakeDataRetriever
 	Dispose()
 }
 

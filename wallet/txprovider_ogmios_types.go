@@ -152,3 +152,83 @@ type ogmiosQueryNetworkBlockHeightResponse struct {
 	Result  uint64      `json:"result"`
 	ID      interface{} `json:"id"`
 }
+
+type ogmiosQueryStakePoolsRequestParams struct {
+	IncludeStake bool `json:"includeStake"`
+}
+
+type ogmiosQueryStakePoolsRequest struct {
+	Jsonrpc string                             `json:"jsonrpc"`
+	Method  string                             `json:"method"`
+	Params  ogmiosQueryStakePoolsRequestParams `json:"params"`
+	ID      interface{}                        `json:"id"`
+}
+
+// OgmiosStakePoolResponse represents the response from Ogmios stake pools query
+type ogmiosQueryStakePoolsResponse struct {
+	Jsonrpc string               `json:"jsonrpc"`
+	Method  string               `json:"method"`
+	Result  map[string]StakePool `json:"result"`
+	ID      interface{}          `json:"id"`
+}
+
+// StakePool represents a single stake pool's data
+type StakePool struct {
+	ID                     string       `json:"id"`
+	VrfVerificationKeyHash string       `json:"vrfVerificationKeyHash"`
+	Owners                 []string     `json:"owners"`
+	Cost                   AdaAmount    `json:"cost"`
+	Margin                 string       `json:"margin"`
+	Pledge                 AdaAmount    `json:"pledge"`
+	RewardAccount          string       `json:"rewardAccount"`
+	Metadata               PoolMetadata `json:"metadata"`
+	Relays                 []PoolRelay  `json:"relays"`
+	Stake                  AdaAmount    `json:"stake"`
+}
+
+// AdaAmount represents an amount in ADA/Lovelace
+type AdaAmount struct {
+	Ada struct {
+		Lovelace uint64 `json:"lovelace"`
+	} `json:"ada"`
+}
+
+// PoolMetadata represents the metadata for a stake pool
+type PoolMetadata struct {
+	Hash string `json:"hash"`
+	URL  string `json:"url"`
+}
+
+// PoolRelay represents a relay server for the stake pool
+type PoolRelay struct {
+	Type string `json:"type"`
+	IPv4 string `json:"ipv4,omitempty"`
+	IPv6 string `json:"ipv6,omitempty"`
+	Port int    `json:"port,omitempty"`
+}
+
+type ogmiosQueryStakeAddressInfoRequestParams struct {
+	Keys []string `json:"keys"`
+}
+
+type ogmiosQueryStakeAddressInfoRequest struct {
+	Jsonrpc string                                   `json:"jsonrpc"`
+	Method  string                                   `json:"method"`
+	Params  ogmiosQueryStakeAddressInfoRequestParams `json:"params"`
+	ID      interface{}                              `json:"id"`
+}
+
+type StakeAddressInfo struct {
+	Delegate struct {
+		ID string `json:"id"`
+	} `json:"delegate"`
+	Rewards AdaAmount `json:"rewards"`
+	Deposit AdaAmount `json:"deposit"`
+}
+
+type ogmiosQueryStakeAddressInfoResponse struct {
+	Jsonrpc string                      `json:"jsonrpc"`
+	Method  string                      `json:"method"`
+	Result  map[string]StakeAddressInfo `json:"result"`
+	ID      interface{}                 `json:"id"`
+}

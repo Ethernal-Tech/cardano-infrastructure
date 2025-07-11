@@ -219,6 +219,17 @@ func (b *TxProviderGoUroBoros) SubmitTx(ctx context.Context, txSigned []byte) er
 	return conn.LocalTxSubmission().Client.SubmitTx(uint16(txType), txSigned) //nolint:gosec
 }
 
+func (b *TxProviderGoUroBoros) GetStakePools(ctx context.Context) ([]string, error) {
+	panic("unimplemented") //nolint:gocritic
+}
+
+func (b *TxProviderGoUroBoros) GetStakeAddressInfo(
+	ctx context.Context,
+	stakeAddress string,
+) (QueryStakeAddressInfo, error) {
+	panic("unimplemented") //nolint:gocritic
+}
+
 func (b *TxProviderGoUroBoros) GetTxByHash(ctx context.Context, hash string) (map[string]interface{}, error) {
 	panic("not implemented") //nolint:gocritic
 }
