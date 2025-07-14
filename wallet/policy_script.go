@@ -24,54 +24,32 @@ type PolicyScript struct {
 }
 
 type policyConfig struct {
-	KeyHashes    []string
-	BeforeScript *PolicyScript
-	AfterScript  *PolicyScript
-}
-
-func (c *policyConfig) getScriptsCount() int {
-	count := len(c.KeyHashes)
-
-	if c.AfterScript != nil {
-		count++
-	}
-
-	if c.BeforeScript != nil {
-		count++
-	}
-
-	return count
+	BeforeOrAfterScript *PolicyScript
 }
 
 type PolicyScriptOption func(*policyConfig)
 
 func NewPolicyScript(keyHashes []string, atLeastSignersCount int, options ...PolicyScriptOption) *PolicyScript {
-	config := &policyConfig{
-		KeyHashes: keyHashes,
-	}
+	config := policyConfig{}
 
 	for _, opt := range options {
-		opt(config)
+		opt(&config)
 	}
 
-	// Build scripts dynamically using append
-	scripts := make([]PolicyScript, 0, config.getScriptsCount())
+	// Build scripts dynamically using append - +1 pesimistic because of optional BeforeOrAfterScript
+	scripts := make([]PolicyScript, 0, len(keyHashes)+1)
+
+	// Add time constraint scripts
+	if config.BeforeOrAfterScript != nil {
+		scripts = append(scripts, *config.BeforeOrAfterScript)
+	}
 
 	// Add signature scripts
-	for _, keyHash := range config.KeyHashes {
+	for _, keyHash := range keyHashes {
 		scripts = append(scripts, PolicyScript{
 			Type:    PolicyScriptSigType,
 			KeyHash: keyHash,
 		})
-	}
-
-	// Add time constraint scripts
-	if config.AfterScript != nil {
-		scripts = append(scripts, *config.AfterScript)
-	}
-
-	if config.BeforeScript != nil {
-		scripts = append(scripts, *config.BeforeScript)
 	}
 
 	// Sort scripts by key hash for consistency
@@ -83,26 +61,6 @@ func NewPolicyScript(keyHashes []string, atLeastSignersCount int, options ...Pol
 		Type:     PolicyScriptAtLeastType,
 		Required: atLeastSignersCount,
 		Scripts:  scripts,
-	}
-}
-
-// WithAfter sets the "after" slot condition for the policy script
-func WithAfter(slot uint64) PolicyScriptOption {
-	return func(pc *policyConfig) {
-		pc.AfterScript = &PolicyScript{
-			Type: PolicyScriptAfterType,
-			Slot: slot,
-		}
-	}
-}
-
-// WithBefore sets the "before" slot condition for the policy script
-func WithBefore(slot uint64) PolicyScriptOption {
-	return func(pc *policyConfig) {
-		pc.BeforeScript = &PolicyScript{
-			Type: PolicyScriptBeforeType,
-			Slot: slot,
-		}
 	}
 }
 
@@ -193,4 +151,24 @@ func NewPolicyScriptRewardAddress(
 			IsScript: true,
 		},
 	}.ToCardanoAddress()
+}
+
+// WithAfter sets the "after" slot condition for the policy script
+func WithAfter(slot uint64) PolicyScriptOption {
+	return func(pc *policyConfig) {
+		pc.BeforeOrAfterScript = &PolicyScript{
+			Type: PolicyScriptAfterType,
+			Slot: slot,
+		}
+	}
+}
+
+// WithBefore sets the "before" slot condition for the policy script
+func WithBefore(slot uint64) PolicyScriptOption {
+	return func(pc *policyConfig) {
+		pc.BeforeOrAfterScript = &PolicyScript{
+			Type: PolicyScriptBeforeType,
+			Slot: slot,
+		}
+	}
 }
