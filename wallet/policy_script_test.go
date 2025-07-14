@@ -27,9 +27,9 @@ func TestPolicyScript(t *testing.T) {
 
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
 
-	ps := NewPolicyScript(keyHashes[:4], 4, 0)
-	psStake := NewPolicyScript(keyHashes[4:], 1, 0)
-	psDifferentOrder := NewPolicyScript(append([]string{}, keyHashes[1], keyHashes[0], keyHashes[3], keyHashes[2]), 4, 0)
+	ps := NewPolicyScript(keyHashes[:4], 4)
+	psStake := NewPolicyScript(keyHashes[4:], 1)
+	psDifferentOrder := NewPolicyScript(append([]string{}, keyHashes[1], keyHashes[0], keyHashes[3], keyHashes[2]), 4)
 
 	policyID, err := cliUtils.GetPolicyID(ps)
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestPolicyScript_SpecificKeysAllPermutations(t *testing.T) {
 			hashes[i] = h
 		}
 
-		ps := NewPolicyScript(hashes, (len(hashes)*2+2)/3, 0)
+		ps := NewPolicyScript(hashes, (len(hashes)*2+2)/3)
 
 		policyID, err := cliUtils.GetPolicyID(ps)
 		require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestPolicyScript_SpecificKeysAllPermutations(t *testing.T) {
 func TestPolicyScript_GetCount(t *testing.T) {
 	hashes := []string{"123", "245", "459", "129"}
 	adminHash := "888"
-	ps := NewPolicyScript(hashes, len(hashes)*2/3+1, 0)
+	ps := NewPolicyScript(hashes, len(hashes)*2/3+1)
 
 	assert.Equal(t, 4, (&PolicyScript{
 		Type: "any",
@@ -178,7 +178,7 @@ func TestGetPolicyScriptRewardAddress(t *testing.T) {
 
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
 
-	ps := NewPolicyScript(keyHashes[:4], 4, 0)
+	ps := NewPolicyScript(keyHashes[:4], 4)
 
 	cliAddr, err := cliUtils.GetPolicyScriptRewardAddress(MainNetProtocolMagic, ps)
 	require.NoError(t, err)
@@ -213,14 +213,14 @@ func TestDifferentSlots(t *testing.T) {
 
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
 
-	ps0 := NewPolicyScript(paymentKeyHashes[:], 3, 0)
-	psStake0 := NewPolicyScript(stakeKeyHashes[:], 3, 0)
+	ps0 := NewPolicyScript(paymentKeyHashes[:], 3)
+	psStake0 := NewPolicyScript(stakeKeyHashes[:], 3)
 
-	ps1 := NewPolicyScript(paymentKeyHashes[:], 3, 1)
-	psStake1 := NewPolicyScript(stakeKeyHashes[:], 3, 1)
+	ps1 := NewPolicyScript(paymentKeyHashes[:], 3, WithAfter(1))
+	psStake1 := NewPolicyScript(stakeKeyHashes[:], 3, WithAfter(1))
 
-	ps2 := NewPolicyScript(paymentKeyHashes[:], 3, 2)
-	psStake2 := NewPolicyScript(stakeKeyHashes[:], 3, 2)
+	ps2 := NewPolicyScript(paymentKeyHashes[:], 3, WithAfter(2))
+	psStake2 := NewPolicyScript(stakeKeyHashes[:], 3, WithAfter(2))
 
 	ps0Bytes, err := ps0.GetBytesJSON()
 	require.NoError(t, err)

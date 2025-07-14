@@ -58,7 +58,7 @@ func TestRegistrationCertificate(t *testing.T) {
 		"9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7db",
 	}
 
-	policyScript := NewPolicyScript(keyHashes, 3, 0)
+	policyScript := NewPolicyScript(keyHashes, 3)
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
 	policyID, err := cliUtils.GetPolicyID(policyScript)
 	require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestDelegationCertificate(t *testing.T) {
 	}
 	poolID := "pool1ttxrlraudm8msm88x4pjz75xqwrug2qmkw2tfgfr7ddjgqfa43q"
 
-	policyScript := NewPolicyScript(keyHashes, 3, 0)
+	policyScript := NewPolicyScript(keyHashes, 3)
 	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
 	policyID, err := cliUtils.GetPolicyID(policyScript)
 	require.NoError(t, err)

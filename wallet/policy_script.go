@@ -22,13 +22,24 @@ type PolicyScript struct {
 	Slot    uint64 `json:"slot,omitempty"`
 }
 
-func NewPolicyScript(keyHashes []string, atLeastSignersCount int, after uint64) *PolicyScript {
+type PolicyScriptOption func(*PolicyScript)
+
+func NewPolicyScript(keyHashes []string, atLeastSignersCount int, options ...PolicyScriptOption) *PolicyScript {
+	ps := &PolicyScript{
+		Type:     PolicyScriptAtLeastType,
+		Required: atLeastSignersCount,
+	}
+
+	for _, opt := range options {
+		opt(ps)
+	}
+
 	scripts := make([]PolicyScript, len(keyHashes))
-	if after != 0 {
+	if ps.Slot != 0 {
 		scripts = make([]PolicyScript, len(keyHashes)+1)
 		scripts[len(keyHashes)] = PolicyScript{
 			Type: PolicyScriptAfterType,
-			Slot: after,
+			Slot: ps.Slot,
 		}
 	}
 
@@ -43,10 +54,15 @@ func NewPolicyScript(keyHashes []string, atLeastSignersCount int, after uint64) 
 		return scripts[i].KeyHash < scripts[j].KeyHash
 	})
 
-	return &PolicyScript{
-		Type:     PolicyScriptAtLeastType,
-		Required: atLeastSignersCount,
-		Scripts:  scripts,
+	ps.Scripts = scripts
+
+	return ps
+}
+
+// WithAfter sets the "after" slot condition for the policy script
+func WithAfter(slot uint64) PolicyScriptOption {
+	return func(ps *PolicyScript) {
+		ps.Slot = slot
 	}
 }
 
