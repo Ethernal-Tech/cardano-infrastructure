@@ -95,6 +95,10 @@ type StakeSigner struct {
 
 var _ ITxSigner = (*StakeSigner)(nil)
 
+func NewStakeSigner(wallet *Wallet) *StakeSigner {
+	return &StakeSigner{Wallet: wallet}
+}
+
 func (s StakeSigner) CreateTxWitness(txHash []byte) ([]byte, error) {
 	signature, err := SignMessage(s.StakeSigningKey, s.StakeVerificationKey, txHash)
 	if err != nil {
