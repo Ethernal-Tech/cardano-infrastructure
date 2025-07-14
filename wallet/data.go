@@ -13,8 +13,10 @@ const (
 )
 
 type Token struct {
+	// Hexadecimal hash of the monetary policy script
 	PolicyID string `json:"pid"`
-	Name     string `json:"nam"` // name must plain name and not be hex encoded
+	// Human-readable name of the token
+	Name string `json:"nam"`
 }
 
 func NewToken(policyID string, name string) Token {
@@ -68,6 +70,7 @@ func (tt Token) String() string {
 
 type TokenAmount struct {
 	Token
+	// Quantity of the token
 	Amount uint64 `json:"val"`
 }
 
