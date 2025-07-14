@@ -24,7 +24,7 @@ type PolicyScript struct {
 }
 
 type policyConfig struct {
-	BeforeOrAfterScript *PolicyScript
+	AddtionalScript *PolicyScript
 }
 
 type PolicyScriptOption func(*policyConfig)
@@ -40,8 +40,8 @@ func NewPolicyScript(keyHashes []string, atLeastSignersCount int, options ...Pol
 	scripts := make([]PolicyScript, 0, len(keyHashes)+1)
 
 	// Add time constraint scripts
-	if config.BeforeOrAfterScript != nil {
-		scripts = append(scripts, *config.BeforeOrAfterScript)
+	if config.AddtionalScript != nil {
+		scripts = append(scripts, *config.AddtionalScript)
 	}
 
 	// Add signature scripts
@@ -156,7 +156,11 @@ func NewPolicyScriptRewardAddress(
 // WithAfter sets the "after" slot condition for the policy script
 func WithAfter(slot uint64) PolicyScriptOption {
 	return func(pc *policyConfig) {
-		pc.BeforeOrAfterScript = &PolicyScript{
+		if slot == 0 {
+			return
+		}
+
+		pc.AddtionalScript = &PolicyScript{
 			Type: PolicyScriptAfterType,
 			Slot: slot,
 		}
@@ -166,7 +170,11 @@ func WithAfter(slot uint64) PolicyScriptOption {
 // WithBefore sets the "before" slot condition for the policy script
 func WithBefore(slot uint64) PolicyScriptOption {
 	return func(pc *policyConfig) {
-		pc.BeforeOrAfterScript = &PolicyScript{
+		if slot == 0 {
+			return
+		}
+
+		pc.AddtionalScript = &PolicyScript{
 			Type: PolicyScriptBeforeType,
 			Slot: slot,
 		}
