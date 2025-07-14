@@ -9,6 +9,8 @@ import (
 const (
 	PolicyScriptAtLeastType = "atLeast"
 	PolicyScriptSigType     = "sig"
+	PolicyScriptAfterType   = "after"
+	PolicyScriptBeforeType  = "before"
 )
 
 type PolicyScript struct {
@@ -21,15 +23,36 @@ type PolicyScript struct {
 	Slot    uint64 `json:"slot,omitempty"`
 }
 
-func NewPolicyScript(keyHashes []string, atLeastSignersCount int) *PolicyScript {
-	scripts := make([]PolicyScript, len(keyHashes))
-	for i, keyHash := range keyHashes {
-		scripts[i] = PolicyScript{
-			Type:    PolicyScriptSigType,
-			KeyHash: keyHash,
-		}
+type policyConfig struct {
+	BeforeOrAfterScript *PolicyScript
+}
+
+type PolicyScriptOption func(*policyConfig)
+
+func NewPolicyScript(keyHashes []string, atLeastSignersCount int, options ...PolicyScriptOption) *PolicyScript {
+	config := policyConfig{}
+
+	for _, opt := range options {
+		opt(&config)
 	}
 
+	// Build scripts dynamically using append - +1 pesimistic because of optional BeforeOrAfterScript
+	scripts := make([]PolicyScript, 0, len(keyHashes)+1)
+
+	// Add time constraint scripts
+	if config.BeforeOrAfterScript != nil {
+		scripts = append(scripts, *config.BeforeOrAfterScript)
+	}
+
+	// Add signature scripts
+	for _, keyHash := range keyHashes {
+		scripts = append(scripts, PolicyScript{
+			Type:    PolicyScriptSigType,
+			KeyHash: keyHash,
+		})
+	}
+
+	// Sort scripts by key hash for consistency
 	sort.Slice(scripts, func(i, j int) bool {
 		return scripts[i].KeyHash < scripts[j].KeyHash
 	})
@@ -128,4 +151,24 @@ func NewPolicyScriptRewardAddress(
 			IsScript: true,
 		},
 	}.ToCardanoAddress()
+}
+
+// WithAfter sets the "after" slot condition for the policy script
+func WithAfter(slot uint64) PolicyScriptOption {
+	return func(pc *policyConfig) {
+		pc.BeforeOrAfterScript = &PolicyScript{
+			Type: PolicyScriptAfterType,
+			Slot: slot,
+		}
+	}
+}
+
+// WithBefore sets the "before" slot condition for the policy script
+func WithBefore(slot uint64) PolicyScriptOption {
+	return func(pc *policyConfig) {
+		pc.BeforeOrAfterScript = &PolicyScript{
+			Type: PolicyScriptBeforeType,
+			Slot: slot,
+		}
+	}
 }

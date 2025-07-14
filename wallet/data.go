@@ -145,7 +145,7 @@ type ITxProvider interface {
 
 type ITxSigner interface {
 	CreateTxWitness(txHash []byte) ([]byte, error)
-	GetPaymentKeys() ([]byte, []byte)
+	GetSigningKeys() ([]byte, []byte)
 }
 
 type ISerializable interface {

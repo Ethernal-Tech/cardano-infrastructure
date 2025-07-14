@@ -85,8 +85,31 @@ func (w Wallet) CreateTxWitness(txHash []byte) ([]byte, error) {
 	return cbor.Marshal([][]byte{w.VerificationKey, signature})
 }
 
-func (w Wallet) GetPaymentKeys() ([]byte, []byte) {
+func (w Wallet) GetSigningKeys() ([]byte, []byte) {
 	return w.SigningKey, w.VerificationKey
+}
+
+type StakeSigner struct {
+	*Wallet
+}
+
+var _ ITxSigner = (*StakeSigner)(nil)
+
+func NewStakeSigner(wallet *Wallet) *StakeSigner {
+	return &StakeSigner{Wallet: wallet}
+}
+
+func (s StakeSigner) CreateTxWitness(txHash []byte) ([]byte, error) {
+	signature, err := SignMessage(s.StakeSigningKey, s.StakeVerificationKey, txHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return cbor.Marshal([][]byte{s.StakeVerificationKey, signature})
+}
+
+func (s StakeSigner) GetPaymentKeys() ([]byte, []byte) {
+	return s.StakeSigningKey, s.StakeVerificationKey
 }
 
 type Key struct {

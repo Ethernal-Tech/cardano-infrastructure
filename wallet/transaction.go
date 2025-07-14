@@ -406,7 +406,7 @@ func (b *TxBuilder) CreateTxWitness(txRaw []byte, wallet ITxSigner) ([]byte, err
 	outFilePath := filepath.Join(b.baseDirectory, "tx.wit")
 	txFilePath := filepath.Join(b.baseDirectory, "tx.raw")
 	signingKeyPath := filepath.Join(b.baseDirectory, "tx.skey")
-	signingKey, _ := wallet.GetPaymentKeys()
+	signingKey, _ := wallet.GetSigningKeys()
 
 	txBytes, err := transactionUnwitnessedRaw(txRaw).ToJSON()
 	if err != nil {
