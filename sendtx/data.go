@@ -19,8 +19,10 @@ const (
 )
 
 type TokenExchangeConfig struct {
+	// Destination chain ID
 	DstChainID string `json:"dstChainID"`
-	TokenName  string `json:"tokenName"`
+	// Token identifier in the format "policyId.name"
+	TokenName string `json:"tokenName"`
 }
 
 type ChainConfig struct {
