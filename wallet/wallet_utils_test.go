@@ -195,3 +195,22 @@ func TestGetKeyBytes(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, k, KeyExtendedSize)
 }
+
+func TestGetSigningKeys(t *testing.T) {
+	w := &Wallet{
+		VerificationKey:      []byte{1},
+		SigningKey:           []byte{2},
+		StakeVerificationKey: []byte{3},
+		StakeSigningKey:      []byte{4},
+	}
+
+	s, v := w.GetSigningKeys()
+
+	require.Equal(t, s, w.SigningKey)
+	require.Equal(t, v, w.VerificationKey)
+
+	s, v = NewStakeSigner(w).GetSigningKeys()
+
+	require.Equal(t, s, w.StakeSigningKey)
+	require.Equal(t, v, w.StakeVerificationKey)
+}

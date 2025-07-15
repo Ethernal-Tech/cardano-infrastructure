@@ -108,7 +108,7 @@ func (s StakeSigner) CreateTxWitness(txHash []byte) ([]byte, error) {
 	return cbor.Marshal([][]byte{s.StakeVerificationKey, signature})
 }
 
-func (s StakeSigner) GetPaymentKeys() ([]byte, []byte) {
+func (s StakeSigner) GetSigningKeys() ([]byte, []byte) {
 	return s.StakeSigningKey, s.StakeVerificationKey
 }
 
