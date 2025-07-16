@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -256,11 +257,8 @@ func (o *TxProviderOgmios) GetStakeAddressInfo(
 	}
 
 	resp := QueryStakeAddressInfo{
-		Address:              stakeAddress,
-		DelegationDeposit:    0,
-		RewardAccountBalance: 0,
-		StakeDelegation:      "",
-		VoteDelegation:       "",
+		Address:        stakeAddress,
+		VoteDelegation: "", // not available
 	}
 
 	for _, val := range responseData.Result {
@@ -308,9 +306,16 @@ func executeHTTPOgmios[T any](
 		return result, getErrorFromResponseOgmios(resp)
 	}
 
-	err = json.NewDecoder(resp.Body).Decode(&result)
+	bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return result, err
+	}
 
-	return result, err
+	if err := json.Unmarshal(bytes, &result); err != nil {
+		return result, err
+	}
+
+	return result, nil
 }
 
 func getErrorFromResponseOgmios(resp *http.Response) error {

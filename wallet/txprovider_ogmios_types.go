@@ -218,7 +218,7 @@ type ogmiosQueryStakeAddressInfoRequest struct {
 	ID      interface{}                              `json:"id"`
 }
 
-type StakeAddressInfo struct {
+type ogmiosStakeAddressInfo struct {
 	Delegate struct {
 		ID string `json:"id"`
 	} `json:"delegate"`
@@ -227,8 +227,8 @@ type StakeAddressInfo struct {
 }
 
 type ogmiosQueryStakeAddressInfoResponse struct {
-	Jsonrpc string                      `json:"jsonrpc"`
-	Method  string                      `json:"method"`
-	Result  map[string]StakeAddressInfo `json:"result"`
-	ID      interface{}                 `json:"id"`
+	Jsonrpc string                            `json:"jsonrpc"`
+	Method  string                            `json:"method"`
+	Result  map[string]ogmiosStakeAddressInfo `json:"result"`
+	ID      interface{}                       `json:"id"`
 }
