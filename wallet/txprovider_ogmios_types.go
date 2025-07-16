@@ -166,41 +166,41 @@ type ogmiosQueryStakePoolsRequest struct {
 
 // OgmiosStakePoolResponse represents the response from Ogmios stake pools query
 type ogmiosQueryStakePoolsResponse struct {
-	Jsonrpc string               `json:"jsonrpc"`
-	Method  string               `json:"method"`
-	Result  map[string]StakePool `json:"result"`
-	ID      interface{}          `json:"id"`
+	Jsonrpc string                     `json:"jsonrpc"`
+	Method  string                     `json:"method"`
+	Result  map[string]ogmiosStakePool `json:"result"`
+	ID      interface{}                `json:"id"`
 }
 
-// StakePool represents a single stake pool's data
-type StakePool struct {
-	ID                     string       `json:"id"`
-	VrfVerificationKeyHash string       `json:"vrfVerificationKeyHash"`
-	Owners                 []string     `json:"owners"`
-	Cost                   AdaAmount    `json:"cost"`
-	Margin                 string       `json:"margin"`
-	Pledge                 AdaAmount    `json:"pledge"`
-	RewardAccount          string       `json:"rewardAccount"`
-	Metadata               PoolMetadata `json:"metadata"`
-	Relays                 []PoolRelay  `json:"relays"`
-	Stake                  AdaAmount    `json:"stake"`
+// ogmiosStakePool represents a single stake pool's data
+type ogmiosStakePool struct {
+	ID                     string             `json:"id"`
+	VrfVerificationKeyHash string             `json:"vrfVerificationKeyHash"`
+	Owners                 []string           `json:"owners"`
+	Cost                   ogmiosAdaAmount    `json:"cost"`
+	Margin                 string             `json:"margin"`
+	Pledge                 ogmiosAdaAmount    `json:"pledge"`
+	RewardAccount          string             `json:"rewardAccount"`
+	Metadata               ogmiosPoolMetadata `json:"metadata"`
+	Relays                 []ogmiosPoolRelay  `json:"relays"`
+	Stake                  ogmiosAdaAmount    `json:"stake"`
 }
 
-// AdaAmount represents an amount in ADA/Lovelace
-type AdaAmount struct {
+// ogmiosAdaAmount represents an amount in ADA/Lovelace
+type ogmiosAdaAmount struct {
 	Ada struct {
 		Lovelace uint64 `json:"lovelace"`
 	} `json:"ada"`
 }
 
-// PoolMetadata represents the metadata for a stake pool
-type PoolMetadata struct {
+// ogmiosPoolMetadata represents the metadata for a stake pool
+type ogmiosPoolMetadata struct {
 	Hash string `json:"hash"`
 	URL  string `json:"url"`
 }
 
-// PoolRelay represents a relay server for the stake pool
-type PoolRelay struct {
+// ogmiosPoolRelay represents a relay server for the stake pool
+type ogmiosPoolRelay struct {
 	Type string `json:"type"`
 	IPv4 string `json:"ipv4,omitempty"`
 	IPv6 string `json:"ipv6,omitempty"`
@@ -222,8 +222,8 @@ type StakeAddressInfo struct {
 	Delegate struct {
 		ID string `json:"id"`
 	} `json:"delegate"`
-	Rewards AdaAmount `json:"rewards"`
-	Deposit AdaAmount `json:"deposit"`
+	Rewards ogmiosAdaAmount `json:"rewards"`
+	Deposit ogmiosAdaAmount `json:"deposit"`
 }
 
 type ogmiosQueryStakeAddressInfoResponse struct {
