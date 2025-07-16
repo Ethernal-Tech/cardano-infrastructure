@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -205,6 +206,70 @@ func (o *TxProviderOgmios) SubmitTx(ctx context.Context, txSigned []byte) error 
 	return nil
 }
 
+// Returns a list of existing stake pool IDs on the chain
+func (o *TxProviderOgmios) GetStakePools(ctx context.Context) ([]string, error) {
+	responseData, err := executeHTTPOgmios[ogmiosQueryStakePoolsResponse](
+		ctx, o.url, ogmiosQueryStakePoolsRequest{
+			Jsonrpc: ogmiosJSONRPCVersion,
+			Method:  "queryLedgerState/stakePools",
+			Params: ogmiosQueryStakePoolsRequestParams{
+				IncludeStake: false,
+			},
+			ID: nil,
+		}, true,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	pools := make([]string, 0, len(responseData.Result))
+	for _, pool := range responseData.Result {
+		pools = append(pools, pool.ID)
+	}
+
+	return pools, nil
+}
+
+func (o *TxProviderOgmios) GetStakeAddressInfo(
+	ctx context.Context,
+	stakeAddress string,
+) (QueryStakeAddressInfo, error) {
+	responseData, err := executeHTTPOgmios[ogmiosQueryStakeAddressInfoResponse](
+		ctx, o.url, ogmiosQueryStakeAddressInfoRequest{
+			Jsonrpc: ogmiosJSONRPCVersion,
+			Method:  "queryLedgerState/rewardAccountSummaries",
+			Params: ogmiosQueryStakeAddressInfoRequestParams{
+				Keys: []string{stakeAddress},
+			},
+			ID: nil,
+		}, true,
+	)
+	if err != nil {
+		return QueryStakeAddressInfo{}, err
+	}
+
+	if len(responseData.Result) == 0 {
+		return QueryStakeAddressInfo{}, fmt.Errorf("stake address is not registered yet")
+	}
+
+	if len(responseData.Result) != 1 {
+		return QueryStakeAddressInfo{}, fmt.Errorf("unexpected multiple responses found: %v", responseData.Result)
+	}
+
+	resp := QueryStakeAddressInfo{
+		Address:        stakeAddress,
+		VoteDelegation: "", // not available
+	}
+
+	for _, val := range responseData.Result {
+		resp.DelegationDeposit = val.Deposit.Ada.Lovelace
+		resp.RewardAccountBalance = val.Rewards.Ada.Lovelace
+		resp.StakeDelegation = val.Delegate.ID
+	}
+
+	return resp, err
+}
+
 func (o *TxProviderOgmios) GetTxByHash(ctx context.Context, hash string) (map[string]interface{}, error) {
 	panic("not implemented") //nolint:gocritic
 }
@@ -241,9 +306,16 @@ func executeHTTPOgmios[T any](
 		return result, getErrorFromResponseOgmios(resp)
 	}
 
-	err = json.NewDecoder(resp.Body).Decode(&result)
+	bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return result, err
+	}
 
-	return result, err
+	if err := json.Unmarshal(bytes, &result); err != nil {
+		return result, err
+	}
+
+	return result, nil
 }
 
 func getErrorFromResponseOgmios(resp *http.Response) error {

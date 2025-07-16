@@ -193,6 +193,92 @@ func (b *TxProviderBlockFrost) SubmitTx(ctx context.Context, txSigned []byte) er
 	return blockfrostSubmitTx(ctx, b.url+"/tx/submit", b.authHeaderKey, b.projectID, txSigned)
 }
 
+func (b *TxProviderBlockFrost) GetStakeAddressInfo(
+	ctx context.Context,
+	stakeAddress string,
+) (QueryStakeAddressInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, b.url+"/accounts/"+stakeAddress, nil)
+	if err != nil {
+		return QueryStakeAddressInfo{}, fmt.Errorf("creating request: %w", err)
+	}
+	// Set the Content-Type header to application/json
+	req.Header.Set("Content-Type", "application/cbor")
+	req.Header.Set(b.authHeaderKey, b.projectID)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return QueryStakeAddressInfo{}, fmt.Errorf("performing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var bfResponse map[string]interface{}
+	if err = json.NewDecoder(resp.Body).Decode(&bfResponse); err != nil {
+		return QueryStakeAddressInfo{}, err
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
+		return QueryStakeAddressInfo{}, fmt.Errorf("stake address is not registered yet")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return QueryStakeAddressInfo{}, fmt.Errorf("unexpected response: %d - %s", resp.StatusCode, bfResponse)
+	}
+
+	//nolint:forcetypeassert
+	rewardString := bfResponse["withdrawable_amount"].(string)
+
+	rewards, err := strconv.ParseUint(rewardString, 10, 64)
+	if err != nil {
+		return QueryStakeAddressInfo{}, fmt.Errorf("failed to convert reward amount: %s", rewardString)
+	}
+
+	//nolint:forcetypeassert
+	return QueryStakeAddressInfo{
+		Address:              bfResponse["stake_address"].(string),
+		DelegationDeposit:    0, // not available
+		RewardAccountBalance: rewards,
+		StakeDelegation:      bfResponse["pool_id"].(string),
+		VoteDelegation:       "", // not available via Blockfrost
+	}, nil
+}
+
+// Returns a list of existing stake pool IDs on the chain
+func (b *TxProviderBlockFrost) GetStakePools(ctx context.Context) ([]string, error) {
+	reqURL := fmt.Sprintf("%s/pools", b.url)
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	// Add Blockfrost API key
+	req.Header.Set("Content-Type", "application/cbor")
+	req.Header.Set(b.authHeaderKey, b.projectID)
+
+	// Perform the request
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("performing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response code
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+
+		return nil, fmt.Errorf("blockfrost error: %s", string(body))
+	}
+
+	// Decode response
+	var poolIDs []string
+	if err := json.NewDecoder(resp.Body).Decode(&poolIDs); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+
+	return poolIDs, nil
+}
+
 func blockfrostSubmitTx(ctx context.Context, endpointURL, authHeader, authKey string, txSigned []byte) error {
 	// Create a request with the JSON payload
 	req, err := http.NewRequestWithContext(ctx, "POST", endpointURL, bytes.NewBuffer(txSigned))
