@@ -39,7 +39,7 @@ func Test_TransactionBuilder(t *testing.T) {
 
 	policyScriptMultiSig := NewPolicyScript(walletsKeyHashes, len(walletsKeyHashes)*2/3+1)
 	policyScriptFeeMultiSig := NewPolicyScript(walletsFeeKeyHashes, len(walletsFeeKeyHashes)*2/3+1)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	multisigPolicyID, err := cliUtils.GetPolicyID(policyScriptMultiSig)
 	require.NoError(t, err)
@@ -83,7 +83,7 @@ func Test_TransactionBuilder(t *testing.T) {
 	}
 	outputsSum := GetOutputsSum(outputs)
 
-	builder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	builder, err := NewTxBuilder(ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -166,7 +166,7 @@ func Test_TransactionBuilderWithRegistrationCertificate(t *testing.T) {
 
 	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
 	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
 	require.NoError(t, err)
@@ -189,7 +189,7 @@ func Test_TransactionBuilderWithRegistrationCertificate(t *testing.T) {
 	require.Equal(t, "Stake Address Registration Certificate", registrationCertificate.Description)
 	require.Equal(t, "82008201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f", registrationCertificate.CborHex)
 
-	builder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	builder, err := NewTxBuilder(ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -247,7 +247,7 @@ func Test_TransactionBuilderWithDelegationCertificate(t *testing.T) {
 
 	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
 	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func Test_TransactionBuilderWithDelegationCertificate(t *testing.T) {
 	require.Equal(t, "Stake Delegation Certificate", delegationCertificate.Description)
 	require.Equal(t, "83028201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f581c5acc3f8fbc6ecfb86ce73543217a860387c4281bb394b4a123f35b24", delegationCertificate.CborHex)
 
-	builder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	builder, err := NewTxBuilder(ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -328,7 +328,7 @@ func Test_TransactionBuilderWithRegAndDelegCertificates(t *testing.T) {
 
 	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
 	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
 	require.NoError(t, err)
@@ -359,7 +359,7 @@ func Test_TransactionBuilderWithRegAndDelegCertificates(t *testing.T) {
 	require.Equal(t, "83028201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f581c09ec0ea0c2a57205f31e5fced2964c2658bac5a3cc8dfc0e259c54cb", delegationCertificate.CborHex)
 	certs := []ICertificate{registrationCertificate, delegationCertificate}
 
-	builder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	builder, err := NewTxBuilder(ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -416,7 +416,7 @@ func Test_TransactionBuilderWithWithdraw(t *testing.T) {
 
 	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
 	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
 	require.NoError(t, err)
@@ -432,7 +432,7 @@ func Test_TransactionBuilderWithWithdraw(t *testing.T) {
 	require.Equal(t, "addr_test1xqdt3kene0l87agrdcsn7jzspfrj83h5svgmaw8rnzzva644n47f76yle0p2r8dzdz0elefvtaju8v79ddahutcg790s37mp24", multiSigAddr.String())
 	require.Equal(t, "stake_test17z6e6lyldz0uhs4pnk3x38ulu5k97ewrk0zkk7m79uy0zhcp9x067", multiSigRewardAddr.String())
 
-	builder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	builder, err := NewTxBuilder(ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -477,7 +477,7 @@ func Test_TransactionBuilderWithWithdraw(t *testing.T) {
 func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
 	t.Parallel()
 
-	builder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	builder, err := NewTxBuilder(ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -533,7 +533,7 @@ func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
 func Test_TxBuilder_CheckOutputs(t *testing.T) {
 	t.Parallel()
 
-	b, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	b, err := NewTxBuilder(ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer b.Dispose()
@@ -577,7 +577,7 @@ func TestCreateTxWitnessAndAssembleTxWitnesses(t *testing.T) {
 
 	wallet := NewWallet(skeyBytes, nil)
 
-	txBuilder, err := NewTxBuilder(ResolveCardanoCliBinary(TestNetNetwork))
+	txBuilder, err := NewTxBuilder(ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer txBuilder.Dispose()
@@ -587,7 +587,7 @@ func TestCreateTxWitnessAndAssembleTxWitnesses(t *testing.T) {
 
 	require.Equal(t, witnessData, hex.EncodeToString(txWitnessBytes))
 
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	txHash, err := cliUtils.GetTxHash(txRawBytes)
 	require.NoError(t, err)
@@ -624,7 +624,7 @@ func TestCalculateMinUtxo(t *testing.T) {
 		},
 	}
 
-	txBuilder, err := NewTxBuilder(ResolveCardanoCliBinary(MainNetNetwork))
+	txBuilder, err := NewTxBuilder(ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer txBuilder.Dispose()

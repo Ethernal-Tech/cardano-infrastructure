@@ -21,13 +21,9 @@ const (
 
 func (n CardanoNetworkType) GetPrefix() string {
 	switch n {
-	case VectorTestNetNetwork:
-		return "vector_test"
-	case VectorMainNetNetwork:
-		return "vector"
-	case MainNetNetwork:
+	case MainNetNetwork, VectorMainNetNetwork:
 		return "addr"
-	case TestNetNetwork:
+	case TestNetNetwork, VectorTestNetNetwork:
 		return "addr_test"
 	default:
 		return "" // not handled but dont raise an error
@@ -51,6 +47,5 @@ func (n CardanoNetworkType) IsMainNet() bool {
 
 func IsAddressWithValidPrefix(addr string) bool {
 	return strings.HasPrefix(addr, "addr") ||
-		strings.HasPrefix(addr, "vector") ||
 		strings.HasPrefix(addr, "stake")
 }
