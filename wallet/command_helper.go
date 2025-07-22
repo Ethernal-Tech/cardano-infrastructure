@@ -22,7 +22,7 @@ func (rce runCommandError) Error() string {
 	return rce.base.Error()
 }
 
-func ResolveCardanoCliBinary() string {
+func ResolveCardanoCliBinary(_ CardanoNetworkType) string {
 	env, name := "CARDANO_CLI_BINARY", "cardano-cli"
 
 	if bin := os.Getenv(env); bin != "" {

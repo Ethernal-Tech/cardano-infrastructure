@@ -25,7 +25,7 @@ func TestPolicyScript(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
 
 	ps := NewPolicyScript(keyHashes[:4], 4)
 	psStake := NewPolicyScript(keyHashes[4:], 1)
@@ -103,7 +103,7 @@ func TestPolicyScript_SpecificKeysAllPermutations(t *testing.T) {
 	}
 
 	permute(len(allPublicKeys), []int{}, make([]bool, len(allPublicKeys)), func(keys []string) {
-		cliUtils := NewCliUtils(ResolveCardanoCliBinary())
+		cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
 		hashes := make([]string, len(keys))
 
 		for i, k := range keys {
@@ -176,7 +176,7 @@ func TestGetPolicyScriptRewardAddress(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
 
 	ps := NewPolicyScript(keyHashes[:4], 4)
 

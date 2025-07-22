@@ -32,7 +32,7 @@ func TestIsValidCardanoAddress(t *testing.T) {
 		true,
 	}
 
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
 
 	for i, addr := range addresses {
 		ai, err := cliUtils.GetAddressInfo(addr)
@@ -59,7 +59,7 @@ func TestRegistrationCertificate(t *testing.T) {
 	}
 
 	policyScript := NewPolicyScript(keyHashes, 3)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
 	policyID, err := cliUtils.GetPolicyID(policyScript)
 	require.NoError(t, err)
 
@@ -84,7 +84,7 @@ func TestDelegationCertificate(t *testing.T) {
 	poolID := "pool1ttxrlraudm8msm88x4pjz75xqwrug2qmkw2tfgfr7ddjgqfa43q"
 
 	policyScript := NewPolicyScript(keyHashes, 3)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary(MainNetNetwork))
 	policyID, err := cliUtils.GetPolicyID(policyScript)
 	require.NoError(t, err)
 
