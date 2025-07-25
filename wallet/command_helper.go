@@ -22,17 +22,8 @@ func (rce runCommandError) Error() string {
 	return rce.base.Error()
 }
 
-func ResolveCardanoCliBinary(networkID CardanoNetworkType) string {
-	var env, name string
-
-	switch networkID {
-	case VectorMainNetNetwork, VectorTestNetNetwork:
-		env = "CARDANO_CLI_BINARY_VECTOR"
-		name = "vector-cli"
-	default:
-		env = "CARDANO_CLI_BINARY"
-		name = "cardano-cli"
-	}
+func ResolveCardanoCliBinary(_ CardanoNetworkType) string {
+	env, name := "CARDANO_CLI_BINARY", "cardano-cli"
 
 	if bin := os.Getenv(env); bin != "" {
 		return bin
