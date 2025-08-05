@@ -28,7 +28,6 @@ type TokenExchangeConfig struct {
 type ChainConfig struct {
 	CardanoCliBinary      string
 	TxProvider            cardanowallet.ITxProvider
-	MultiSigAddr          string
 	TestNetMagic          uint
 	TTLSlotNumberInc      uint64
 	MinUtxoValue          uint64

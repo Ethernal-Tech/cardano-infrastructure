@@ -48,11 +48,12 @@ func (txSnd *TxSender) CreateBridgingTx(
 	dstChainID string,
 	senderAddr string,
 	receivers []BridgingTxReceiver,
+	bridgingAddress string,
 	bridgingFee uint64,
 	operationFee uint64,
 ) (*TxInfo, *BridgingRequestMetadata, error) {
 	data, err := txSnd.prepareBridgingTx(
-		ctx, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
+		ctx, srcChainID, dstChainID, receivers, bridgingAddress, bridgingFee, operationFee)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -72,7 +73,7 @@ func (txSnd *TxSender) CreateBridgingTx(
 
 	txInfo, err := txSnd.createTx(
 		ctx, data.TxBuilder, data.SrcConfig,
-		senderAddr, data.SrcConfig.MultiSigAddr,
+		senderAddr, bridgingAddress,
 		metadataRaw, data.OutputLovelace, data.OutputNativeTokens)
 	if err != nil {
 		return nil, nil, err
@@ -90,11 +91,12 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	dstChainID string,
 	senderAddr string,
 	receivers []BridgingTxReceiver,
+	bridgingAddress string,
 	bridgingFee uint64,
 	operationFee uint64,
 ) (*TxFeeInfo, *BridgingRequestMetadata, error) {
 	data, err := txSnd.prepareBridgingTx(
-		ctx, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
+		ctx, srcChainID, dstChainID, receivers, bridgingAddress, bridgingFee, operationFee)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -114,7 +116,7 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 
 	txFeeInfo, err := txSnd.calculateFee(
 		ctx, data.TxBuilder, data.SrcConfig,
-		senderAddr, data.SrcConfig.MultiSigAddr,
+		senderAddr, bridgingAddress,
 		metadataRaw, data.OutputLovelace, data.OutputNativeTokens)
 	if err != nil {
 		return nil, nil, err
@@ -250,11 +252,12 @@ func (txSnd *TxSender) GetBridgingFee(
 	srcChainID string,
 	dstChainID string,
 	receivers []BridgingTxReceiver,
+	bridgingAddress string,
 	bridgingFee uint64,
 	operationFee uint64,
 ) (uint64, error) {
 	data, err := txSnd.prepareBridgingTx(
-		ctx, srcChainID, dstChainID, receivers, bridgingFee, operationFee)
+		ctx, srcChainID, dstChainID, receivers, bridgingAddress, bridgingFee, operationFee)
 	if err != nil {
 		return 0, err
 	}
@@ -269,6 +272,7 @@ func (txSnd *TxSender) prepareBridgingTx(
 	srcChainID string,
 	dstChainID string,
 	receivers []BridgingTxReceiver,
+	bridgingAddress string,
 	bridgingFee uint64,
 	operationFee uint64,
 ) (*bridgingTxPreparedData, error) {
@@ -304,7 +308,7 @@ func (txSnd *TxSender) prepareBridgingTx(
 	}
 
 	outputLovelaceBeforeAdditionalCharges, err := adjustLovelaceOutput(
-		txBuilder, srcConfig.MultiSigAddr, outputNativeTokens, srcConfig.MinUtxoValue, outputLovelaceBase)
+		txBuilder, bridgingAddress, outputNativeTokens, srcConfig.MinUtxoValue, outputLovelaceBase)
 	if err != nil {
 		return nil, err
 	}

@@ -273,7 +273,6 @@ func Test_prepareBridgingTx(t *testing.T) {
 		"prime": {
 			MinUtxoValue: 55,
 			TestNetMagic: cardanowallet.PreviewProtocolMagic,
-			MultiSigAddr: dummyAddr,
 			NativeTokens: []TokenExchangeConfig{
 				{
 					DstChainID: "vector",
@@ -306,7 +305,7 @@ func Test_prepareBridgingTx(t *testing.T) {
 				BridgingType: BridgingTypeNativeTokenOnSource,
 				Amount:       600_003,
 			},
-		}, bridgingFee, 0)
+		}, dummyAddr, bridgingFee, 0)
 
 		require.NoError(t, err)
 		require.NotNil(t, data.TxBuilder)
@@ -381,7 +380,6 @@ func Test_populateTxBuilder(t *testing.T) {
 	cfg := &ChainConfig{
 		MinUtxoValue: 55,
 		TestNetMagic: cardanowallet.PreviewProtocolMagic,
-		MultiSigAddr: dummyAddr,
 		NativeTokens: []TokenExchangeConfig{
 			{
 				DstChainID: "vector",
