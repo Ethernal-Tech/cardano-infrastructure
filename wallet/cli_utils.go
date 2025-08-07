@@ -330,6 +330,40 @@ func (cu CliUtils) CreateDelegationCertificate(
 	return cert, nil
 }
 
+func (cu CliUtils) CreateDeregistrationCertificate(
+	stakeAddress string,
+) (cert *Certificate, err error) {
+	baseDirectory, err := os.MkdirTemp("", "deregistration-cert")
+	if err != nil {
+		return nil, err
+	}
+
+	defer os.RemoveAll(baseDirectory)
+
+	certFilePath := filepath.Join(baseDirectory, "deregistration.cert")
+
+	args := []string{
+		"stake-address", "deregistration-certificate",
+		"--stake-address", stakeAddress,
+		"--out-file", certFilePath}
+
+	_, err = runCommand(cu.cardanoCliBinary, args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create deregister certificate: %w", err)
+	}
+
+	bytes, err := os.ReadFile(certFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read deregister certificate: %w", err)
+	}
+
+	if err := json.Unmarshal(bytes, &cert); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal deregister certificate: %w", err)
+	}
+
+	return cert, nil
+}
+
 func getBech32Key(key []byte, prefix string) (string, error) {
 	converted, err := bech32.ConvertBits(key, 8, 5, true)
 	if err != nil {
