@@ -2,7 +2,6 @@ package gouroboros
 
 import (
 	"github.com/Ethernal-Tech/cardano-infrastructure/indexer"
-	"github.com/Ethernal-Tech/cardano-infrastructure/wallet"
 	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/blinklabs-io/gouroboros/ledger/common"
 )
@@ -89,12 +88,6 @@ func createTxOutput(slot uint64, txOut common.TransactionOutput) *indexer.TxOutp
 }
 
 // ledgerAddressToString translates string representation of address to our wallet representation
-// this will handle vector and other specific cases
 func ledgerAddressToString(addr ledger.Address) string {
-	ourAddr, err := wallet.NewCardanoAddress(addr.Bytes())
-	if err != nil {
-		return addr.String()
-	}
-
-	return ourAddr.String()
+	return addr.String()
 }
