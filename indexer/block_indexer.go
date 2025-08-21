@@ -67,6 +67,14 @@ func NewBlockIndexer(
 	}
 }
 
+func (bi *BlockIndexer) AddNewAddressesOfInterest(addresses ...string) {
+	bi.mutex.Lock()
+	for _, address := range addresses {
+		bi.addressesOfInterest[address] = true
+	}
+	bi.mutex.Unlock()
+}
+
 func (bi *BlockIndexer) RollBackward(point BlockPoint) error {
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
