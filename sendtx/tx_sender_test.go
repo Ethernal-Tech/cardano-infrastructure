@@ -288,24 +288,33 @@ func Test_prepareBridgingTx(t *testing.T) {
 	})
 
 	t.Run("valid", func(t *testing.T) {
-		data, err := txSnd.prepareBridgingTx(context.Background(), "prime", "vector", []BridgingTxReceiver{
-			{
-				BridgingType: BridgingTypeCurrencyOnSource,
-				Amount:       500_000,
+		bridgingTxInput := BridgingTxInput{
+			SrcChainID: "prime",
+			DstChainID: "vector",
+			SenderAddr: dummyAddr,
+			Receivers: []BridgingTxReceiver{
+				{
+					BridgingType: BridgingTypeCurrencyOnSource,
+					Amount:       500_000,
+				},
+				{
+					BridgingType: BridgingTypeNativeTokenOnSource,
+					Amount:       600_000,
+				},
+				{
+					BridgingType: BridgingTypeCurrencyOnSource,
+					Amount:       500_001,
+				},
+				{
+					BridgingType: BridgingTypeNativeTokenOnSource,
+					Amount:       600_003,
+				},
 			},
-			{
-				BridgingType: BridgingTypeNativeTokenOnSource,
-				Amount:       600_000,
-			},
-			{
-				BridgingType: BridgingTypeCurrencyOnSource,
-				Amount:       500_001,
-			},
-			{
-				BridgingType: BridgingTypeNativeTokenOnSource,
-				Amount:       600_003,
-			},
-		}, dummyAddr, bridgingFee, 0)
+			BridgingAddress: dummyAddr,
+			BridgingFee:     bridgingFee,
+			OperationFee:    0,
+		}
+		data, err := txSnd.prepareBridgingTx(context.Background(), bridgingTxInput)
 
 		require.NoError(t, err)
 		require.NotNil(t, data.TxBuilder)
