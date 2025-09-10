@@ -61,6 +61,7 @@ type bridgingTxPreparedData struct {
 	TxBuilder          *cardanowallet.TxBuilder
 	OutputLovelace     uint64
 	OutputNativeTokens []cardanowallet.TokenAmount
+	BridgingAddress    string
 	BridgingFee        uint64
 	SrcConfig          *ChainConfig
 }
@@ -69,6 +70,16 @@ type txBuilderPopulationData struct {
 	ChangeLovelace      uint64
 	ChangeMinUtxoAmount uint64
 	ChosenInputs        cardanowallet.TxInputs
+}
+
+type BridgingTxInput struct {
+	SrcChainID      string
+	DstChainID      string
+	SenderAddr      string
+	Receivers       []BridgingTxReceiver
+	BridgingAddress string
+	BridgingFee     uint64
+	OperationFee    uint64
 }
 
 func (bt BridgingType) String() string {
