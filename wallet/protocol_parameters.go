@@ -80,9 +80,6 @@ type ProtocolParameters struct {
 	MaxBlockExecutionUnits ProtocolParametersMemorySteps      `json:"maxBlockExecutionUnits"`
 	MaxCollateralInputs    uint64                             `json:"maxCollateralInputs"`
 	MaxValueSize           uint64                             `json:"maxValueSize"`
-	ExtraPraosEntropy      *uint64                            `json:"extraPraosEntropy"`
-	Decentralization       *uint64                            `json:"decentralization"`
-	MinUTxOValue           *uint64                            `json:"minUTxOValue"`
 	// conway
 	PoolVotingThresholds       *PoolVotingThresholds `json:"poolVotingThresholds"`
 	DRepVotingThresholds       *VotingThresholds     `json:"dRepVotingThresholds"`
@@ -93,4 +90,8 @@ type ProtocolParameters struct {
 	MinFeeRefScriptCostPerByte *float64              `json:"minFeeRefScriptCostPerByte"`
 	CommitteeMaxTermLength     *uint64               `json:"committeeMaxTermLength"`
 	CommitteeMinSize           *uint64               `json:"committeeMinSize"`
+	// parameters required by cli for some reason but they are always nil
+	ExtraPraosEntropy *uint64 `json:"extraPraosEntropy"`
+	Decentralization  *uint64 `json:"decentralization"`
+	MinUTxOValue      *uint64 `json:"minUTxOValue"`
 }

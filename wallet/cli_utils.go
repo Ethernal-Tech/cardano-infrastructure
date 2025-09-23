@@ -288,7 +288,17 @@ func (cu CliUtils) getTxHash(txRaw []byte, baseDirectory, eraName string) (strin
 		return "", err
 	}
 
-	return strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(res), `{"txhash":"`), `"}`), nil
+	type txHashStruct struct {
+		TxHash string `json:"txhash"`
+	}
+
+	var obj txHashStruct
+
+	if err := json.Unmarshal([]byte(res), &obj); err == nil {
+		return obj.TxHash, nil
+	}
+
+	return strings.TrimSpace(res), nil
 }
 
 func (cu CliUtils) CreateRegistrationCertificate(

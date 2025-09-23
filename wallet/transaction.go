@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -265,7 +266,7 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 		witnessCount = max(witnessCount, 1)
 	}
 
-	feeOutput, err := runCommand(b.cardanoCliBinary, append([]string{
+	response, err := runCommand(b.cardanoCliBinary, append([]string{
 		b.era, "transaction", "calculate-min-fee",
 		"--tx-body-file", filepath.Join(b.baseDirectory, draftTxFile),
 		"--tx-in-count", strconv.Itoa(len(b.inputs)),
@@ -277,7 +278,17 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 		return 0, err
 	}
 
-	return strconv.ParseUint(strings.Split(feeOutput, " ")[0], 10, 64)
+	type feeOutputStruct struct {
+		Fee uint64 `json:"fee"`
+	}
+
+	var obj feeOutputStruct
+
+	if err := json.Unmarshal([]byte(response), &obj); err == nil {
+		return obj.Fee, nil
+	}
+
+	return strconv.ParseUint(strings.Split(response, " ")[0], 10, 64)
 }
 
 func (b *TxBuilder) CalculateMinUtxo(output TxOutput) (uint64, error) {
