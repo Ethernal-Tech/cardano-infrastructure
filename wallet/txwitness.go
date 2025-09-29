@@ -25,14 +25,21 @@ func (w TxWitnessRaw) ToJSON(era string) ([]byte, error) {
 	})
 }
 
+// GetSignatureAndVKey parses a raw transaction witness (TxWitnessRaw) created by `cardano-cli transaction witness`
+// and extracts the verification key (VKey) and the corresponding signature.
+// Returns (Signature, VKey, error). If parsing fails, error will be non-nil.
 func (w TxWitnessRaw) GetSignatureAndVKey() ([]byte, []byte, error) {
 	bytes := w
-	// skip prefix bytes for conway
+	// Skip prefix bytes for Conway-era witness
+	// 0x82 indicates a CBOR array with 2 elements
+	// 0x00 indicates the VKeyWitnesses field (CBOR key 0)
+	// Other fields (redeemers, scripts, etc.) are not included in file created by `cardano-cli`
+	// Byron-era witnesses (BootstrapWitnesses []any `cbor:"2,keyasint,omitempty"`) are not supported
 	if len(bytes) >= 2 && bytes[0] == 0x82 && bytes[1] == 0x00 {
 		bytes = bytes[2:]
 	}
 
-	var signatureWitness [2][]byte // Use the appropriate type for your CBOR structure
+	var signatureWitness [2][]byte
 
 	if err := cbor.Unmarshal(bytes, &signatureWitness); err != nil {
 		return nil, nil, err

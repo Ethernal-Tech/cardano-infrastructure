@@ -56,15 +56,15 @@ func ParseTxInfo(rawTx []byte, full bool) (indexer.TxInfo, error) {
 }
 
 func tryParseTxRaw(data []byte) (ledger.Transaction, error) {
-	if tx, err := ledger.NewAlonzoTransactionFromCbor(data); err == nil {
-		return tx, nil
-	}
-
 	if tx, err := ledger.NewConwayTransactionFromCbor(data); err == nil {
 		return tx, nil
 	}
 
 	if tx, err := ledger.NewBabbageTransactionFromCbor(data); err == nil {
+		return tx, nil
+	}
+
+	if tx, err := ledger.NewAlonzoTransactionFromCbor(data); err == nil {
 		return tx, nil
 	}
 
