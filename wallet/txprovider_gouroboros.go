@@ -10,6 +10,7 @@ import (
 	"time"
 
 	gouroboros "github.com/blinklabs-io/gouroboros"
+	gcbor "github.com/blinklabs-io/gouroboros/cbor"
 	"github.com/blinklabs-io/gouroboros/ledger"
 	"github.com/blinklabs-io/gouroboros/protocol/localstatequery"
 	"github.com/blinklabs-io/gouroboros/protocol/localtxsubmission"
@@ -321,7 +322,81 @@ func getLedgerAddress(raw string) (addr ledger.Address, err error) {
 }
 
 func convertUroBorosProtocolParameters(ps localstatequery.CurrentProtocolParamsResult) ([]byte, error) {
+	toFloat64 := func(t gcbor.Rat) float64 {
+		v, _ := t.Float64()
+
+		return v
+	}
+
 	switch gupp := ps.(type) {
+	case ledger.ConwayProtocolParameters:
+		priceMem, _ := gupp.ExecutionCosts.MemPrice.Float64()
+		priceSteps, _ := gupp.ExecutionCosts.StepPrice.Float64()
+		a0, _ := gupp.A0.Float64()
+		rho, _ := gupp.Rho.Float64()
+		tau, _ := gupp.Tau.Float64()
+		minCommitteeSize := uint64(gupp.MinCommitteeSize)
+		minFeeRefScriptCostPerByte, _ := gupp.MinFeeRefScriptCostPerByte.Float64()
+
+		pp := ProtocolParameters{
+			ProtocolVersion: NewProtocolParametersVersion(
+				uint64(gupp.ProtocolVersion.Major), uint64(gupp.ProtocolVersion.Minor)),
+			MaxBlockHeaderSize:   uint64(gupp.MaxBlockHeaderSize),
+			MaxBlockBodySize:     uint64(gupp.MaxBlockBodySize),
+			MaxTxSize:            uint64(gupp.MaxTxSize),
+			TxFeeFixed:           uint64(gupp.MinFeeB),
+			TxFeePerByte:         uint64(gupp.MinFeeA),
+			StakeAddressDeposit:  uint64(gupp.KeyDeposit),
+			StakePoolDeposit:     uint64(gupp.PoolDeposit),
+			MinPoolCost:          gupp.MinPoolCost,
+			PoolRetireMaxEpoch:   uint64(gupp.MaxEpoch),
+			StakePoolTargetNum:   uint64(gupp.NOpt),
+			PoolPledgeInfluence:  a0,
+			MonetaryExpansion:    rho,
+			TreasuryCut:          tau,
+			CollateralPercentage: uint64(gupp.CollateralPercentage),
+			ExecutionUnitPrices:  NewProtocolParametersPriceMemorySteps(priceMem, priceSteps),
+			UtxoCostPerByte:      gupp.AdaPerUtxoByte,
+			MaxTxExecutionUnits: NewProtocolParametersMemorySteps(
+				uint64(gupp.MaxTxExUnits.Mem), uint64(gupp.MaxTxExUnits.Steps)),
+			MaxBlockExecutionUnits: NewProtocolParametersMemorySteps(
+				uint64(gupp.MaxBlockExUnits.Mem), uint64(gupp.MaxBlockExUnits.Steps)),
+			MaxCollateralInputs: uint64(gupp.MaxCollateralInputs),
+			MaxValueSize:        uint64(gupp.MaxValueSize),
+			CostModels:          map[string][]int64{},
+			PoolVotingThresholds: &PoolVotingThresholds{
+				CommitteeNoConfidence: toFloat64(gupp.PoolVotingThresholds.CommitteeNoConfidence),
+				CommitteeNormal:       toFloat64(gupp.PoolVotingThresholds.CommitteeNormal),
+				HardForkInitiation:    toFloat64(gupp.PoolVotingThresholds.HardForkInitiation),
+				MotionNoConfidence:    toFloat64(gupp.PoolVotingThresholds.MotionNoConfidence),
+				PPSecurityGroup:       toFloat64(gupp.PoolVotingThresholds.PpSecurityGroup),
+			},
+			DRepVotingThresholds: &VotingThresholds{
+				CommitteeNoConfidence: toFloat64(gupp.DRepVotingThresholds.CommitteeNoConfidence),
+				CommitteeNormal:       toFloat64(gupp.DRepVotingThresholds.CommitteeNormal),
+				HardForkInitiation:    toFloat64(gupp.DRepVotingThresholds.HardForkInitiation),
+				MotionNoConfidence:    toFloat64(gupp.DRepVotingThresholds.MotionNoConfidence),
+				PPEconomicGroup:       toFloat64(gupp.DRepVotingThresholds.PpEconomicGroup),
+				PPGovGroup:            toFloat64(gupp.DRepVotingThresholds.PpGovGroup),
+				PPNetworkGroup:        toFloat64(gupp.DRepVotingThresholds.PpNetworkGroup),
+				PPTechnicalGroup:      toFloat64(gupp.DRepVotingThresholds.PpTechnicalGroup),
+				TreasuryWithdrawal:    toFloat64(gupp.DRepVotingThresholds.TreasuryWithdrawal),
+				UpdateToConstitution:  toFloat64(gupp.DRepVotingThresholds.UpdateToConstitution),
+			},
+			DRepActivity:               &gupp.DRepInactivityPeriod,
+			DRepDeposit:                &gupp.DRepDeposit,
+			GovActionDeposit:           &gupp.GovActionDeposit,
+			GovActionLifetime:          &gupp.GovActionValidityPeriod,
+			MinFeeRefScriptCostPerByte: &minFeeRefScriptCostPerByte,
+			CommitteeMaxTermLength:     &gupp.CommitteeTermLimit,
+			CommitteeMinSize:           &minCommitteeSize,
+		}
+
+		for scriptIndx, values := range gupp.CostModels {
+			pp.CostModels[fmt.Sprintf("PlutusV%d", scriptIndx+1)] = values
+		}
+
+		return json.Marshal(pp)
 	case ledger.BabbageProtocolParameters:
 		priceMem, _ := gupp.ExecutionCosts.MemPrice.Float64()
 		priceSteps, _ := gupp.ExecutionCosts.StepPrice.Float64()
