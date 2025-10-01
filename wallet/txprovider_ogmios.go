@@ -86,6 +86,55 @@ func (o *TxProviderOgmios) GetProtocolParameters(ctx context.Context) ([]byte, e
 		MaxCollateralInputs: params.Result.MaxCollateralInputs,
 		MaxValueSize:        params.Result.MaxValueSize.Bytes,
 		CostModels:          map[string][]int64{},
+		// conway
+		DRepActivity:           params.Result.DelegateRepresentativeMaxIdleTime,
+		GovActionLifetime:      params.Result.GovernanceActionLifetime,
+		CommitteeMaxTermLength: params.Result.ConstitutionalCommitteeMaxTermLength,
+		CommitteeMinSize:       params.Result.ConstitutionalCommitteeMinSize,
+	}
+
+	if params.Result.MinFeeReferenceScripts != nil {
+		pp.MinFeeRefScriptCostPerByte = &params.Result.MinFeeReferenceScripts.Base
+	}
+
+	if params.Result.DelegateRepresentativeDeposit != nil {
+		pp.DRepDeposit = &params.Result.DelegateRepresentativeDeposit.Ada.Lovelace
+	}
+
+	if params.Result.GovernanceActionDeposit != nil {
+		pp.GovActionDeposit = &params.Result.GovernanceActionDeposit.Ada.Lovelace
+	}
+
+	if params.Result.StakePoolVotingThresholds != nil {
+		pp.PoolVotingThresholds = &PoolVotingThresholds{
+			HardForkInitiation: asFloat(params.Result.StakePoolVotingThresholds.HardForkInitiation),
+			CommitteeNoConfidence: asFloat(
+				params.Result.StakePoolVotingThresholds.ConstitutionalCommittee.StateOfNoConfidence),
+			CommitteeNormal:    asFloat(params.Result.StakePoolVotingThresholds.ConstitutionalCommittee.Default),
+			MotionNoConfidence: asFloat(params.Result.StakePoolVotingThresholds.NoConfidence),
+			PPSecurityGroup:    asFloat(params.Result.StakePoolVotingThresholds.ProtocolParametersUpdate.Security),
+		}
+	}
+
+	if params.Result.DelegateRepresentativeVotingThresholds != nil {
+		pp.DRepVotingThresholds = &VotingThresholds{
+			CommitteeNoConfidence: asFloat(
+				params.Result.DelegateRepresentativeVotingThresholds.ConstitutionalCommittee.StateOfNoConfidence),
+			CommitteeNormal: asFloat(
+				params.Result.DelegateRepresentativeVotingThresholds.ConstitutionalCommittee.Default),
+			HardForkInitiation: asFloat(params.Result.DelegateRepresentativeVotingThresholds.HardForkInitiation),
+			MotionNoConfidence: asFloat(params.Result.DelegateRepresentativeVotingThresholds.NoConfidence),
+			PPEconomicGroup: asFloat(
+				params.Result.DelegateRepresentativeVotingThresholds.ProtocolParametersUpdate.Economic),
+			PPGovGroup: asFloat(
+				params.Result.DelegateRepresentativeVotingThresholds.ProtocolParametersUpdate.Governance),
+			PPNetworkGroup: asFloat(
+				params.Result.DelegateRepresentativeVotingThresholds.ProtocolParametersUpdate.Network),
+			PPTechnicalGroup: asFloat(
+				params.Result.DelegateRepresentativeVotingThresholds.ProtocolParametersUpdate.Technical),
+			TreasuryWithdrawal:   asFloat(params.Result.DelegateRepresentativeVotingThresholds.TreasuryWithdrawals),
+			UpdateToConstitution: asFloat(params.Result.DelegateRepresentativeVotingThresholds.Constitution),
+		}
 	}
 
 	for scriptName, values := range params.Result.PlutusCostModels {
