@@ -472,6 +472,7 @@ func (txSnd *TxSender) populateTxBuilder(
 			Tokens: outputNativeTokens,
 		}, cardanowallet.TxOutput{
 			Addr:   senderAddr,
+			Amount: inputs.Sum[cardanowallet.AdaTokenName] - conditions[cardanowallet.AdaTokenName],
 			Tokens: outputRemainingTokens,
 		})
 

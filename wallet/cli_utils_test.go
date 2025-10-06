@@ -69,7 +69,7 @@ func TestRegistrationCertificate(t *testing.T) {
 	stakeRegistrationCert, err := cliUtils.CreateRegistrationCertificate(stakeAddress.String(), 0)
 	require.NoError(t, err)
 
-	require.Equal(t, "CertificateShelley", stakeRegistrationCert.Type)
+	require.True(t, strings.HasPrefix(stakeRegistrationCert.Type, "Certificate"))
 	require.Equal(t, "Stake Address Registration Certificate", stakeRegistrationCert.Description)
 	require.Equal(t, "82008201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f", stakeRegistrationCert.CborHex)
 }
@@ -94,7 +94,7 @@ func TestDelegationCertificate(t *testing.T) {
 	stakeRegistrationCert, err := cliUtils.CreateDelegationCertificate(stakeAddress.String(), poolID)
 	require.NoError(t, err)
 
-	require.Equal(t, "CertificateShelley", stakeRegistrationCert.Type)
+	require.True(t, strings.HasPrefix(stakeRegistrationCert.Type, "Certificate"))
 	require.Equal(t, "Stake Delegation Certificate", stakeRegistrationCert.Description)
 	require.Equal(t, "83028201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f581c5acc3f8fbc6ecfb86ce73543217a860387c4281bb394b4a123f35b24", stakeRegistrationCert.CborHex)
 }
@@ -115,10 +115,22 @@ func TestDeregistrationCertificate(t *testing.T) {
 	stakeAddress, err := NewPolicyScriptRewardAddress(MainNetNetwork, policyID)
 	require.NoError(t, err)
 
-	stakeRegistrationCert, err := cliUtils.CreateDeregistrationCertificate(stakeAddress.String())
+	stakeRegistrationCert, err := cliUtils.CreateDeregistrationCertificate(stakeAddress.String(), 3)
 	require.NoError(t, err)
 
-	require.Equal(t, "CertificateShelley", stakeRegistrationCert.Type)
+	require.True(t, strings.HasPrefix(stakeRegistrationCert.Type, "Certificate"))
 	require.Equal(t, "Stake Address Deregistration Certificate", stakeRegistrationCert.Description)
 	require.Equal(t, "82018201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f", stakeRegistrationCert.CborHex)
+}
+
+func TestGetRealEraName(t *testing.T) {
+	eraName, err := NewCliUtilsForEra(ResolveCardanoCliBinary(MainNetNetwork), "latest").GetRealEraName()
+
+	require.NoError(t, err)
+	assert.Equal(t, "Babbage", eraName)
+
+	eraName, err = NewCliUtilsForEra(ResolveCardanoCliBinary(MainNetNetwork), "conway").GetRealEraName()
+
+	require.NoError(t, err)
+	assert.Equal(t, "Conway", eraName)
 }

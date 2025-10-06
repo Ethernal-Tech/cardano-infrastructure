@@ -32,9 +32,13 @@ type ogmiosQueryUtxoResponse struct {
 }
 
 type ogmiosQueryProtocolParamsResponse struct {
-	Jsonrpc string `json:"jsonrpc"`
+	JSONRPC string `json:"jsonrpc"`
 	Method  string `json:"method"`
 	Result  struct {
+		Version struct {
+			Major uint64 `json:"major"`
+			Minor uint64 `json:"minor"`
+		} `json:"version"`
 		MinFeeCoefficient uint64 `json:"minFeeCoefficient"`
 		MinFeeConstant    struct {
 			Ada struct {
@@ -94,10 +98,55 @@ type ogmiosQueryProtocolParamsResponse struct {
 		} `json:"maxValueSize"`
 		CollateralPercentage uint64 `json:"collateralPercentage"`
 		MaxCollateralInputs  uint64 `json:"maxCollateralInputs"`
-		Version              struct {
-			Major uint64 `json:"major"`
-			Minor uint64 `json:"minor"`
-		} `json:"version"`
+		// conway
+		ExtraEntropy                  string `json:"extraEntropy"`
+		FederatedBlockProductionRatio string `json:"federatedBlockProductionRatio"`
+		MinFeeReferenceScripts        *struct {
+			Range      uint64  `json:"range"`
+			Base       float64 `json:"base"`
+			Multiplier float64 `json:"multiplier"`
+		} `json:"minFeeReferenceScripts"`
+		StakePoolVotingThresholds *struct {
+			NoConfidence            string `json:"noConfidence"`
+			ConstitutionalCommittee struct {
+				Default             string `json:"default"`
+				StateOfNoConfidence string `json:"stateOfNoConfidence"`
+			} `json:"constitutionalCommittee"`
+			HardForkInitiation       string `json:"hardForkInitiation"`
+			ProtocolParametersUpdate struct {
+				Security string `json:"security"`
+			} `json:"protocolParametersUpdate"`
+		} `json:"stakePoolVotingThresholds"`
+		ConstitutionalCommitteeMinSize       *uint64 `json:"constitutionalCommitteeMinSize"`
+		ConstitutionalCommitteeMaxTermLength *uint64 `json:"constitutionalCommitteeMaxTermLength"`
+		GovernanceActionLifetime             *uint64 `json:"governanceActionLifetime"`
+		GovernanceActionDeposit              *struct {
+			Ada struct {
+				Lovelace uint64 `json:"lovelace"`
+			} `json:"ada"`
+		} `json:"governanceActionDeposit"`
+		DelegateRepresentativeVotingThresholds *struct {
+			NoConfidence            string `json:"noConfidence"`
+			ConstitutionalCommittee struct {
+				Default             string `json:"default"`
+				StateOfNoConfidence string `json:"stateOfNoConfidence"`
+			} `json:"constitutionalCommittee"`
+			Constitution             string `json:"constitution"`
+			HardForkInitiation       string `json:"hardForkInitiation"`
+			ProtocolParametersUpdate struct {
+				Network    string `json:"network"`
+				Economic   string `json:"economic"`
+				Technical  string `json:"technical"`
+				Governance string `json:"governance"`
+			} `json:"protocolParametersUpdate"`
+			TreasuryWithdrawals string `json:"treasuryWithdrawals"`
+		} `json:"delegateRepresentativeVotingThresholds"`
+		DelegateRepresentativeDeposit *struct {
+			Ada struct {
+				Lovelace uint64 `json:"lovelace"`
+			} `json:"ada"`
+		} `json:"delegateRepresentativeDeposit"`
+		DelegateRepresentativeMaxIdleTime *uint64 `json:"delegateRepresentativeMaxIdleTime"`
 	} `json:"result"`
 	ID interface{} `json:"id"`
 }

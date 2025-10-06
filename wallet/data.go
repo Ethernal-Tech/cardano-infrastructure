@@ -9,7 +9,9 @@ import (
 )
 
 const (
-	AdaTokenName = "lovelace"
+	AdaTokenName     = "lovelace"
+	AdaTokenPolicyID = "ada"
+	DefaultEra       = "latest"
 )
 
 type Token struct {
