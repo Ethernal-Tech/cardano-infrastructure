@@ -9,7 +9,7 @@ import (
 func createTx(blockHeader *indexer.BlockHeader, ledgerTx ledger.Transaction, indx uint32) (*indexer.Tx, error) {
 	tx := &indexer.Tx{
 		Indx:      indx,
-		Hash:      indexer.NewHashFromHexString(ledgerTx.Hash()),
+		Hash:      indexer.Hash(ledgerTx.Hash()),
 		Fee:       ledgerTx.Fee(),
 		BlockSlot: blockHeader.Slot,
 		BlockHash: blockHeader.Hash,
