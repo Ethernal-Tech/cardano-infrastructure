@@ -207,7 +207,7 @@ func (bs *BlockSyncerImpl) rollForwardCallback(
 
 	return bs.blockHandler.RollForward(indexer.BlockHeader{
 		Slot:   blockHeader.SlotNumber(),
-		Hash:   indexer.NewHashFromHexString(blockHeader.Hash()),
+		Hash:   indexer.Hash(blockHeader.Hash()),
 		Number: blockHeader.BlockNumber(),
 		EraID:  blockHeader.Era().Id,
 	}, newBlockTxsRetrieverImpl(conn, bs.logger))
