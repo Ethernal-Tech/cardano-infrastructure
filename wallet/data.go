@@ -131,6 +131,11 @@ type QueryStakeAddressInfo struct {
 	VoteDelegation       string `json:"voteDelegation"`
 }
 
+type QueryEvaluateTxData struct {
+	Memory uint64 `json:"memory"`
+	CPU    uint64 `json:"cpu"`
+}
+
 type ITxSubmitter interface {
 	// SubmitTx submits transaction - txSigned should be cbor serialized signed transaction
 	SubmitTx(ctx context.Context, txSigned []byte) error
@@ -154,11 +159,16 @@ type IStakeDataRetriever interface {
 	GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error)
 }
 
+type IScriptDataRetriever interface {
+	EvaluateTx(ctx context.Context, rawTx []byte) (QueryEvaluateTxData, error)
+}
+
 type ITxProvider interface {
 	ITxSubmitter
 	ITxDataRetriever
 	IUTxORetriever
 	IStakeDataRetriever
+	IScriptDataRetriever
 	Dispose()
 }
 

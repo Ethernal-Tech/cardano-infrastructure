@@ -254,6 +254,34 @@ func (o *TxProviderOgmios) SubmitTx(ctx context.Context, txSigned []byte) error 
 	return nil
 }
 
+// EvaluateTx implements ITxProvider.
+func (o *TxProviderOgmios) EvaluateTx(ctx context.Context, rawTx []byte) (QueryEvaluateTxData, error) {
+	response, err := executeHTTPOgmios[ogmiosEvaluateTransactionResponse](
+		ctx, o.url, ogmiosEvaluateTransaction{
+			Jsonrpc: ogmiosJSONRPCVersion,
+			Method:  "evaluateTransaction",
+			Params: ogmiosEvaluateTransactionParams{
+				Transaction: ogmiosSubmitTransactionParamsTransaction{
+					CBOR: hex.EncodeToString(rawTx),
+				},
+			},
+		}, false,
+	)
+	if err != nil {
+		return QueryEvaluateTxData{}, fmt.Errorf("ogmios evaluate tx error: %w", err)
+	}
+
+	if response.Error.Message != "" {
+		return QueryEvaluateTxData{}, fmt.Errorf("ogmios evaluate tx error: %s: %s",
+			response.Error.Message, response.Error.Data)
+	}
+
+	return QueryEvaluateTxData{
+		Memory: response.Result[0].Budget.Memory,
+		CPU:    response.Result[0].Budget.CPU,
+	}, nil
+}
+
 // Returns a list of existing stake pool IDs on the chain
 func (o *TxProviderOgmios) GetStakePools(ctx context.Context) ([]string, error) {
 	responseData, err := executeHTTPOgmios[ogmiosQueryStakePoolsResponse](

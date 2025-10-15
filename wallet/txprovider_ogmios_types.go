@@ -195,6 +195,36 @@ type ogmiosSubmitTransactionResponse struct {
 	ID interface{} `json:"id"`
 }
 
+type ogmiosEvaluateTransactionParams = ogmiosSubmitTransactionParams
+
+type ogmiosEvaluateTransaction struct {
+	Jsonrpc string                          `json:"jsonrpc"`
+	Method  string                          `json:"method"`
+	Params  ogmiosEvaluateTransactionParams `json:"params"`
+	ID      interface{}                     `json:"id"`
+}
+
+type ogmiosEvaluateTransactionResponse struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Method  string `json:"method"`
+	Error   struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    string `json:"data"`
+	} `json:"error"`
+	Result []struct {
+		Validator struct {
+			Index   uint64 `json:"index"`
+			Purpose string `json:"purpose"`
+		} `json:"validator"`
+		Budget struct {
+			Memory uint64 `json:"memory"`
+			CPU    uint64 `json:"cpu"`
+		} `json:"budget"`
+	} `json:"result"`
+	ID interface{} `json:"id"`
+}
+
 type ogmiosQueryNetworkBlockHeightResponse struct {
 	Jsonrpc string      `json:"jsonrpc"`
 	Method  string      `json:"method"`

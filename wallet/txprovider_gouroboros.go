@@ -220,6 +220,10 @@ func (b *TxProviderGoUroBoros) SubmitTx(ctx context.Context, txSigned []byte) er
 	return conn.LocalTxSubmission().Client.SubmitTx(uint16(txType), txSigned) //nolint:gosec
 }
 
+func (b *TxProviderGoUroBoros) EvaluateTx(ctx context.Context, rawTx []byte) (QueryEvaluateTxData, error) {
+	panic("unimplemented") //nolint:gocritic
+}
+
 func (b *TxProviderGoUroBoros) GetStakePools(ctx context.Context) ([]string, error) {
 	panic("unimplemented") //nolint:gocritic
 }

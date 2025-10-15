@@ -76,6 +76,11 @@ func (c *TxProviderCats) SubmitTx(ctx context.Context, txSigned []byte) error {
 	return err
 }
 
+// EvaluateTx implements ITxProvider.
+func (c *TxProviderCats) EvaluateTx(ctx context.Context, rawTx []byte) (QueryEvaluateTxData, error) {
+	panic("unimplemented") //nolint:gocritic
+}
+
 func (b *TxProviderCats) GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error) {
 	panic("unimplemented") //nolint:gocritic
 }

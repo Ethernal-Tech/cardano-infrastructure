@@ -188,6 +188,10 @@ func (b *TxProviderCli) SubmitTx(_ context.Context, txSigned []byte) error {
 	return fmt.Errorf("unknown error submiting tx: %s", res)
 }
 
+func (b *TxProviderCli) EvaluateTx(ctx context.Context, rawTx []byte) (QueryEvaluateTxData, error) {
+	panic("unimplemented") //nolint:gocritic
+}
+
 func (b *TxProviderCli) GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error) {
 	args := append([]string{
 		b.era, "query", "stake-address-info",
