@@ -193,6 +193,10 @@ func (b *TxProviderBlockFrost) SubmitTx(ctx context.Context, txSigned []byte) er
 	return blockfrostSubmitTx(ctx, b.url+"/tx/submit", b.authHeaderKey, b.projectID, txSigned)
 }
 
+func (b *TxProviderBlockFrost) EvaluateTx(ctx context.Context, rawTx []byte) (QueryEvaluateTxData, error) {
+	panic("unimplemented") //nolint:gocritic
+}
+
 func (b *TxProviderBlockFrost) GetStakeAddressInfo(
 	ctx context.Context,
 	stakeAddress string,
