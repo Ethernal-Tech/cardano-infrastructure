@@ -59,6 +59,9 @@ func (o TxOutput) String() string {
 type TxBuilder struct {
 	baseDirectory      string
 	inputs             []txInputWithPolicyScript
+	collateralInputs   []TxInput
+	totalCollateral    uint64
+	collateralOutputs  []TxOutput
 	outputs            []TxOutput
 	mints              txTokenMintInputs
 	certificates       []txCertificateWithPolicyScript
@@ -68,6 +71,7 @@ type TxBuilder struct {
 	testNetMagic       uint
 	fee                uint64
 	withdrawalData     txWithdrawalDataPolicyScript
+	plutusTokenMint    txPlutusTokenMintInputs
 	era                string
 	realEraName        string
 	cardanoCliBinary   string
@@ -112,6 +116,12 @@ func (b *TxBuilder) SetFee(fee uint64) *TxBuilder {
 	return b
 }
 
+func (b *TxBuilder) SetTotalCollateral(totalCollateral uint64) *TxBuilder {
+	b.totalCollateral = totalCollateral
+
+	return b
+}
+
 func (b *TxBuilder) AddInputsWithScript(script IPolicyScript, inputs ...TxInput) *TxBuilder {
 	for _, inp := range inputs {
 		b.inputs = append(b.inputs, txInputWithPolicyScript{
@@ -145,6 +155,18 @@ func (b *TxBuilder) AddInputs(inputs ...TxInput) *TxBuilder {
 			txInput: inp,
 		})
 	}
+
+	return b
+}
+
+func (b *TxBuilder) AddCollateralInput(input TxInput) *TxBuilder {
+	b.collateralInputs = append(b.collateralInputs, input)
+
+	return b
+}
+
+func (b *TxBuilder) AddCollateralOutputs(outputs ...TxOutput) *TxBuilder {
+	b.collateralOutputs = append(b.collateralOutputs, outputs...)
 
 	return b
 }
@@ -231,12 +253,33 @@ func (b *TxBuilder) SetWithdrawalData(
 	return b
 }
 
+func (b *TxBuilder) SetExecutionUnitParams(cpu uint64, memory uint64) *TxBuilder {
+	b.plutusTokenMint.CPU = cpu
+	b.plutusTokenMint.Memory = memory
+
+	return b
+}
+
 func (b *TxBuilder) AddCertificates(script IPolicyScript, certificates ...ICertificate) *TxBuilder {
 	for _, cert := range certificates {
 		b.certificates = append(b.certificates, txCertificateWithPolicyScript{
 			certificate:  cert,
 			policyScript: script,
 		})
+	}
+
+	return b
+}
+
+func (b *TxBuilder) AddPlutusTokenMints(
+	tokens []MintTokenAmount, txInReference TxInput, tokensPolicyID string,
+) *TxBuilder {
+	b.plutusTokenMint = txPlutusTokenMintInputs{
+		tokens:         tokens,
+		txInReference:  txInReference,
+		CPU:            0,
+		Memory:         0,
+		tokensPolicyID: tokensPolicyID,
 	}
 
 	return b
@@ -261,9 +304,15 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 			witnessCount += inp.GetWitnessCount()
 		}
 
+		if len(b.collateralInputs) > 0 {
+			witnessCount += 1
+		}
+
 		witnessCount += getCertfificatesWitnessCount(b.certificates)
 		witnessCount += b.withdrawalData.GetWitnessCount()
-		witnessCount = max(witnessCount, 1)
+
+		// We sign every tx with relayer as well
+		witnessCount = max(witnessCount, 1) + 1
 	}
 
 	response, err := runCommand(b.cardanoCliBinary, append([]string{
@@ -325,6 +374,10 @@ func (b *TxBuilder) Build() ([]byte, string, error) {
 		return nil, "", err
 	}
 
+	if err := b.CheckCollateralOutputs(); err != nil {
+		return nil, "", err
+	}
+
 	protocolParamsFilePath := filepath.Join(b.baseDirectory, "protocol-parameters.json")
 	if err := os.WriteFile(protocolParamsFilePath, b.protocolParameters, FilePermission); err != nil {
 		return nil, "", err
@@ -358,6 +411,18 @@ func (b *TxBuilder) CheckOutputs() error {
 	for i, x := range b.outputs {
 		if x.Amount == 0 {
 			errs = append(errs, fmt.Errorf("output (%s, %d) amount not specified", x.Addr, i))
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func (b *TxBuilder) CheckCollateralOutputs() error {
+	var errs []error
+
+	for i, x := range b.collateralOutputs {
+		if x.Amount == 0 {
+			errs = append(errs, fmt.Errorf("collateral return output (%s, %d) amount not specified", x.Addr, i))
 		}
 	}
 
@@ -400,6 +465,22 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 		if err := inp.Apply(&args, b.baseDirectory, i); err != nil {
 			return err
 		}
+	}
+
+	for _, inp := range b.collateralInputs {
+		args = append(args, "--tx-in-collateral", inp.String())
+	}
+
+	if len(b.collateralOutputs) > 0 {
+		args = append(args, "--tx-total-collateral", strconv.FormatUint(b.totalCollateral, 10))
+
+		for _, cout := range b.collateralOutputs {
+			args = append(args, "--tx-out-return-collateral", cout.String())
+		}
+	}
+
+	if err := b.plutusTokenMint.Apply(&args); err != nil {
+		return err
 	}
 
 	for _, out := range b.outputs {
@@ -700,4 +781,49 @@ func (txWithdrawalData txWithdrawalDataPolicyScript) GetWitnessCount() int {
 	}
 
 	return 0
+}
+
+type MintTokenAmount struct {
+	Token
+	Amount int64
+}
+
+func NewMintTokenAmount(token Token, amount int64) MintTokenAmount {
+	return MintTokenAmount{
+		Token:  token,
+		Amount: amount,
+	}
+}
+
+type txPlutusTokenMintInputs struct {
+	tokens         []MintTokenAmount
+	txInReference  TxInput
+	CPU            uint64
+	Memory         uint64
+	tokensPolicyID string
+}
+
+func (txMint txPlutusTokenMintInputs) Apply(args *[]string) error {
+	if len(txMint.tokens) == 0 {
+		return nil
+	}
+
+	var sb strings.Builder
+
+	for _, token := range txMint.tokens {
+		if sb.Len() > 0 {
+			sb.WriteRune(',')
+		}
+
+		sb.WriteString(fmt.Sprintf("%d %s", token.Amount, token.Name))
+	}
+
+	*args = append(*args, "--mint", sb.String())
+	*args = append(*args, "--mint-tx-in-reference", txMint.txInReference.String())
+	*args = append(*args, "--mint-plutus-script-v2")
+	*args = append(*args, "--mint-reference-tx-in-redeemer-value 0")
+	*args = append(*args, "--mint-reference-tx-in-execution-units", fmt.Sprintf("(%d, %d)", txMint.CPU, txMint.Memory))
+	*args = append(*args, "--policy-id", txMint.tokensPolicyID)
+
+	return nil
 }

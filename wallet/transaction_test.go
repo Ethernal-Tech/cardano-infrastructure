@@ -484,6 +484,98 @@ func Test_TransactionBuilderWithWithdraw(t *testing.T) {
 	require.Equal(t, "84a5008182582019fc8df9a93cd82d0c3a36d2bf7b8b8d9bc00f1918b0e0ac1ec11ee49345d6ff000181825839301ab8db33cbfe7f75036e213f48500a4723c6f48311beb8e39884ceeab59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f1a00a65afc021a0003433503194dc605a1581df0b59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f1a00177be3a10182830303848200581c0fb340e2fc18865fbf406dce76f743de13c46d2eb91d6e87e6eb63c68200581c41b46f772b622e7e5bc8970d128faccb7a457c610a48d514801a04118200581c5282885af1f234cb9407f05b120f2eb06872f297864ca9066a6570118200581c6a2f73455484b658c168c18ed54222d189e7e746ec3dc2d8d8891e42830303848200581c30356731c6f4d92598732163a68d9dcec7c386075d5da4f1dca5724d8200581c794eb34ded015c701fcf7b6ec4e0476e3dc2054a8831f636361680c98200581c8d2f93fdc4dbe32b1cb6951a441f081d2d111cb4a4c79a69f27d00a98200581c9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7dbf5f6", hex.EncodeToString(txRaw))
 }
 
+func Test_TransactionBuilderWithPlutusMint(t *testing.T) {
+	const txRaw = "84aa00828258202bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53008258202bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53030d818258202bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b5303128182582020bbbeffee0f48bc03e4226e91cab16bd5778474c121365e13295da459a4251c00018482581d603c0e06d68646870080ebff18a5f6875be76856f2a7eea6b16648cf36821a0016e360a1581c14b249936a64cbc96bde5a46e04174e7fb58b565103d0c3a32f8d61fa14954657374546f6b656e0182581d603c0e06d68646870080ebff18a5f6875be76856f2a7eea6b16648cf36821a0016e360a1581c626cad0064f02def9d61824cac7b9e9fef4292bcab4e439b78bc69bda144736172611a00e4e1c082581d603c0e06d68646870080ebff18a5f6875be76856f2a7eea6b16648cf36821a0016e360a1581c626cad0064f02def9d61824cac7b9e9fef4292bcab4e439b78bc69bda14573617261311a00e4e1c082581d603c0e06d68646870080ebff18a5f6875be76856f2a7eea6b16648cf36001082581d603c0e06d68646870080ebff18a5f6875be76856f2a7eea6b16648cf360011000200031a02a7d29509a1581c626cad0064f02def9d61824cac7b9e9fef4292bcab4e439b78bc69bda244736172611a00e4e1c04573617261311a00e4e1c00b582009d861148699ab0f7e1d22073aa1a90c9fd2d9479a9ea8e2a01969ee57c305afa10581840100182a8219d36a1a018bf80df5f6"
+
+	inputs := []TxInput{
+		{
+			Hash:  "2bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53",
+			Index: 0,
+		},
+		{
+			Hash:  "2bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53",
+			Index: 3,
+		},
+	}
+
+	collateralInput := TxInput{
+		Hash:  "2bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53",
+		Index: 3,
+	}
+
+	collateralOutput := []TxOutput{
+		{
+			Addr:   "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+			Amount: 0,
+		},
+	}
+
+	tokensPolicyID := "626cad0064f02def9d61824cac7b9e9fef4292bcab4e439b78bc69bd"
+	token1 := NewToken(tokensPolicyID, "73617261")
+	token2 := NewToken(tokensPolicyID, "7361726131")
+	nft := NewToken("14b249936a64cbc96bde5a46e04174e7fb58b565103d0c3a32f8d61f", "54657374546f6b656e")
+
+	mintToknes := []MintTokenAmount{
+		NewMintTokenAmount(token1, 15000000),
+		NewMintTokenAmount(token2, 15000000),
+	}
+
+	txInReference := TxInput{
+		Hash:  "20bbbeffee0f48bc03e4226e91cab16bd5778474c121365e13295da459a4251c",
+		Index: 0,
+	}
+
+	outputs := []TxOutput{
+		{
+			Addr:   "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+			Amount: 1500000,
+			Tokens: []TokenAmount{
+				{
+					Token:  nft,
+					Amount: 1,
+				},
+			},
+		},
+		{
+			Addr:   "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+			Amount: 1500000,
+			Tokens: []TokenAmount{
+				{
+					Token:  token1,
+					Amount: 15000000,
+				},
+			},
+		},
+		{
+			Addr:   "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+			Amount: 1500000,
+			Tokens: []TokenAmount{
+				{
+					Token:  token2,
+					Amount: 15000000,
+				},
+			},
+		},
+		{
+			Addr: "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+		},
+	}
+
+	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	require.NoError(t, err)
+
+	defer builder.Dispose()
+
+	builder.AddInputs(inputs...)
+	builder.AddCollateralInput(collateralInput)
+	builder.AddPlutusTokenMints(mintToknes, txInReference, tokensPolicyID)
+	builder.AddCollateralOutputs(collateralOutput...)
+	builder.AddOutputs(outputs...)
+	builder.SetTimeToLive(44552853)
+
+	require.Equal(t, "84aa00828258202bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53008258202bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53030d818258202bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b5303128182582020bbbeffee0f48bc03e4226e91cab16bd5778474c121365e13295da459a4251c00018482581d603c0e06d68646870080ebff18a5f6875be76856f2a7eea6b16648cf36821a0016e360a1581c14b249936a64cbc96bde5a46e04174e7fb58b565103d0c3a32f8d61fa14954657374546f6b656e0182581d603c0e06d68646870080ebff18a5f6875be76856f2a7eea6b16648cf36821a0016e360a1581c626cad0064f02def9d61824cac7b9e9fef4292bcab4e439b78bc69bda144736172611a00e4e1c082581d603c0e06d68646870080ebff18a5f6875be76856f2a7eea6b16648cf36821a0016e360a1581c626cad0064f02def9d61824cac7b9e9fef4292bcab4e439b78bc69bda14573617261311a00e4e1c082581d603c0e06d68646870080ebff18a5f6875be76856f2a7eea6b16648cf36001082581d603c0e06d68646870080ebff18a5f6875be76856f2a7eea6b16648cf360011000200031a02a7d29509a1581c626cad0064f02def9d61824cac7b9e9fef4292bcab4e439b78bc69bda244736172611a00e4e1c04573617261311a00e4e1c00b582009d861148699ab0f7e1d22073aa1a90c9fd2d9479a9ea8e2a01969ee57c305afa10581840100182a8219d36a1a018bf80df5f6", txRaw)
+}
+
 func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
 	t.Parallel()
 
