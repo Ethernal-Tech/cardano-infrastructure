@@ -148,6 +148,7 @@ type ITxRetriever interface {
 type ITxDataRetriever interface {
 	GetTip(ctx context.Context) (QueryTipData, error)
 	GetProtocolParameters(ctx context.Context) ([]byte, error)
+	EvaluateTx(ctx context.Context, rawTx []byte) (QueryEvaluateTxData, error)
 }
 
 type IUTxORetriever interface {
@@ -159,16 +160,11 @@ type IStakeDataRetriever interface {
 	GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error)
 }
 
-type IScriptDataRetriever interface {
-	EvaluateTx(ctx context.Context, rawTx []byte) (QueryEvaluateTxData, error)
-}
-
 type ITxProvider interface {
 	ITxSubmitter
 	ITxDataRetriever
 	IUTxORetriever
 	IStakeDataRetriever
-	IScriptDataRetriever
 	Dispose()
 }
 
