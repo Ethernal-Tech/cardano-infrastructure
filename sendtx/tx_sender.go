@@ -42,42 +42,21 @@ func NewTxSender(
 // CreateBridgingTx creates bridging tx and returns cbor of raw transaction data, tx hash and error
 func (txSnd *TxSender) CreateBridgingTx(
 	ctx context.Context,
-	bridgingTxInput BridgingTxInput,
+	txDto BridgingTxDto,
 ) (*TxInfo, *BridgingRequestMetadata, error) {
-	data, err := txSnd.prepareBridgingTx(ctx, bridgingTxInput)
+	preparedData, err := txSnd.prepareBridgingTx(ctx, txDto)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	defer data.TxBuilder.Dispose()
+	defer preparedData.TxBuilder.Dispose()
 
-	metadata, err := txSnd.CreateMetadata(
-		bridgingTxInput.SenderAddr,
-		bridgingTxInput.SrcChainID,
-		bridgingTxInput.DstChainID,
-		bridgingTxInput.Receivers,
-		data.BridgingFee,
-		bridgingTxInput.OperationFee,
-	)
+	genericDto, metadata, err := txSnd.createGenericTxDtoAndMetadata(txDto, preparedData)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	metadataRaw, err := metadata.Marshal()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	txInfo, err := txSnd.createTx(
-		ctx,
-		data.TxBuilder,
-		data.SrcConfig,
-		bridgingTxInput.SenderAddr,
-		data.BridgingAddress,
-		metadataRaw,
-		data.OutputLovelace,
-		data.OutputNativeTokens,
-	)
+	txInfo, err := txSnd.createTx(ctx, preparedData.TxBuilder, genericDto)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -88,35 +67,21 @@ func (txSnd *TxSender) CreateBridgingTx(
 // CalculateBridgingTxFee returns calculated fee for bridging tx
 func (txSnd *TxSender) CalculateBridgingTxFee(
 	ctx context.Context,
-	bridgingTxInput BridgingTxInput,
+	txDto BridgingTxDto,
 ) (*TxFeeInfo, *BridgingRequestMetadata, error) {
-	data, err := txSnd.prepareBridgingTx(ctx, bridgingTxInput)
+	preparedData, err := txSnd.prepareBridgingTx(ctx, txDto)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	defer data.TxBuilder.Dispose()
+	defer preparedData.TxBuilder.Dispose()
 
-	metadata, err := txSnd.CreateMetadata(
-		bridgingTxInput.SenderAddr,
-		bridgingTxInput.SrcChainID,
-		bridgingTxInput.DstChainID,
-		bridgingTxInput.Receivers,
-		data.BridgingFee,
-		bridgingTxInput.OperationFee)
+	genericDto, metadata, err := txSnd.createGenericTxDtoAndMetadata(txDto, preparedData)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	metadataRaw, err := metadata.Marshal()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	txFeeInfo, err := txSnd.calculateFee(
-		ctx, data.TxBuilder, data.SrcConfig,
-		bridgingTxInput.SenderAddr, data.BridgingAddress,
-		metadataRaw, data.OutputLovelace, data.OutputNativeTokens)
+	txFeeInfo, err := txSnd.calculateFee(ctx, preparedData.TxBuilder, genericDto)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -127,16 +92,11 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 // CreateTxGeneric creates generic tx to one recipient and returns cbor of raw transaction data, tx hash and error
 func (txSnd *TxSender) CreateTxGeneric(
 	ctx context.Context,
-	srcChainID string,
-	senderAddr string,
-	receiverAddr string,
-	metadata []byte,
-	outputLovelace uint64,
-	outputNativeTokens []cardanowallet.TokenAmount,
+	txDto GenericTxDto,
 ) (*TxInfo, error) {
-	srcConfig, existsSrc := txSnd.chainConfigMap[srcChainID]
+	srcConfig, existsSrc := txSnd.chainConfigMap[txDto.SrcChainID]
 	if !existsSrc {
-		return nil, fmt.Errorf("chain %s config not found", srcChainID)
+		return nil, fmt.Errorf("chain %s config not found", txDto.SrcChainID)
 	}
 
 	txBuilder, err := cardanowallet.NewTxBuilder(srcConfig.CardanoCliBinary)
@@ -150,14 +110,13 @@ func (txSnd *TxSender) CreateTxGeneric(
 		return nil, err
 	}
 
-	outputLovelace, err = adjustLovelaceOutput(
-		txBuilder, receiverAddr, outputNativeTokens, srcConfig.MinUtxoValue, outputLovelace)
+	txDto.OutputLovelace, err = adjustLovelaceOutput(
+		txBuilder, txDto.ReceiverAddr, txDto.OutputNativeTokens, srcConfig.MinUtxoValue, txDto.OutputLovelace)
 	if err != nil {
 		return nil, err
 	}
 
-	return txSnd.createTx(
-		ctx, txBuilder, &srcConfig, senderAddr, receiverAddr, metadata, outputLovelace, outputNativeTokens)
+	return txSnd.createTx(ctx, txBuilder, txDto)
 }
 
 func (txSnd *TxSender) SubmitTx(
@@ -248,7 +207,7 @@ func (txSnd *TxSender) CreateMetadata(
 
 func (txSnd *TxSender) GetBridgingFee(
 	ctx context.Context,
-	bridgingTxInput BridgingTxInput,
+	bridgingTxInput BridgingTxDto,
 ) (uint64, error) {
 	data, err := txSnd.prepareBridgingTx(ctx, bridgingTxInput)
 	if err != nil {
@@ -262,14 +221,14 @@ func (txSnd *TxSender) GetBridgingFee(
 
 func (txSnd *TxSender) prepareBridgingTx(
 	ctx context.Context,
-	bridgingTxInput BridgingTxInput,
+	txDto BridgingTxDto,
 ) (*bridgingTxPreparedData, error) {
-	srcConfig, _, err := txSnd.getConfigs(bridgingTxInput.SrcChainID, bridgingTxInput.DstChainID)
+	srcConfig, _, err := txSnd.getConfigs(txDto.SrcChainID, txDto.DstChainID)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := checkFees(srcConfig, bridgingTxInput.BridgingFee, bridgingTxInput.OperationFee); err != nil {
+	if err := checkFees(srcConfig, txDto.BridgingFee, txDto.OperationFee); err != nil {
 		return nil, err
 	}
 
@@ -283,10 +242,10 @@ func (txSnd *TxSender) prepareBridgingTx(
 	}
 
 	outputNativeTokens := ([]cardanowallet.TokenAmount)(nil)
-	outputLovelaceBase, outputNativeTokenAmount := getOutputAmounts(bridgingTxInput.Receivers)
+	outputLovelaceBase, outputNativeTokenAmount := getOutputAmounts(txDto.Receivers)
 
 	if outputNativeTokenAmount > 0 {
-		nativeToken, err := getTokenFromTokenExchangeConfig(srcConfig.NativeTokens, bridgingTxInput.DstChainID)
+		nativeToken, err := getTokenFromTokenExchangeConfig(srcConfig.NativeTokens, txDto.DstChainID)
 		if err != nil {
 			return nil, err
 		}
@@ -295,7 +254,7 @@ func (txSnd *TxSender) prepareBridgingTx(
 			cardanowallet.NewTokenAmount(nativeToken, outputNativeTokenAmount))
 	}
 
-	bridgingAddress := bridgingTxInput.BridgingAddress
+	bridgingAddress := txDto.BridgingAddress
 	if bridgingAddress == "" {
 		bridgingAddress = srcConfig.MultiSigAddr
 	}
@@ -306,8 +265,8 @@ func (txSnd *TxSender) prepareBridgingTx(
 		return nil, err
 	}
 
-	bridgingFee := bridgingTxInput.BridgingFee
-	outputLovelace := outputLovelaceBeforeAdditionalCharges + bridgingFee + bridgingTxInput.OperationFee
+	bridgingFee := txDto.BridgingFee
+	outputLovelace := outputLovelaceBeforeAdditionalCharges + bridgingFee + txDto.OperationFee
 
 	if outputLovelaceBeforeAdditionalCharges > outputLovelaceBase {
 		bridgingFee += outputLovelaceBeforeAdditionalCharges - outputLovelaceBase
@@ -315,7 +274,6 @@ func (txSnd *TxSender) prepareBridgingTx(
 
 	return &bridgingTxPreparedData{
 		TxBuilder:          txBuilder,
-		SrcConfig:          srcConfig,
 		OutputLovelace:     outputLovelace,
 		OutputNativeTokens: outputNativeTokens,
 		BridgingAddress:    bridgingAddress,
@@ -326,20 +284,19 @@ func (txSnd *TxSender) prepareBridgingTx(
 func (txSnd *TxSender) calculateFee(
 	ctx context.Context,
 	txBuilder *cardanowallet.TxBuilder,
-	srcConfig *ChainConfig,
-	senderAddr string,
-	receiverAddr string,
-	metadata []byte,
-	outputLovelace uint64,
-	outputNativeTokens []cardanowallet.TokenAmount,
+	txDto GenericTxDto,
 ) (*TxFeeInfo, error) {
-	data, err := txSnd.populateTxBuilder(
-		ctx, txBuilder, srcConfig, senderAddr, receiverAddr, metadata, outputLovelace, outputNativeTokens)
+	data, err := txSnd.populateTxBuilder(ctx, txBuilder, txDto)
 	if err != nil {
 		return nil, err
 	}
 
-	fee, err := txBuilder.CalculateFee(1)
+	witnessCount := 1
+	if txDto.SenderAddrPolicyScript != nil {
+		witnessCount = txDto.SenderAddrPolicyScript.GetCount()
+	}
+
+	fee, err := txBuilder.CalculateFee(witnessCount)
 	if err != nil {
 		return nil, err
 	}
@@ -353,20 +310,19 @@ func (txSnd *TxSender) calculateFee(
 func (txSnd *TxSender) createTx(
 	ctx context.Context,
 	txBuilder *cardanowallet.TxBuilder,
-	srcConfig *ChainConfig,
-	senderAddr string,
-	receiverAddr string,
-	metadata []byte,
-	outputLovelace uint64,
-	outputNativeTokens []cardanowallet.TokenAmount,
+	txDto GenericTxDto,
 ) (*TxInfo, error) {
-	data, err := txSnd.populateTxBuilder(
-		ctx, txBuilder, srcConfig, senderAddr, receiverAddr, metadata, outputLovelace, outputNativeTokens)
+	data, err := txSnd.populateTxBuilder(ctx, txBuilder, txDto)
 	if err != nil {
 		return nil, err
 	}
 
-	feeCurrencyLovelace, err := txBuilder.CalculateFee(1)
+	witnessCount := 1
+	if txDto.SenderAddrPolicyScript != nil {
+		witnessCount = txDto.SenderAddrPolicyScript.GetCount()
+	}
+
+	feeCurrencyLovelace, err := txBuilder.CalculateFee(witnessCount)
 	if err != nil {
 		return nil, err
 	}
@@ -403,15 +359,12 @@ func (txSnd *TxSender) createTx(
 func (txSnd *TxSender) populateTxBuilder(
 	ctx context.Context,
 	txBuilder *cardanowallet.TxBuilder,
-	config *ChainConfig,
-	senderAddr string,
-	receiverAddr string,
-	metadata []byte,
-	outputLovelace uint64,
-	outputNativeTokens []cardanowallet.TokenAmount,
+	txDto GenericTxDto,
 ) (*txBuilderPopulationData, error) {
+	config := txSnd.chainConfigMap[txDto.SrcChainID]
+
 	utxos, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]cardanowallet.Utxo, error) {
-		return config.TxProvider.GetUtxos(ctx, senderAddr)
+		return config.TxProvider.GetUtxos(ctx, txDto.SenderAddr)
 	}, txSnd.retryOptions...)
 	if err != nil {
 		return nil, err
@@ -420,10 +373,10 @@ func (txSnd *TxSender) populateTxBuilder(
 	// calculate minUtxo for change output
 	potentialChangeTokenCost, err := cardanowallet.GetMinUtxoForSumMap(
 		txBuilder,
-		senderAddr,
+		txDto.SenderAddr,
 		cardanowallet.SubtractSumMaps(
 			cardanowallet.GetUtxosSum(utxos),
-			cardanowallet.GetTokensSumMap(outputNativeTokens...),
+			cardanowallet.GetTokensSumMap(txDto.OutputNativeTokens...),
 		))
 	if err != nil {
 		return nil, err
@@ -433,10 +386,10 @@ func (txSnd *TxSender) populateTxBuilder(
 	potentialFee := setOrDefault(config.PotentialFee, defaultPotentialFee)
 
 	conditions := map[string]uint64{
-		cardanowallet.AdaTokenName: outputLovelace + potentialFee + srcChangeMinUtxo,
+		cardanowallet.AdaTokenName: txDto.OutputLovelace + potentialFee + srcChangeMinUtxo,
 	}
 
-	for _, token := range outputNativeTokens {
+	for _, token := range txDto.OutputNativeTokens {
 		conditions[token.TokenName()] += token.Amount
 	}
 
@@ -449,7 +402,7 @@ func (txSnd *TxSender) populateTxBuilder(
 		return nil, err
 	}
 
-	for _, token := range outputNativeTokens {
+	for _, token := range txDto.OutputNativeTokens {
 		tokenName := token.TokenName()
 
 		inputs.Sum[tokenName] -= token.Amount
@@ -463,29 +416,66 @@ func (txSnd *TxSender) populateTxBuilder(
 		return nil, fmt.Errorf("failed to create tokens from sum map. err: %w", err)
 	}
 
-	txBuilder.SetMetaData(metadata).
-		SetTestNetMagic(config.TestNetMagic).
-		AddInputs(inputs.Inputs...).
-		AddOutputs(cardanowallet.TxOutput{
-			Addr:   receiverAddr,
-			Amount: outputLovelace,
-			Tokens: outputNativeTokens,
-		}, cardanowallet.TxOutput{
-			Addr:   senderAddr,
-			Amount: inputs.Sum[cardanowallet.AdaTokenName] - conditions[cardanowallet.AdaTokenName],
-			Tokens: outputRemainingTokens,
-		})
+	txBuilder.SetMetaData(txDto.Metadata).SetTestNetMagic(config.TestNetMagic)
+
+	if txDto.SenderAddrPolicyScript != nil {
+		txBuilder.AddInputsWithScript(txDto.SenderAddrPolicyScript, inputs.Inputs...)
+	} else {
+		txBuilder.AddInputs(inputs.Inputs...)
+	}
+
+	txBuilder.AddOutputs(cardanowallet.TxOutput{
+		Addr:   txDto.ReceiverAddr,
+		Amount: txDto.OutputLovelace,
+		Tokens: txDto.OutputNativeTokens,
+	}, cardanowallet.TxOutput{
+		Addr:   txDto.SenderAddr,
+		Amount: inputs.Sum[cardanowallet.AdaTokenName] - conditions[cardanowallet.AdaTokenName],
+		Tokens: outputRemainingTokens,
+	})
 
 	// populate ttl at the end because previous operations could take time
-	if err := txSnd.populateTimeToLive(ctx, txBuilder, config); err != nil {
+	if err := txSnd.populateTimeToLive(ctx, txBuilder, &config); err != nil {
 		return nil, err
 	}
 
 	return &txBuilderPopulationData{
-		ChangeLovelace:      inputs.Sum[cardanowallet.AdaTokenName] - outputLovelace,
+		ChangeLovelace:      inputs.Sum[cardanowallet.AdaTokenName] - txDto.OutputLovelace,
 		ChangeMinUtxoAmount: srcChangeMinUtxo,
 		ChosenInputs:        inputs,
 	}, nil
+}
+
+func (txSnd *TxSender) createGenericTxDtoAndMetadata(
+	txDto BridgingTxDto,
+	preparedData *bridgingTxPreparedData,
+) (GenericTxDto, *BridgingRequestMetadata, error) {
+	metadata, err := txSnd.CreateMetadata(
+		txDto.SenderAddr,
+		txDto.SrcChainID,
+		txDto.DstChainID,
+		txDto.Receivers,
+		preparedData.BridgingFee,
+		txDto.OperationFee,
+	)
+	if err != nil {
+		return GenericTxDto{}, nil, err
+	}
+
+	metadataRaw, err := metadata.Marshal()
+	if err != nil {
+		return GenericTxDto{}, nil, err
+	}
+
+	return GenericTxDto{
+		SrcChainID:             txDto.SrcChainID,
+		SenderAddr:             txDto.SenderAddr,
+		SenderAddrPolicyScript: txDto.SenderAddrPolicyScript,
+		ReceiverAddr:           preparedData.BridgingAddress,
+		Metadata:               metadataRaw,
+		OutputLovelace:         preparedData.OutputLovelace,
+		OutputNativeTokens:     preparedData.OutputNativeTokens,
+	}, metadata, nil
 }
 
 func (txSnd *TxSender) populateProtocolParameters(
