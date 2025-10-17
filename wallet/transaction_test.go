@@ -498,16 +498,16 @@ func Test_TransactionBuilderWithPlutusMint(t *testing.T) {
 		},
 	}
 
-	collateralInput := TxInput{
-		Hash:  "2bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53",
-		Index: 3,
+	collateralInputs := []TxInput{
+		{
+			Hash:  "2bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53",
+			Index: 3,
+		},
 	}
 
-	collateralOutput := []TxOutput{
-		{
-			Addr:   "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
-			Amount: 0,
-		},
+	collateralOutput := TxOutput{
+		Addr:   "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+		Amount: 0,
 	}
 
 	tokensPolicyID := "626cad0064f02def9d61824cac7b9e9fef4292bcab4e439b78bc69bd"
@@ -567,9 +567,9 @@ func Test_TransactionBuilderWithPlutusMint(t *testing.T) {
 	defer builder.Dispose()
 
 	builder.AddInputs(inputs...)
-	builder.AddCollateralInput(collateralInput)
+	builder.AddCollateralInputs(collateralInputs)
 	builder.AddPlutusTokenMints(mintToknes, txInReference, tokensPolicyID)
-	builder.AddCollateralOutputs(collateralOutput...)
+	builder.AddCollateralOutput(collateralOutput)
 	builder.AddOutputs(outputs...)
 	builder.SetTimeToLive(44552853)
 

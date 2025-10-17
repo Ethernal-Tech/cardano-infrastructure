@@ -159,14 +159,14 @@ func (b *TxBuilder) AddInputs(inputs ...TxInput) *TxBuilder {
 	return b
 }
 
-func (b *TxBuilder) AddCollateralInput(input TxInput) *TxBuilder {
-	b.collateralInputs = append(b.collateralInputs, input)
+func (b *TxBuilder) AddCollateralInputs(inputs []TxInput) *TxBuilder {
+	b.collateralInputs = append(b.collateralInputs, inputs...)
 
 	return b
 }
 
-func (b *TxBuilder) AddCollateralOutputs(outputs ...TxOutput) *TxBuilder {
-	b.collateralOutputs = append(b.collateralOutputs, outputs...)
+func (b *TxBuilder) AddCollateralOutput(output TxOutput) *TxBuilder {
+	b.collateralOutputs = append(b.collateralOutputs, output)
 
 	return b
 }
@@ -210,6 +210,22 @@ func (b *TxBuilder) RemoveOutput(index int) *TxBuilder {
 
 	copy(b.outputs[index:], b.outputs[index+1:])
 	b.outputs = b.outputs[:len(b.outputs)-1]
+
+	return b
+}
+
+func (b *TxBuilder) UpdateCollateralOutputAmount(index int, amount uint64, tokenAmounts ...uint64) *TxBuilder {
+	if index < 0 {
+		index = len(b.collateralOutputs) + index
+	}
+
+	b.collateralOutputs[index].Amount = amount
+
+	for i, amount := range tokenAmounts {
+		if len(b.collateralOutputs[index].Tokens) > i {
+			b.collateralOutputs[index].Tokens[i].Amount = amount
+		}
+	}
 
 	return b
 }
@@ -365,17 +381,19 @@ func (b *TxBuilder) CalculateMinUtxo(output TxOutput) (uint64, error) {
 	return strconv.ParseUint(result, 0, 64)
 }
 
-func (b *TxBuilder) Build() ([]byte, string, error) {
+func (b *TxBuilder) build(checkOutputs bool) ([]byte, string, error) {
 	if b.protocolParameters == nil {
 		return nil, "", errors.New("protocol parameters not set")
 	}
 
-	if err := b.CheckOutputs(); err != nil {
-		return nil, "", err
-	}
+	if checkOutputs {
+		if err := b.CheckOutputs(); err != nil {
+			return nil, "", err
+		}
 
-	if err := b.CheckCollateralOutputs(); err != nil {
-		return nil, "", err
+		if err := b.CheckCollateralOutputs(); err != nil {
+			return nil, "", err
+		}
 	}
 
 	protocolParamsFilePath := filepath.Join(b.baseDirectory, "protocol-parameters.json")
@@ -403,6 +421,14 @@ func (b *TxBuilder) Build() ([]byte, string, error) {
 	}
 
 	return txRaw, txHash, nil
+}
+
+func (b *TxBuilder) UncheckedBuild() ([]byte, string, error) {
+	return b.build(false)
+}
+
+func (b *TxBuilder) Build() ([]byte, string, error) {
+	return b.build(true)
 }
 
 func (b *TxBuilder) CheckOutputs() error {
