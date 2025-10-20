@@ -45,7 +45,7 @@ func (txSnd *TxSender) CreateBridgingTx(
 	ctx context.Context,
 	txDto BridgingTxDto,
 ) (*TxInfo, *BridgingRequestMetadata, error) {
-	preparedData, err := txSnd.prepareBridgingTx(ctx, txDto)
+	preparedData, err := txSnd.prepareBridgingTx(ctx, txDto, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -70,7 +70,7 @@ func (txSnd *TxSender) CalculateBridgingTxFee(
 	ctx context.Context,
 	txDto BridgingTxDto,
 ) (*TxFeeInfo, *BridgingRequestMetadata, error) {
-	preparedData, err := txSnd.prepareBridgingTx(ctx, txDto)
+	preparedData, err := txSnd.prepareBridgingTx(ctx, txDto, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -218,7 +218,7 @@ func (txSnd *TxSender) GetBridgingFee(
 	ctx context.Context,
 	bridgingTxInput BridgingTxDto,
 ) (uint64, error) {
-	data, err := txSnd.prepareBridgingTx(ctx, bridgingTxInput)
+	data, err := txSnd.prepareBridgingTx(ctx, bridgingTxInput, false)
 	if err != nil {
 		return 0, err
 	}
@@ -231,14 +231,17 @@ func (txSnd *TxSender) GetBridgingFee(
 func (txSnd *TxSender) prepareBridgingTx(
 	ctx context.Context,
 	txDto BridgingTxDto,
+	validateAddressData bool,
 ) (*bridgingTxPreparedData, error) {
 	srcConfig, _, err := txSnd.getConfigs(txDto.SrcChainID, txDto.DstChainID)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := checkAddress(txDto.SenderAddr, txDto.SenderAddrPolicyScript, srcConfig); err != nil {
-		return nil, err
+	if validateAddressData {
+		if err := checkAddress(txDto.SenderAddr, txDto.SenderAddrPolicyScript, srcConfig); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := checkFees(srcConfig, txDto.BridgingFee, txDto.OperationFee); err != nil {

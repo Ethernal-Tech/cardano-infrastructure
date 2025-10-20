@@ -486,7 +486,7 @@ func Test_prepareBridgingTx(t *testing.T) {
 			BridgingFee:     bridgingFee,
 			OperationFee:    0,
 		}
-		data, err := txSnd.prepareBridgingTx(context.Background(), bridgingTxInput)
+		data, err := txSnd.prepareBridgingTx(context.Background(), bridgingTxInput, true)
 
 		require.NoError(t, err)
 		require.NotNil(t, data.TxBuilder)
