@@ -30,38 +30,13 @@ type policyConfig struct {
 type PolicyScriptOption func(*policyConfig)
 
 func NewPolicyScript(keyHashes []string, atLeastSignersCount int, options ...PolicyScriptOption) *PolicyScript {
-	config := policyConfig{}
+	return newPolicyScriptInternal(keyHashes, atLeastSignersCount, false, options...)
+}
 
-	for _, opt := range options {
-		opt(&config)
-	}
-
-	// Build scripts dynamically using append - +1 pesimistic because of optional BeforeOrAfterScript
-	scripts := make([]PolicyScript, 0, len(keyHashes)+1)
-
-	// Add time constraint scripts
-	if config.AddtionalScript != nil {
-		scripts = append(scripts, *config.AddtionalScript)
-	}
-
-	// Add signature scripts
-	for _, keyHash := range keyHashes {
-		scripts = append(scripts, PolicyScript{
-			Type:    PolicyScriptSigType,
-			KeyHash: keyHash,
-		})
-	}
-
-	// Sort scripts by key hash for consistency
-	sort.Slice(scripts, func(i, j int) bool {
-		return scripts[i].KeyHash < scripts[j].KeyHash
-	})
-
-	return &PolicyScript{
-		Type:     PolicyScriptAtLeastType,
-		Required: atLeastSignersCount,
-		Scripts:  scripts,
-	}
+func NewCustodialPolicyScript(
+	keyHashes []string, atLeastSignersCount int, options ...PolicyScriptOption,
+) *PolicyScript {
+	return newPolicyScriptInternal(keyHashes, atLeastSignersCount, true, options...)
 }
 
 func (ps PolicyScript) GetBytesJSON() ([]byte, error) {
@@ -178,5 +153,49 @@ func WithBefore(slot uint64) PolicyScriptOption {
 			Type: PolicyScriptBeforeType,
 			Slot: slot,
 		}
+	}
+}
+
+func newPolicyScriptInternal(
+	keyHashes []string,
+	atLeastSignersCount int,
+	reverse bool,
+	options ...PolicyScriptOption,
+) *PolicyScript {
+	config := policyConfig{}
+
+	for _, opt := range options {
+		opt(&config)
+	}
+
+	// Build scripts dynamically using append - +1 pesimistic because of optional BeforeOrAfterScript
+	scripts := make([]PolicyScript, 0, len(keyHashes)+1)
+
+	// Add time constraint scripts
+	if config.AddtionalScript != nil {
+		scripts = append(scripts, *config.AddtionalScript)
+	}
+
+	// Add signature scripts
+	for _, keyHash := range keyHashes {
+		scripts = append(scripts, PolicyScript{
+			Type:    PolicyScriptSigType,
+			KeyHash: keyHash,
+		})
+	}
+
+	// Sort scripts by key hash for consistency
+	sort.Slice(scripts, func(i, j int) bool {
+		if reverse {
+			return scripts[i].KeyHash > scripts[j].KeyHash
+		}
+
+		return scripts[i].KeyHash < scripts[j].KeyHash
+	})
+
+	return &PolicyScript{
+		Type:     PolicyScriptAtLeastType,
+		Required: atLeastSignersCount,
+		Scripts:  scripts,
 	}
 }
