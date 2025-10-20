@@ -63,7 +63,6 @@ type bridgingTxPreparedData struct {
 	OutputNativeTokens []cardanowallet.TokenAmount
 	BridgingAddress    string
 	BridgingFee        uint64
-	SrcConfig          *ChainConfig
 }
 
 type txBuilderPopulationData struct {
@@ -72,14 +71,25 @@ type txBuilderPopulationData struct {
 	ChosenInputs        cardanowallet.TxInputs
 }
 
-type BridgingTxInput struct {
-	SrcChainID      string
-	DstChainID      string
-	SenderAddr      string
-	Receivers       []BridgingTxReceiver
-	BridgingAddress string
-	BridgingFee     uint64
-	OperationFee    uint64
+type BridgingTxDto struct {
+	SrcChainID             string
+	DstChainID             string
+	SenderAddr             string
+	SenderAddrPolicyScript *cardanowallet.PolicyScript
+	Receivers              []BridgingTxReceiver
+	BridgingAddress        string
+	BridgingFee            uint64
+	OperationFee           uint64
+}
+
+type GenericTxDto struct {
+	SrcChainID             string
+	SenderAddr             string
+	SenderAddrPolicyScript *cardanowallet.PolicyScript
+	ReceiverAddr           string
+	Metadata               []byte
+	OutputLovelace         uint64
+	OutputNativeTokens     []cardanowallet.TokenAmount
 }
 
 func (bt BridgingType) String() string {
