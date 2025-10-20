@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	dummyAddr = "addr_test1vqjysa7p4mhu0l25qknwznvj0kghtr29ud7zp732ezwtzec0w8g3u"
-	dummyPID  = "29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8"
+	dummyAddr  = "addr_test1vqjysa7p4mhu0l25qknwznvj0kghtr29ud7zp732ezwtzec0w8g3u"
+	dummyAddr2 = "addr_test1wrphkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtcl6szpr"
+	dummyPID   = "29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8"
 )
 
 var (
@@ -94,7 +95,7 @@ func TestTxSender(t *testing.T) {
 
 	txSender := NewTxSender(configs, WithMaxInputsPerTx(10), WithRetryOptions(nil))
 
-	t.Run("create bridging tx", func(t *testing.T) {
+	t.Run("create bridging tx with multisig", func(t *testing.T) {
 		txInfo, metadata, err := txSender.CreateBridgingTx(ctx, BridgingTxDto{
 			SrcChainID: "prime", DstChainID: "vector",
 			SenderAddr:             multisigAddr,
@@ -112,6 +113,24 @@ func TestTxSender(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, txInfo)
 		require.NotNil(t, metadata)
+	})
+
+	t.Run("create bridging tx with mutlisig wrong addr", func(t *testing.T) {
+		_, _, err := txSender.CreateBridgingTx(ctx, BridgingTxDto{
+			SrcChainID: "prime", DstChainID: "vector",
+			SenderAddr:             dummyAddr,
+			SenderAddrPolicyScript: policyScript,
+			Receivers: []BridgingTxReceiver{
+				{
+					BridgingType: BridgingTypeNativeTokenOnSource,
+					Addr:         receiverAddr.String(),
+					Amount:       uint64(1_000_000),
+				},
+			},
+			BridgingFee: uint64(1_000_010),
+		})
+
+		require.ErrorContains(t, err, "policy script does not belong to address")
 	})
 
 	t.Run("calculate bridging tx fee", func(t *testing.T) {
@@ -177,17 +196,17 @@ func TestCreateMetaData(t *testing.T) {
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNormal,
-					Addr:         "addr1_aa",
+					Addr:         dummyAddr2,
 					Amount:       uint64(100),
 				},
 				{
 					BridgingType: BridgingTypeCurrencyOnSource,
-					Addr:         "addr1_ab",
+					Addr:         dummyAddr2,
 					Amount:       uint64(61),
 				},
 				{
 					BridgingType: BridgingTypeNativeTokenOnSource,
-					Addr:         "addr1_ac",
+					Addr:         dummyAddr2,
 					Amount:       uint64(33),
 				},
 			}, bridgingFeeAmount, operationFeeAmount)
@@ -200,19 +219,34 @@ func TestCreateMetaData(t *testing.T) {
 		assert.Equal(t, operationFeeAmount, metadata.OperationFee)
 		assert.Equal(t, []BridgingRequestMetadataTransaction{
 			{
-				Address: common.SplitString("addr1_aa", splitStringLength),
+				Address: common.SplitString(dummyAddr2, splitStringLength),
 				Amount:  uint64(100),
 			},
 			{
-				Address: common.SplitString("addr1_ab", splitStringLength),
+				Address: common.SplitString(dummyAddr2, splitStringLength),
 				Amount:  uint64(61),
 			},
 			{
-				Address:            common.SplitString("addr1_ac", splitStringLength),
+				Address:            common.SplitString(dummyAddr2, splitStringLength),
 				IsNativeTokenOnSrc: metadataBoolTrue,
 				Amount:             33,
 			},
 		}, metadata.Transactions)
+	})
+
+	t.Run("invalid address", func(t *testing.T) {
+		txSnd := NewTxSender(configs)
+
+		_, err := txSnd.CreateMetadata(
+			dummyAddr, "prime", "vector", []BridgingTxReceiver{
+				{
+					BridgingType: BridgingTypeNormal,
+					Addr:         dummyAddr2 + "e",
+					Amount:       uint64(100),
+				},
+			}, bridgingFeeAmount, operationFeeAmount)
+
+		require.ErrorContains(t, err, "invalid address")
 	})
 
 	t.Run("valid 2", func(t *testing.T) {
@@ -231,7 +265,7 @@ func TestCreateMetaData(t *testing.T) {
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNativeTokenOnSource,
-					Addr:         "addr1_ab",
+					Addr:         dummyAddr2,
 					Amount:       uint64(200),
 				},
 			}, bridgingFeeAmount, operationFeeAmount)
@@ -244,7 +278,7 @@ func TestCreateMetaData(t *testing.T) {
 		assert.Equal(t, operationFeeAmount, metadata.OperationFee)
 		assert.Equal(t, []BridgingRequestMetadataTransaction{
 			{
-				Address:            common.SplitString("addr1_ab", splitStringLength),
+				Address:            common.SplitString(dummyAddr2, splitStringLength),
 				IsNativeTokenOnSrc: metadataBoolTrue,
 				Amount:             200,
 			},
@@ -258,6 +292,7 @@ func TestCreateMetaData(t *testing.T) {
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNativeTokenOnSource,
+					Addr:         dummyAddr2,
 					Amount:       19,
 				},
 			}, bridgingFeeAmount, operationFeeAmount)
@@ -271,6 +306,7 @@ func TestCreateMetaData(t *testing.T) {
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeCurrencyOnSource,
+					Addr:         dummyAddr2,
 					Amount:       9,
 				},
 			}, bridgingFeeAmount, operationFeeAmount)
@@ -307,6 +343,7 @@ func TestCreateMetaData(t *testing.T) {
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNormal,
+					Addr:         dummyAddr2,
 					Amount:       189,
 				},
 			}, bridgingFeeAmount, operationFeeAmount)

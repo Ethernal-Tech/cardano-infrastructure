@@ -2,6 +2,7 @@ package sendtx
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 
@@ -106,6 +107,10 @@ func (txSnd *TxSender) CreateTxGeneric(
 
 	defer txBuilder.Dispose()
 
+	if err := checkAddress(txDto.SenderAddr, txDto.SenderAddrPolicyScript, &srcConfig); err != nil {
+		return nil, err
+	}
+
 	if err := txSnd.populateProtocolParameters(ctx, txBuilder, &srcConfig); err != nil {
 		return nil, err
 	}
@@ -162,6 +167,10 @@ func (txSnd *TxSender) CreateMetadata(
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
 
 	for i, x := range receivers {
+		if err := checkAddress(x.Addr, nil, dstConfig); err != nil {
+			return nil, err
+		}
+
 		switch x.BridgingType {
 		case BridgingTypeNativeTokenOnSource:
 			if x.Amount < dstConfig.MinUtxoValue {
@@ -225,6 +234,10 @@ func (txSnd *TxSender) prepareBridgingTx(
 ) (*bridgingTxPreparedData, error) {
 	srcConfig, _, err := txSnd.getConfigs(txDto.SrcChainID, txDto.DstChainID)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := checkAddress(txDto.SenderAddr, txDto.SenderAddrPolicyScript, srcConfig); err != nil {
 		return nil, err
 	}
 
@@ -582,6 +595,28 @@ func getOutputAmounts(receivers []BridgingTxReceiver) (outputCurrencyLovelace ui
 	}
 
 	return outputCurrencyLovelace, outputNativeToken
+}
+
+func checkAddress(
+	addrStr string, policyScript *cardanowallet.PolicyScript, config *ChainConfig,
+) error {
+	addr, err := cardanowallet.NewCardanoAddressFromString(addrStr)
+	if err != nil {
+		return fmt.Errorf("invalid address: %w", err)
+	}
+
+	if policyScript != nil {
+		policyID, err := cardanowallet.NewCliUtils(config.CardanoCliBinary).GetPolicyID(policyScript)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve policy id: %w", err)
+		}
+		// address payment payload hash must be equal to policy id
+		if hex.EncodeToString(addr.GetInfo().Payment.Payload[:]) != policyID {
+			return fmt.Errorf("policy script does not belong to address: %s", addrStr)
+		}
+	}
+
+	return nil
 }
 
 func WithUtxosTransformer(utxosTransformer IUtxosTransformer) TxSenderOption {
