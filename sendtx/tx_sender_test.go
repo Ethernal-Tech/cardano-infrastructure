@@ -93,7 +93,7 @@ func TestTxSender(t *testing.T) {
 		configs["prime"].TestNetMagic, policyScript)
 	require.NoError(t, err)
 
-	txSender := NewTxSender(configs, WithMaxInputsPerTx(10), WithRetryOptions(nil))
+	txSender := NewTxSender(configs, WithMaxInputsPerTx(10), WithRetryOptions(nil), WithUtxosTransformer(nil))
 
 	t.Run("create bridging tx with multisig", func(t *testing.T) {
 		txInfo, metadata, err := txSender.CreateBridgingTx(ctx, BridgingTxDto{
@@ -241,12 +241,11 @@ func TestCreateMetaData(t *testing.T) {
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
 					BridgingType: BridgingTypeNormal,
-					Addr:         dummyAddr2 + "e",
 					Amount:       uint64(100),
 				},
 			}, bridgingFeeAmount, operationFeeAmount)
 
-		require.ErrorContains(t, err, "invalid address")
+		require.ErrorContains(t, err, "receiver 0 address is empty")
 	})
 
 	t.Run("valid 2", func(t *testing.T) {
@@ -486,7 +485,7 @@ func Test_prepareBridgingTx(t *testing.T) {
 			BridgingFee:     bridgingFee,
 			OperationFee:    0,
 		}
-		data, err := txSnd.prepareBridgingTx(context.Background(), bridgingTxInput)
+		data, err := txSnd.prepareBridgingTx(context.Background(), bridgingTxInput, true)
 
 		require.NoError(t, err)
 		require.NotNil(t, data.TxBuilder)
