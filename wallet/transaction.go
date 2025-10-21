@@ -425,11 +425,11 @@ func (b *TxBuilder) SignTx(txRaw []byte, signers []ITxSigner) (res []byte, err e
 }
 
 // CreateTxWitness signs transaction hash and creates witness cbor
-func (b *TxBuilder) CreateTxWitness(txRaw []byte, wallet ITxSigner) ([]byte, error) {
+func (b *TxBuilder) CreateTxWitness(txRaw []byte, signer ITxSigner) ([]byte, error) {
 	outFilePath := filepath.Join(b.baseDirectory, "tx.wit")
 	txFilePath := filepath.Join(b.baseDirectory, "tx.raw")
 	signingKeyPath := filepath.Join(b.baseDirectory, "tx.skey")
-	signingKey, _ := wallet.GetSigningKeys()
+	signingKey, _ := signer.GetSigningKeys()
 
 	txBytes, err := transactionUnwitnessedRaw(txRaw).ToJSON(b.realEraName)
 	if err != nil {
