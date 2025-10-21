@@ -167,8 +167,8 @@ func (txSnd *TxSender) CreateMetadata(
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
 
 	for i, x := range receivers {
-		if err := checkAddress(x.Addr, nil, dstConfig); err != nil {
-			return nil, err
+		if x.Addr == "" {
+			return nil, fmt.Errorf("receiver %d address is empty", i)
 		}
 
 		switch x.BridgingType {
