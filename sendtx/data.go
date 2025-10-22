@@ -82,14 +82,18 @@ type BridgingTxDto struct {
 	OperationFee           uint64
 }
 
+type TxReceiversDto struct {
+	Addr         string
+	Amount       uint64
+	NativeTokens []cardanowallet.TokenAmount
+}
+
 type GenericTxDto struct {
 	SrcChainID             string
 	SenderAddr             string
 	SenderAddrPolicyScript *cardanowallet.PolicyScript
-	ReceiverAddr           string
 	Metadata               []byte
-	OutputLovelace         uint64
-	OutputNativeTokens     []cardanowallet.TokenAmount
+	Receivers              []TxReceiversDto
 }
 
 func (bt BridgingType) String() string {
