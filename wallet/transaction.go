@@ -838,16 +838,16 @@ func (txMint txPlutusTokenMintInputs) Apply(args *[]string) error {
 
 	for _, token := range txMint.tokens {
 		if sb.Len() > 0 {
-			sb.WriteRune(',')
+			sb.WriteString(" + ")
 		}
 
-		sb.WriteString(fmt.Sprintf("%d %s", token.Amount, token.Name))
+		sb.WriteString(fmt.Sprintf("%d %s", token.Amount, token.String()))
 	}
 
 	*args = append(*args, "--mint", sb.String())
 	*args = append(*args, "--mint-tx-in-reference", txMint.txInReference.String())
 	*args = append(*args, "--mint-plutus-script-v2")
-	*args = append(*args, "--mint-reference-tx-in-redeemer-value 0")
+	*args = append(*args, "--mint-reference-tx-in-redeemer-value", "0")
 	*args = append(*args, "--mint-reference-tx-in-execution-units", fmt.Sprintf("(%d, %d)", txMint.CPU, txMint.Memory))
 	*args = append(*args, "--policy-id", txMint.tokensPolicyID)
 
