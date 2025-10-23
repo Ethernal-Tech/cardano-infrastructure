@@ -304,7 +304,7 @@ func (cu CliUtils) getTxHash(txRaw []byte, baseDirectory, eraName string) (strin
 
 func (cu CliUtils) CreateRegistrationCertificate(
 	stakeAddress string, keyRegDepositAmount uint64,
-) (cert *CardanoArtifact, err error) {
+) (cert *Certificate, err error) {
 	baseDirectory, err := os.MkdirTemp("", "registration-cert")
 	if err != nil {
 		return nil, err
@@ -339,7 +339,7 @@ func (cu CliUtils) CreateRegistrationCertificate(
 
 func (cu CliUtils) CreateDelegationCertificate(
 	stakeAddress string, poolID string,
-) (cert *CardanoArtifact, err error) {
+) (cert *Certificate, err error) {
 	baseDirectory, err := os.MkdirTemp("", "delegation-cert")
 	if err != nil {
 		return nil, err
@@ -381,7 +381,7 @@ func (cu CliUtils) CreateDelegationCertificate(
 
 func (cu CliUtils) CreateDeregistrationCertificate(
 	stakeAddress string, depositAmount uint64,
-) (cert *CardanoArtifact, err error) {
+) (cert *Certificate, err error) {
 	baseDirectory, err := os.MkdirTemp("", "deregistration-cert")
 	if err != nil {
 		return nil, err

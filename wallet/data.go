@@ -196,3 +196,6 @@ type CardanoArtifact struct {
 func (c CardanoArtifact) GetBytesJSON() ([]byte, error) {
 	return json.MarshalIndent(c, "", "  ")
 }
+
+type Certificate = CardanoArtifact
+type PlutusScript = CardanoArtifact
