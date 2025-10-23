@@ -62,7 +62,7 @@ type TxBuilder struct {
 	collateralInputs   []TxInput
 	totalCollateral    uint64
 	collateralOutputs  []TxOutput
-	outputs            []TxOutput
+	outputs            []txOutputWithPlutusScript
 	mints              txTokenMintInputs
 	certificates       []txCertificateWithPolicyScript
 	metadata           []byte
@@ -172,9 +172,27 @@ func (b *TxBuilder) AddCollateralOutput(output TxOutput) *TxBuilder {
 }
 
 func (b *TxBuilder) AddOutputs(outputs ...TxOutput) *TxBuilder {
-	b.outputs = append(b.outputs, outputs...)
+	for _, output := range outputs {
+		b.outputs = append(b.outputs, txOutputWithPlutusScript{
+			txOutput: output,
+		})
+	}
 
 	return b
+}
+
+func (b *TxBuilder) AddOutputWithPlutusScript(script ICardanoArtifact, amount uint64) (*TxBuilder, error) {
+	plutusAddr, err := b.GetPlutusScriptAddress(b.testNetMagic, script)
+	if err != nil {
+		return nil, err
+	}
+
+	b.outputs = append(b.outputs, txOutputWithPlutusScript{
+		txOutput:     NewTxOutput(plutusAddr, amount),
+		plutusScript: script,
+	})
+
+	return b, nil
 }
 
 func (b *TxBuilder) ReplaceOutput(index int, output TxOutput) *TxBuilder {
@@ -182,7 +200,9 @@ func (b *TxBuilder) ReplaceOutput(index int, output TxOutput) *TxBuilder {
 		index = len(b.outputs) + index
 	}
 
-	b.outputs[index] = output
+	b.outputs[index] = txOutputWithPlutusScript{
+		txOutput: output,
+	}
 
 	return b
 }
@@ -192,11 +212,11 @@ func (b *TxBuilder) UpdateOutputAmount(index int, amount uint64, tokenAmounts ..
 		index = len(b.outputs) + index
 	}
 
-	b.outputs[index].Amount = amount
+	b.outputs[index].txOutput.Amount = amount
 
 	for i, amount := range tokenAmounts {
-		if len(b.outputs[index].Tokens) > i {
-			b.outputs[index].Tokens[i].Amount = amount
+		if len(b.outputs[index].txOutput.Tokens) > i {
+			b.outputs[index].txOutput.Tokens[i].Amount = amount
 		}
 	}
 
@@ -276,7 +296,7 @@ func (b *TxBuilder) SetExecutionUnitParams(cpu uint64, memory uint64) *TxBuilder
 	return b
 }
 
-func (b *TxBuilder) AddCertificates(script IPolicyScript, certificates ...ICertificate) *TxBuilder {
+func (b *TxBuilder) AddCertificates(script IPolicyScript, certificates ...ICardanoArtifact) *TxBuilder {
 	for _, cert := range certificates {
 		b.certificates = append(b.certificates, txCertificateWithPolicyScript{
 			certificate:  cert,
@@ -435,8 +455,8 @@ func (b *TxBuilder) CheckOutputs() error {
 	var errs []error
 
 	for i, x := range b.outputs {
-		if x.Amount == 0 {
-			errs = append(errs, fmt.Errorf("output (%s, %d) amount not specified", x.Addr, i))
+		if x.txOutput.Amount == 0 {
+			errs = append(errs, fmt.Errorf("output (%s, %d) amount not specified", x.txOutput.Addr, i))
 		}
 	}
 
@@ -509,8 +529,10 @@ func (b *TxBuilder) buildRawTx(protocolParamsFilePath string, fee uint64) error 
 		return err
 	}
 
-	for _, out := range b.outputs {
-		args = append(args, "--tx-out", out.String())
+	for i, out := range b.outputs {
+		if err := out.Apply(&args, b.baseDirectory, i); err != nil {
+			return err
+		}
 	}
 
 	_, err := runCommand(b.cardanoCliBinary, args)
@@ -697,8 +719,58 @@ func (txMint txTokenMintInputs) Apply(
 	return nil
 }
 
+type txOutputWithPlutusScript struct {
+	txOutput     TxOutput
+	plutusScript ICardanoArtifact
+}
+
+func (txOutputPlutus txOutputWithPlutusScript) Apply(
+	args *[]string, basePath string, indx int,
+) error {
+	*args = append(*args, "--tx-out", txOutputPlutus.txOutput.String())
+
+	if txOutputPlutus.plutusScript != nil {
+		filePath, err := writeSerializableToFile(txOutputPlutus.plutusScript, basePath, fmt.Sprintf("ps_%d.plutus", indx))
+		if err != nil {
+			return err
+		}
+
+		*args = append(*args, "--tx-out-reference-script-file", filePath)
+	}
+
+	return nil
+}
+
+func (b *TxBuilder) GetPlutusScriptAddress(
+	testNetMagic uint, plutusScript ICardanoArtifact,
+) (string, error) {
+	baseDirectory, err := os.MkdirTemp("", "ps-multisig-addr")
+	if err != nil {
+		return "", err
+	}
+
+	defer os.RemoveAll(baseDirectory)
+
+	plutusScriptFilePath, err := writeSerializableToFile(plutusScript, baseDirectory, "ps.plutus")
+	if err != nil {
+		return "", err
+	}
+
+	args := []string{
+		b.era, "address", "build",
+		"--payment-script-file", plutusScriptFilePath,
+	}
+
+	response, err := runCommand(b.cardanoCliBinary, append(args, getTestNetMagicArgs(testNetMagic)...))
+	if err != nil {
+		return "", err
+	}
+
+	return strings.Trim(response, "\n"), nil
+}
+
 type txCertificateWithPolicyScript struct {
-	certificate  ICertificate
+	certificate  ICardanoArtifact
 	policyScript IPolicyScript
 }
 
