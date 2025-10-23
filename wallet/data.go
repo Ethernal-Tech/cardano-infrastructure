@@ -182,17 +182,17 @@ type IPolicyScript interface {
 	GetCount() int
 }
 
-type ICertificate interface {
+type ICardanoArtifact interface {
 	ISerializable
 }
 
-type Certificate struct {
+type CardanoArtifact struct {
 	Type        string `json:"type"`
 	Description string `json:"description"`
 	CborHex     string `json:"cborHex"`
 }
 
-// GetBytesJSON returns certificate as JSON byte array.
-func (c Certificate) GetBytesJSON() ([]byte, error) {
+// GetBytesJSON returns Cardano artifact as JSON byte array.
+func (c CardanoArtifact) GetBytesJSON() ([]byte, error) {
 	return json.MarshalIndent(c, "", "  ")
 }
