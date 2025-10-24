@@ -126,8 +126,13 @@ func GetUTXOsForAmount(
 
 // GetUtxosSum calculates the minimum required Lovelace amount for a UTXO,
 // based on the sumMap that contains all tokens and their respective amounts
-// to be included in that UTXO.
-func GetMinUtxoForSumMap(txBuilder *TxBuilder, userAddress string, sumMap map[string]uint64) (uint64, error) {
+// to be included in that UTXO and an optional Plutus reference script.
+func GetMinUtxoForSumMap(
+	txBuilder *TxBuilder,
+	userAddress string,
+	sumMap map[string]uint64,
+	plutusScript ICardanoArtifact,
+) (uint64, error) {
 	txOutput := TxOutput{
 		Addr:   userAddress,
 		Amount: sumMap[AdaTokenName],
@@ -144,7 +149,10 @@ func GetMinUtxoForSumMap(txBuilder *TxBuilder, userAddress string, sumMap map[st
 		}
 	}
 
-	return txBuilder.CalculateMinUtxo(txOutput)
+	return txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		txOutput:     txOutput,
+		plutusScript: plutusScript,
+	})
 }
 
 // CreateTxOutputChange generates a TxOutput representing the change

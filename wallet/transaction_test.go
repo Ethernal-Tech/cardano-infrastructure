@@ -785,42 +785,54 @@ func TestCalculateMinUtxo(t *testing.T) {
 
 	txBuilder.SetProtocolParameters(protocolParameters)
 
-	minUtxo, err := txBuilder.CalculateMinUtxo(output)
+	minUtxo, err := txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		txOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1189560), minUtxo)
 
 	output.Tokens[0].Amount = 2 // tokens amount does make a difference
 
-	minUtxo, err = txBuilder.CalculateMinUtxo(output)
+	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		txOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1172320), minUtxo)
 
 	output.Tokens[1].Amount = 3 // tokens amount does make a difference
 
-	minUtxo, err = txBuilder.CalculateMinUtxo(output)
+	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		txOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1155080), minUtxo)
 
 	output.Tokens = output.Tokens[:len(output.Tokens)-1]
 
-	minUtxo, err = txBuilder.CalculateMinUtxo(output)
+	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		txOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1077500), minUtxo)
 
 	output.Tokens = nil
 
-	minUtxo, err = txBuilder.CalculateMinUtxo(output)
+	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		txOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(849070), minUtxo)
 
 	output.Amount = 3_600_000_348_100_893_234 // lovelace amount does not make a difference
 
-	minUtxo, err = txBuilder.CalculateMinUtxo(output)
+	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		txOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(849070), minUtxo)

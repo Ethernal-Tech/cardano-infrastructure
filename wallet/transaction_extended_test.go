@@ -45,26 +45,26 @@ func TestGetTokenCostSum(t *testing.T) {
 		},
 	}
 
-	result, err := GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
+	result, err := GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos), nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1189560), result)
 
 	utxos[1].Tokens[0].Amount = 1 // changing token amount will change the output
 
-	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
+	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos), nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1172320), result)
 
 	utxos[2].Tokens[0].Amount = 3 // changing token amount will change the output
 
-	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
+	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos), nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1137840), result)
 
 	utxos[0].Amount = 3
 	utxos[1].Amount = 300_021_416_931_256_900 // changing lovelace amounts won't make any difference
 
-	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos))
+	result, err = GetMinUtxoForSumMap(txBuilder, address, GetUtxosSum(utxos), nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1137840), result)
 }
