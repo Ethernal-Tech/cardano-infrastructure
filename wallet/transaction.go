@@ -181,10 +181,10 @@ func (b *TxBuilder) AddOutputs(outputs ...TxOutput) *TxBuilder {
 	return b
 }
 
-func (b *TxBuilder) AddOutputWithPlutusScript(script ICardanoArtifact, amount uint64) (*TxBuilder, error) {
+func (b *TxBuilder) AddOutputWithPlutusScript(script ICardanoArtifact, amount uint64) (*TxBuilder, string, error) {
 	plutusAddr, err := b.GetPlutusScriptAddress(b.testNetMagic, script)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	b.outputs = append(b.outputs, TxOutputWithRefScript{
@@ -192,7 +192,7 @@ func (b *TxBuilder) AddOutputWithPlutusScript(script ICardanoArtifact, amount ui
 		PlutusScript: script,
 	})
 
-	return b, nil
+	return b, plutusAddr, nil
 }
 
 func (b *TxBuilder) ReplaceOutput(index int, output TxOutput) *TxBuilder {

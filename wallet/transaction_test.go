@@ -611,8 +611,9 @@ func Test_TransactionBuilderWithPlutusDeployment(t *testing.T) {
 	builder.SetTestNetMagic(3311)
 	builder.AddInputs(inputs...)
 
-	_, err = builder.AddOutputWithPlutusScript(plutusScript, 3500000)
+	_, plutusScriptAddr, err := builder.AddOutputWithPlutusScript(plutusScript, 3500000)
 	require.NoError(t, err)
+	require.NotEqual(t, "", plutusScriptAddr)
 
 	builder.AddOutputs(outputs...)
 	builder.SetFee(0)
