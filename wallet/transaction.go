@@ -174,7 +174,7 @@ func (b *TxBuilder) AddCollateralOutput(output TxOutput) *TxBuilder {
 func (b *TxBuilder) AddOutputs(outputs ...TxOutput) *TxBuilder {
 	for _, output := range outputs {
 		b.outputs = append(b.outputs, TxOutputWithRefScript{
-			txOutput: output,
+			TxOutput: output,
 		})
 	}
 
@@ -188,8 +188,8 @@ func (b *TxBuilder) AddOutputWithPlutusScript(script ICardanoArtifact, amount ui
 	}
 
 	b.outputs = append(b.outputs, TxOutputWithRefScript{
-		txOutput:     NewTxOutput(plutusAddr, amount),
-		plutusScript: script,
+		TxOutput:     NewTxOutput(plutusAddr, amount),
+		PlutusScript: script,
 	})
 
 	return b, nil
@@ -201,7 +201,7 @@ func (b *TxBuilder) ReplaceOutput(index int, output TxOutput) *TxBuilder {
 	}
 
 	b.outputs[index] = TxOutputWithRefScript{
-		txOutput: output,
+		TxOutput: output,
 	}
 
 	return b
@@ -212,11 +212,11 @@ func (b *TxBuilder) UpdateOutputAmount(index int, amount uint64, tokenAmounts ..
 		index = len(b.outputs) + index
 	}
 
-	b.outputs[index].txOutput.Amount = amount
+	b.outputs[index].TxOutput.Amount = amount
 
 	for i, amount := range tokenAmounts {
-		if len(b.outputs[index].txOutput.Tokens) > i {
-			b.outputs[index].txOutput.Tokens[i].Amount = amount
+		if len(b.outputs[index].TxOutput.Tokens) > i {
+			b.outputs[index].TxOutput.Tokens[i].Amount = amount
 		}
 	}
 
@@ -389,11 +389,11 @@ func (b *TxBuilder) CalculateMinUtxo(outputwithRefScript TxOutputWithRefScript) 
 	args := []string{
 		b.era, "transaction", "calculate-min-required-utxo",
 		"--protocol-params-file", protocolParamsFilePath,
-		"--tx-out", outputwithRefScript.txOutput.String(),
+		"--tx-out", outputwithRefScript.TxOutput.String(),
 	}
 
-	if outputwithRefScript.plutusScript != nil {
-		plutusScriptFilePath, err := writeSerializableToFile(outputwithRefScript.plutusScript, b.baseDirectory, "ps.plutus")
+	if outputwithRefScript.PlutusScript != nil {
+		plutusScriptFilePath, err := writeSerializableToFile(outputwithRefScript.PlutusScript, b.baseDirectory, "ps.plutus")
 		if err != nil {
 			return 0, err
 		}
@@ -466,8 +466,8 @@ func (b *TxBuilder) CheckOutputs() error {
 	var errs []error
 
 	for i, x := range b.outputs {
-		if x.txOutput.Amount == 0 {
-			errs = append(errs, fmt.Errorf("output (%s, %d) amount not specified", x.txOutput.Addr, i))
+		if x.TxOutput.Amount == 0 {
+			errs = append(errs, fmt.Errorf("output (%s, %d) amount not specified", x.TxOutput.Addr, i))
 		}
 	}
 
@@ -731,17 +731,17 @@ func (txMint txTokenMintInputs) Apply(
 }
 
 type TxOutputWithRefScript struct {
-	txOutput     TxOutput
-	plutusScript ICardanoArtifact
+	TxOutput     TxOutput
+	PlutusScript ICardanoArtifact
 }
 
 func (txOutputPlutus TxOutputWithRefScript) Apply(
 	args *[]string, basePath string, indx int,
 ) error {
-	*args = append(*args, "--tx-out", txOutputPlutus.txOutput.String())
+	*args = append(*args, "--tx-out", txOutputPlutus.TxOutput.String())
 
-	if txOutputPlutus.plutusScript != nil {
-		filePath, err := writeSerializableToFile(txOutputPlutus.plutusScript, basePath, fmt.Sprintf("ps_%d.plutus", indx))
+	if txOutputPlutus.PlutusScript != nil {
+		filePath, err := writeSerializableToFile(txOutputPlutus.PlutusScript, basePath, fmt.Sprintf("ps_%d.plutus", indx))
 		if err != nil {
 			return err
 		}

@@ -639,40 +639,40 @@ func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
 	)
 
 	require.Len(t, builder.outputs, 4)
-	assert.Equal(t, uint64(0), builder.outputs[2].txOutput.Amount)
-	assert.Equal(t, uint64(0), builder.outputs[3].txOutput.Amount)
+	assert.Equal(t, uint64(0), builder.outputs[2].TxOutput.Amount)
+	assert.Equal(t, uint64(0), builder.outputs[3].TxOutput.Amount)
 
 	builder.UpdateOutputAmount(2, 200)
 	builder.UpdateOutputAmount(-1, 500)
 
-	assert.Equal(t, uint64(200), builder.outputs[2].txOutput.Amount)
-	assert.Equal(t, "0x3", builder.outputs[2].txOutput.Addr)
-	assert.Equal(t, uint64(500), builder.outputs[3].txOutput.Amount)
-	assert.Equal(t, "0x4", builder.outputs[3].txOutput.Addr)
+	assert.Equal(t, uint64(200), builder.outputs[2].TxOutput.Amount)
+	assert.Equal(t, "0x3", builder.outputs[2].TxOutput.Addr)
+	assert.Equal(t, uint64(500), builder.outputs[3].TxOutput.Amount)
+	assert.Equal(t, "0x4", builder.outputs[3].TxOutput.Addr)
 
 	builder.RemoveOutput(1)
 
 	require.Len(t, builder.outputs, 3)
-	assert.Equal(t, "0x1", builder.outputs[0].txOutput.Addr)
-	assert.Equal(t, uint64(0), builder.outputs[0].txOutput.Amount)
-	assert.Equal(t, "0x3", builder.outputs[1].txOutput.Addr)
-	assert.Equal(t, uint64(200), builder.outputs[1].txOutput.Amount)
-	assert.Equal(t, "0x4", builder.outputs[2].txOutput.Addr)
-	assert.Equal(t, uint64(500), builder.outputs[2].txOutput.Amount)
+	assert.Equal(t, "0x1", builder.outputs[0].TxOutput.Addr)
+	assert.Equal(t, uint64(0), builder.outputs[0].TxOutput.Amount)
+	assert.Equal(t, "0x3", builder.outputs[1].TxOutput.Addr)
+	assert.Equal(t, uint64(200), builder.outputs[1].TxOutput.Amount)
+	assert.Equal(t, "0x4", builder.outputs[2].TxOutput.Addr)
+	assert.Equal(t, uint64(500), builder.outputs[2].TxOutput.Amount)
 
 	builder.RemoveOutput(0)
 
 	require.Len(t, builder.outputs, 2)
-	assert.Equal(t, "0x3", builder.outputs[0].txOutput.Addr)
-	assert.Equal(t, uint64(200), builder.outputs[0].txOutput.Amount)
-	assert.Equal(t, "0x4", builder.outputs[1].txOutput.Addr)
-	assert.Equal(t, uint64(500), builder.outputs[1].txOutput.Amount)
+	assert.Equal(t, "0x3", builder.outputs[0].TxOutput.Addr)
+	assert.Equal(t, uint64(200), builder.outputs[0].TxOutput.Amount)
+	assert.Equal(t, "0x4", builder.outputs[1].TxOutput.Addr)
+	assert.Equal(t, uint64(500), builder.outputs[1].TxOutput.Amount)
 
 	builder.RemoveOutput(1)
 
 	require.Len(t, builder.outputs, 1)
-	assert.Equal(t, "0x3", builder.outputs[0].txOutput.Addr)
-	assert.Equal(t, uint64(200), builder.outputs[0].txOutput.Amount)
+	assert.Equal(t, "0x3", builder.outputs[0].TxOutput.Addr)
+	assert.Equal(t, uint64(200), builder.outputs[0].TxOutput.Amount)
 
 	builder.RemoveOutput(0)
 
@@ -786,7 +786,7 @@ func TestCalculateMinUtxo(t *testing.T) {
 	txBuilder.SetProtocolParameters(protocolParameters)
 
 	minUtxo, err := txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
-		txOutput: output,
+		TxOutput: output,
 	})
 	require.NoError(t, err)
 
@@ -795,7 +795,7 @@ func TestCalculateMinUtxo(t *testing.T) {
 	output.Tokens[0].Amount = 2 // tokens amount does make a difference
 
 	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
-		txOutput: output,
+		TxOutput: output,
 	})
 	require.NoError(t, err)
 
@@ -804,7 +804,7 @@ func TestCalculateMinUtxo(t *testing.T) {
 	output.Tokens[1].Amount = 3 // tokens amount does make a difference
 
 	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
-		txOutput: output,
+		TxOutput: output,
 	})
 	require.NoError(t, err)
 
@@ -813,7 +813,7 @@ func TestCalculateMinUtxo(t *testing.T) {
 	output.Tokens = output.Tokens[:len(output.Tokens)-1]
 
 	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
-		txOutput: output,
+		TxOutput: output,
 	})
 	require.NoError(t, err)
 
@@ -822,7 +822,7 @@ func TestCalculateMinUtxo(t *testing.T) {
 	output.Tokens = nil
 
 	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
-		txOutput: output,
+		TxOutput: output,
 	})
 	require.NoError(t, err)
 
@@ -831,7 +831,7 @@ func TestCalculateMinUtxo(t *testing.T) {
 	output.Amount = 3_600_000_348_100_893_234 // lovelace amount does not make a difference
 
 	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
-		txOutput: output,
+		TxOutput: output,
 	})
 	require.NoError(t, err)
 

@@ -150,8 +150,8 @@ func GetMinUtxoForSumMap(
 	}
 
 	return txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
-		txOutput:     txOutput,
-		plutusScript: plutusScript,
+		TxOutput:     txOutput,
+		PlutusScript: plutusScript,
 	})
 }
 
