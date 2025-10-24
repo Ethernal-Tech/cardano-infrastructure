@@ -62,7 +62,7 @@ type TxBuilder struct {
 	collateralInputs   []TxInput
 	totalCollateral    uint64
 	collateralOutputs  []TxOutput
-	outputs            []txOutputWithPlutusScript
+	outputs            []TxOutputWithRefScript
 	mints              txTokenMintInputs
 	certificates       []txCertificateWithPolicyScript
 	metadata           []byte
@@ -173,7 +173,7 @@ func (b *TxBuilder) AddCollateralOutput(output TxOutput) *TxBuilder {
 
 func (b *TxBuilder) AddOutputs(outputs ...TxOutput) *TxBuilder {
 	for _, output := range outputs {
-		b.outputs = append(b.outputs, txOutputWithPlutusScript{
+		b.outputs = append(b.outputs, TxOutputWithRefScript{
 			txOutput: output,
 		})
 	}
@@ -187,7 +187,7 @@ func (b *TxBuilder) AddOutputWithPlutusScript(script ICardanoArtifact, amount ui
 		return nil, err
 	}
 
-	b.outputs = append(b.outputs, txOutputWithPlutusScript{
+	b.outputs = append(b.outputs, TxOutputWithRefScript{
 		txOutput:     NewTxOutput(plutusAddr, amount),
 		plutusScript: script,
 	})
@@ -200,7 +200,7 @@ func (b *TxBuilder) ReplaceOutput(index int, output TxOutput) *TxBuilder {
 		index = len(b.outputs) + index
 	}
 
-	b.outputs[index] = txOutputWithPlutusScript{
+	b.outputs[index] = TxOutputWithRefScript{
 		txOutput: output,
 	}
 
@@ -376,7 +376,7 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 	return strconv.ParseUint(strings.Split(response, " ")[0], 10, 64)
 }
 
-func (b *TxBuilder) CalculateMinUtxo(output TxOutput) (uint64, error) {
+func (b *TxBuilder) CalculateMinUtxo(outputwithRefScript TxOutputWithRefScript) (uint64, error) {
 	if b.protocolParameters == nil {
 		return 0, errors.New("protocol parameters not set")
 	}
@@ -386,11 +386,22 @@ func (b *TxBuilder) CalculateMinUtxo(output TxOutput) (uint64, error) {
 		return 0, err
 	}
 
-	result, err := runCommand(b.cardanoCliBinary, []string{
+	args := []string{
 		b.era, "transaction", "calculate-min-required-utxo",
 		"--protocol-params-file", protocolParamsFilePath,
-		"--tx-out", output.String(),
-	})
+		"--tx-out", outputwithRefScript.txOutput.String(),
+	}
+
+	if outputwithRefScript.plutusScript != nil {
+		plutusScriptFilePath, err := writeSerializableToFile(outputwithRefScript.plutusScript, b.baseDirectory, "ps.plutus")
+		if err != nil {
+			return 0, err
+		}
+
+		args = append([]string{"--tx-out-reference-script-file", plutusScriptFilePath}, args...)
+	}
+
+	result, err := runCommand(b.cardanoCliBinary, args)
 	if err != nil {
 		return 0, err
 	}
@@ -719,12 +730,12 @@ func (txMint txTokenMintInputs) Apply(
 	return nil
 }
 
-type txOutputWithPlutusScript struct {
+type TxOutputWithRefScript struct {
 	txOutput     TxOutput
 	plutusScript ICardanoArtifact
 }
 
-func (txOutputPlutus txOutputWithPlutusScript) Apply(
+func (txOutputPlutus TxOutputWithRefScript) Apply(
 	args *[]string, basePath string, indx int,
 ) error {
 	*args = append(*args, "--tx-out", txOutputPlutus.txOutput.String())
