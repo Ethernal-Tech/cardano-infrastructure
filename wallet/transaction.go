@@ -398,7 +398,7 @@ func (b *TxBuilder) CalculateMinUtxo(outputwithRefScript TxOutputWithRefScript) 
 			return 0, err
 		}
 
-		args = append([]string{"--tx-out-reference-script-file", plutusScriptFilePath}, args...)
+		args = append(args, "--tx-out-reference-script-file", plutusScriptFilePath)
 	}
 
 	result, err := runCommand(b.cardanoCliBinary, args)
