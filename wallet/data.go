@@ -178,7 +178,7 @@ type ISerializable interface {
 }
 
 type IPolicyScript interface {
-	ISerializable
+	ICardanoArtifact
 	GetCount() int
 }
 
