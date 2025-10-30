@@ -243,6 +243,10 @@ func (tt *TokenAmount) String() string {
 	return fmt.Sprintf("%d %s.%s", tt.Amount, tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
 }
 
+func (tt *TokenAmount) Equals(policyID string, name string, amount uint64) bool {
+	return tt.PolicyID == policyID && tt.Name == name && tt.Amount == amount
+}
+
 func (header BlockHeader) ToCardanoBlock(txs []Hash) *CardanoBlock {
 	return &CardanoBlock{
 		Slot:   header.Slot,
