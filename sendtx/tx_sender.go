@@ -115,10 +115,12 @@ func (txSnd *TxSender) CreateTxGeneric(
 		return nil, err
 	}
 
-	txDto.OutputLovelace, err = adjustLovelaceOutput(
-		txBuilder, txDto.ReceiverAddr, txDto.OutputNativeTokens, srcConfig.MinUtxoValue, txDto.OutputLovelace)
-	if err != nil {
-		return nil, err
+	for i, rcv := range txDto.Receivers {
+		txDto.Receivers[i].Amount, err = adjustLovelaceOutput(
+			txBuilder, rcv.Addr, rcv.NativeTokens, srcConfig.MinUtxoValue, rcv.Amount)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return txSnd.createTx(ctx, txBuilder, txDto)
@@ -386,13 +388,43 @@ func (txSnd *TxSender) populateTxBuilder(
 		return nil, err
 	}
 
+	txOutputs := make([]cardanowallet.TxOutput, len(txDto.Receivers))
+	nameToIndex := map[string]int{}
+	outputLovelace := uint64(0)
+	outputNativeTokens := []cardanowallet.TokenAmount{}
+
+	for i, rcv := range txDto.Receivers {
+		txOutputs[i] = cardanowallet.TxOutput{
+			Addr:   rcv.Addr,
+			Amount: rcv.Amount,
+			Tokens: rcv.NativeTokens,
+		}
+		outputLovelace += rcv.Amount
+
+		for _, token := range rcv.NativeTokens {
+			tokenName := token.TokenName()
+
+			indx, exists := nameToIndex[tokenName]
+			if !exists {
+				indx = len(outputNativeTokens)
+				nameToIndex[tokenName] = indx
+
+				outputNativeTokens = append(outputNativeTokens, cardanowallet.TokenAmount{
+					Token: token.Token,
+				})
+			}
+
+			outputNativeTokens[indx].Amount += token.Amount
+		}
+	}
+
 	// calculate minUtxo for change output
 	potentialChangeTokenCost, err := cardanowallet.GetMinUtxoForSumMap(
 		txBuilder,
 		txDto.SenderAddr,
 		cardanowallet.SubtractSumMaps(
 			cardanowallet.GetUtxosSum(utxos),
-			cardanowallet.GetTokensSumMap(txDto.OutputNativeTokens...),
+			cardanowallet.GetTokensSumMap(outputNativeTokens...),
 		))
 	if err != nil {
 		return nil, err
@@ -402,10 +434,10 @@ func (txSnd *TxSender) populateTxBuilder(
 	potentialFee := setOrDefault(config.PotentialFee, defaultPotentialFee)
 
 	conditions := map[string]uint64{
-		cardanowallet.AdaTokenName: txDto.OutputLovelace + potentialFee + srcChangeMinUtxo,
+		cardanowallet.AdaTokenName: outputLovelace + potentialFee + srcChangeMinUtxo,
 	}
 
-	for _, token := range txDto.OutputNativeTokens {
+	for _, token := range outputNativeTokens {
 		conditions[token.TokenName()] += token.Amount
 	}
 
@@ -418,7 +450,7 @@ func (txSnd *TxSender) populateTxBuilder(
 		return nil, err
 	}
 
-	for _, token := range txDto.OutputNativeTokens {
+	for _, token := range outputNativeTokens {
 		tokenName := token.TokenName()
 
 		inputs.Sum[tokenName] -= token.Amount
@@ -440,11 +472,8 @@ func (txSnd *TxSender) populateTxBuilder(
 		txBuilder.AddInputs(inputs.Inputs...)
 	}
 
+	txBuilder.AddOutputs(txOutputs...)
 	txBuilder.AddOutputs(cardanowallet.TxOutput{
-		Addr:   txDto.ReceiverAddr,
-		Amount: txDto.OutputLovelace,
-		Tokens: txDto.OutputNativeTokens,
-	}, cardanowallet.TxOutput{
 		Addr:   txDto.SenderAddr,
 		Amount: inputs.Sum[cardanowallet.AdaTokenName] - conditions[cardanowallet.AdaTokenName],
 		Tokens: outputRemainingTokens,
@@ -456,7 +485,7 @@ func (txSnd *TxSender) populateTxBuilder(
 	}
 
 	return &txBuilderPopulationData{
-		ChangeLovelace:      inputs.Sum[cardanowallet.AdaTokenName] - txDto.OutputLovelace,
+		ChangeLovelace:      inputs.Sum[cardanowallet.AdaTokenName] - outputLovelace,
 		ChangeMinUtxoAmount: srcChangeMinUtxo,
 		ChosenInputs:        inputs,
 	}, nil
@@ -484,14 +513,19 @@ func (txSnd *TxSender) createGenericTxDtoAndMetadata(
 	}
 
 	return GenericTxDto{
-		SrcChainID:             txDto.SrcChainID,
-		SenderAddr:             txDto.SenderAddr,
-		SenderAddrPolicyScript: txDto.SenderAddrPolicyScript,
-		ReceiverAddr:           preparedData.BridgingAddress,
-		Metadata:               metadataRaw,
-		OutputLovelace:         preparedData.OutputLovelace,
-		OutputNativeTokens:     preparedData.OutputNativeTokens,
-	}, metadata, nil
+			SrcChainID:             txDto.SrcChainID,
+			SenderAddr:             txDto.SenderAddr,
+			SenderAddrPolicyScript: txDto.SenderAddrPolicyScript,
+			Metadata:               metadataRaw,
+			Receivers: []TxReceiversDto{
+				{
+					Addr:         preparedData.BridgingAddress,
+					Amount:       preparedData.OutputLovelace,
+					NativeTokens: preparedData.OutputNativeTokens,
+				},
+			},
+		},
+		metadata, nil
 }
 
 func (txSnd *TxSender) populateProtocolParameters(

@@ -86,6 +86,9 @@ func TestTxSender(t *testing.T) {
 	receiverAddr, err := cardanowallet.NewEnterpriseAddress(0, wallets[0].VerificationKey)
 	require.NoError(t, err)
 
+	receiverAddr2, err := cardanowallet.NewEnterpriseAddress(0, wallets[1].VerificationKey)
+	require.NoError(t, err)
+
 	quorumCount := (len(keyHashes)*2)/3 + 1
 	policyScript := cardanowallet.NewPolicyScript(keyHashes, quorumCount)
 
@@ -159,12 +162,20 @@ func TestTxSender(t *testing.T) {
 			SrcChainID:             "prime",
 			SenderAddr:             multisigAddr,
 			SenderAddrPolicyScript: policyScript,
-			ReceiverAddr:           receiverAddr.String(),
-			OutputLovelace:         uint64(1_000_030),
-			OutputNativeTokens: []cardanowallet.TokenAmount{
+			Receivers: []TxReceiversDto{
 				{
-					Token:  cardanowallet.NewToken(dummyPID, "Route3"),
-					Amount: uint64(2_000_000),
+					Addr:   receiverAddr.String(),
+					Amount: uint64(1_000_030),
+					NativeTokens: []cardanowallet.TokenAmount{
+						{
+							Token:  cardanowallet.NewToken(dummyPID, "Route3"),
+							Amount: uint64(2_000_000),
+						},
+					},
+				},
+				{
+					Addr:   receiverAddr2.String(),
+					Amount: uint64(2_000_030),
 				},
 			},
 		})
@@ -544,14 +555,16 @@ func Test_populateTxBuilder(t *testing.T) {
 
 	txBuilder.SetProtocolParameters(dummyProtoParams)
 
-	token := cardanowallet.NewToken(dummyPID, "WADA")
+	token1 := cardanowallet.NewToken(dummyPID, "WADA")
+	token2 := cardanowallet.NewToken(dummyPID, "cADA")
 	txProviderMock := &txProviderMock{
 		protocolParameters: dummyProtoParams,
 		utxos: []cardanowallet.Utxo{
 			{
 				Amount: 10_000_000,
 				Tokens: []cardanowallet.TokenAmount{
-					cardanowallet.NewTokenAmount(token, 10_000_000),
+					cardanowallet.NewTokenAmount(token1, 10_000_000),
+					cardanowallet.NewTokenAmount(token2, 10_000_000),
 				},
 			},
 		},
@@ -563,7 +576,7 @@ func Test_populateTxBuilder(t *testing.T) {
 			NativeTokens: []TokenExchangeConfig{
 				{
 					DstChainID: "vector",
-					TokenName:  token.String(),
+					TokenName:  token1.String(),
 				},
 			},
 			TxProvider:       txProviderMock,
@@ -575,14 +588,18 @@ func Test_populateTxBuilder(t *testing.T) {
 		data, err := txSnd.populateTxBuilder(
 			context.Background(), txBuilder,
 			GenericTxDto{
-				SenderAddr:     dummyAddr,
-				ReceiverAddr:   dummyAddr,
-				OutputLovelace: 2_000_000,
+				SenderAddr: dummyAddr,
+				Receivers: []TxReceiversDto{
+					{
+						Addr:   dummyAddr,
+						Amount: 2_000_000,
+					},
+				},
 			})
 
 		require.NoError(t, err)
 		assert.Equal(t, uint64(8000000), data.ChangeLovelace)
-		assert.Equal(t, uint64(1034400), data.ChangeMinUtxoAmount)
+		assert.Equal(t, uint64(1077500), data.ChangeMinUtxoAmount)
 		assert.GreaterOrEqual(t, len(data.ChosenInputs.Inputs), 1)
 	})
 
@@ -590,17 +607,32 @@ func Test_populateTxBuilder(t *testing.T) {
 		data, err := txSnd.populateTxBuilder(
 			context.Background(), txBuilder,
 			GenericTxDto{
-				SenderAddr:     dummyAddr,
-				ReceiverAddr:   dummyAddr,
-				OutputLovelace: 1_000_000,
-				OutputNativeTokens: []cardanowallet.TokenAmount{{
-					Token:  token,
-					Amount: 2_000_000,
-				}},
+				SenderAddr: dummyAddr,
+				Receivers: []TxReceiversDto{
+					{
+						Addr:   dummyAddr,
+						Amount: 1_000_000,
+						NativeTokens: []cardanowallet.TokenAmount{{
+							Token:  token1,
+							Amount: 2_000_000,
+						}},
+					},
+					{
+						Addr:   dummyAddr2,
+						Amount: 2_000_000,
+						NativeTokens: []cardanowallet.TokenAmount{{
+							Token:  token1,
+							Amount: 8_000_000,
+						}, {
+							Token:  token2,
+							Amount: 8_000_000,
+						}},
+					},
+				},
 			})
 
 		require.NoError(t, err)
-		assert.Equal(t, uint64(9000000), data.ChangeLovelace)
+		assert.Equal(t, uint64(10_000_000)-uint64(1_000_000)-uint64(2_000_000), data.ChangeLovelace)
 		assert.Equal(t, uint64(1034400), data.ChangeMinUtxoAmount)
 		assert.GreaterOrEqual(t, len(data.ChosenInputs.Inputs), 1)
 	})
