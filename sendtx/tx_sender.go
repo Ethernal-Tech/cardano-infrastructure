@@ -424,7 +424,7 @@ func (txSnd *TxSender) populateTxBuilder(
 		txDto.SenderAddr,
 		cardanowallet.SubtractSumMaps(
 			cardanowallet.GetUtxosSum(utxos),
-			cardanowallet.GetTokensSumMap(txDto.OutputNativeTokens...),
+			cardanowallet.GetTokensSumMap(outputNativeTokens...),
 		), nil)
 	if err != nil {
 		return nil, err
