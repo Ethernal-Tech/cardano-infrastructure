@@ -30,13 +30,17 @@ type policyConfig struct {
 type PolicyScriptOption func(*policyConfig)
 
 func NewPolicyScript(keyHashes []string, atLeastSignersCount int, options ...PolicyScriptOption) *PolicyScript {
-	return newPolicyScriptInternal(keyHashes, atLeastSignersCount, false, options...)
+	return newPolicyScriptInternal(keyHashes, atLeastSignersCount, func(a, b PolicyScript) bool {
+		return a.KeyHash < b.KeyHash
+	}, options...)
 }
 
 func NewCustodialPolicyScript(
 	keyHashes []string, atLeastSignersCount int, options ...PolicyScriptOption,
 ) *PolicyScript {
-	return newPolicyScriptInternal(keyHashes, atLeastSignersCount, true, options...)
+	return newPolicyScriptInternal(keyHashes, atLeastSignersCount, func(a, b PolicyScript) bool {
+		return a.KeyHash > b.KeyHash
+	}, options...)
 }
 
 func (ps PolicyScript) GetBytesJSON() ([]byte, error) {
@@ -159,7 +163,7 @@ func WithBefore(slot uint64) PolicyScriptOption {
 func newPolicyScriptInternal(
 	keyHashes []string,
 	atLeastSignersCount int,
-	reverse bool,
+	sortFunc func(a, b PolicyScript) bool,
 	options ...PolicyScriptOption,
 ) *PolicyScript {
 	config := policyConfig{}
@@ -186,11 +190,7 @@ func newPolicyScriptInternal(
 
 	// Sort scripts by key hash for consistency
 	sort.Slice(scripts, func(i, j int) bool {
-		if reverse {
-			return scripts[i].KeyHash > scripts[j].KeyHash
-		}
-
-		return scripts[i].KeyHash < scripts[j].KeyHash
+		return sortFunc(scripts[i], scripts[j])
 	})
 
 	return &PolicyScript{
