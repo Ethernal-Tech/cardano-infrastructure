@@ -515,8 +515,8 @@ func Test_TransactionBuilderWithPlutusMint(t *testing.T) {
 	nft := NewToken("14b249936a64cbc96bde5a46e04174e7fb58b565103d0c3a32f8d61f", "TestToken")
 
 	mintToknes := []MintTokenAmount{
-		NewMintTokenAmount(token1, 15000000),
-		NewMintTokenAmount(token2, 15000000),
+		NewMintTokenAmount(token1, 15000000, false),
+		NewMintTokenAmount(token2, 15000000, false),
 	}
 
 	txInReference := TxInput{

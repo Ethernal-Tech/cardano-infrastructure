@@ -340,10 +340,6 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 			witnessCount += inp.GetWitnessCount()
 		}
 
-		if len(b.collateralInputs) > 0 {
-			witnessCount += 1
-		}
-
 		witnessCount += getCertfificatesWitnessCount(b.certificates)
 		witnessCount += b.withdrawalData.GetWitnessCount()
 
@@ -894,13 +890,15 @@ func (txWithdrawalData txWithdrawalDataPolicyScript) GetWitnessCount() int {
 
 type MintTokenAmount struct {
 	Token
-	Amount int64
+	Amount     uint64
+	IsNegative bool
 }
 
-func NewMintTokenAmount(token Token, amount int64) MintTokenAmount {
+func NewMintTokenAmount(token Token, amount uint64, isNegative bool) MintTokenAmount {
 	return MintTokenAmount{
-		Token:  token,
-		Amount: amount,
+		Token:      token,
+		Amount:     amount,
+		IsNegative: isNegative,
 	}
 }
 
