@@ -922,7 +922,11 @@ func (txMint txPlutusTokenMintInputs) Apply(args *[]string) error {
 			sb.WriteString(" + ")
 		}
 
-		sb.WriteString(fmt.Sprintf("%d %s", token.Amount, token.String()))
+		if token.IsNegative {
+			sb.WriteString(fmt.Sprintf("-%d %s", token.Amount, token.String()))
+		} else {
+			sb.WriteString(fmt.Sprintf("%d %s", token.Amount, token.String()))
+		}
 	}
 
 	*args = append(*args, "--mint", sb.String())
