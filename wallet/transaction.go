@@ -314,8 +314,6 @@ func (b *TxBuilder) AddPlutusTokenMints(
 	b.plutusTokenMint = txPlutusTokenMintInputs{
 		tokens:         tokens,
 		txInReference:  txInReference,
-		CPU:            0,
-		Memory:         0,
 		tokensPolicyID: tokensPolicyID,
 	}
 
@@ -744,7 +742,7 @@ func (txOutputPlutus TxOutputWithRefScript) Apply(
 	if txOutputPlutus.PlutusScript != nil {
 		filePath, err := writeSerializableToFile(txOutputPlutus.PlutusScript, basePath, fmt.Sprintf("ps_%d.plutus", indx))
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to write Plutus script to file: %w", err)
 		}
 
 		*args = append(*args, "--tx-out-reference-script-file", filePath)
@@ -758,14 +756,14 @@ func (b *TxBuilder) GetPlutusScriptAddress(
 ) (string, error) {
 	baseDirectory, err := os.MkdirTemp("", "ps-multisig-addr")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create temporary directory for Plutus script: %w", err)
 	}
 
 	defer os.RemoveAll(baseDirectory)
 
 	plutusScriptFilePath, err := writeSerializableToFile(plutusScript, baseDirectory, "ps.plutus")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to write Plutus script to file: %w", err)
 	}
 
 	args := []string{
@@ -920,26 +918,27 @@ func (txMint txPlutusTokenMintInputs) Apply(args *[]string) error {
 		return nil
 	}
 
-	var sb strings.Builder
+	parts := make([]string, 0, len(txMint.tokens))
 
 	for _, token := range txMint.tokens {
-		if sb.Len() > 0 {
-			sb.WriteString(" + ")
+		sign := ""
+		if token.IsNegative {
+			sign = "-"
 		}
 
-		if token.IsNegative {
-			sb.WriteString(fmt.Sprintf("-%d %s", token.Amount, token.String()))
-		} else {
-			sb.WriteString(fmt.Sprintf("%d %s", token.Amount, token.String()))
-		}
+		parts = append(parts, fmt.Sprintf("%s%d %s", sign, token.Amount, token.String()))
 	}
 
-	*args = append(*args, "--mint", sb.String())
-	*args = append(*args, "--mint-tx-in-reference", txMint.txInReference.String())
-	*args = append(*args, "--mint-plutus-script-v2")
-	*args = append(*args, "--mint-reference-tx-in-redeemer-value", "0")
-	*args = append(*args, "--mint-reference-tx-in-execution-units", fmt.Sprintf("(%d, %d)", txMint.CPU, txMint.Memory))
-	*args = append(*args, "--policy-id", txMint.tokensPolicyID)
+	mintArgs := []string{
+		"--mint", strings.Join(parts, " + "),
+		"--mint-tx-in-reference", txMint.txInReference.String(),
+		"--mint-plutus-script-v2",
+		"--mint-reference-tx-in-redeemer-value", "0",
+		"--mint-reference-tx-in-execution-units", fmt.Sprintf("(%d,%d)", txMint.CPU, txMint.Memory),
+		"--policy-id", txMint.tokensPolicyID,
+	}
+
+	*args = append(*args, mintArgs...)
 
 	return nil
 }
