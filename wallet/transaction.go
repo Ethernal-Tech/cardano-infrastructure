@@ -57,24 +57,25 @@ func (o TxOutput) String() string {
 }
 
 type TxBuilder struct {
-	baseDirectory      string
-	inputs             []txInputWithPolicyScript
-	collateralInputs   []TxInput
-	totalCollateral    uint64
-	collateralOutputs  []TxOutput
-	outputs            []TxOutputWithRefScript
-	mints              txTokenMintInputs
-	certificates       []txCertificateWithPolicyScript
-	metadata           []byte
-	protocolParameters []byte
-	timeToLive         uint64
-	testNetMagic       uint
-	fee                uint64
-	withdrawalData     txWithdrawalDataPolicyScript
-	plutusTokenMint    txPlutusTokenMintInputs
-	era                string
-	realEraName        string
-	cardanoCliBinary   string
+	baseDirectory       string
+	inputs              []txInputWithPolicyScript
+	collateralInputs    []TxInput
+	totalCollateral     uint64
+	collateralOutputs   []TxOutput
+	outputs             []TxOutputWithRefScript
+	mints               txTokenMintInputs
+	certificates        []txCertificateWithPolicyScript
+	metadata            []byte
+	protocolParameters  []byte
+	timeToLive          uint64
+	testNetMagic        uint
+	fee                 uint64
+	additionalWitnesses int
+	withdrawalData      txWithdrawalDataPolicyScript
+	plutusTokenMint     txPlutusTokenMintInputs
+	era                 string
+	realEraName         string
+	cardanoCliBinary    string
 }
 
 func NewTxBuilder(cardanoCliBinary string) (*TxBuilder, error) {
@@ -321,6 +322,12 @@ func (b *TxBuilder) AddPlutusTokenMints(
 	return b
 }
 
+func (b *TxBuilder) SetAdditionalWitnessCount(count int) *TxBuilder {
+	b.additionalWitnesses = count
+
+	return b
+}
+
 func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 	if b.protocolParameters == nil {
 		return 0, errors.New("protocol parameters not set")
@@ -342,9 +349,7 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 
 		witnessCount += getCertfificatesWitnessCount(b.certificates)
 		witnessCount += b.withdrawalData.GetWitnessCount()
-
-		// We sign every tx with relayer as well
-		witnessCount = max(witnessCount, 1) + 1
+		witnessCount += b.additionalWitnesses
 	}
 
 	response, err := runCommand(b.cardanoCliBinary, append([]string{
