@@ -244,7 +244,28 @@ func (tt *TokenAmount) String() string {
 }
 
 func (tt *TokenAmount) Equals(other TokenAmount) bool {
-	return tt.PolicyID == other.PolicyID && tt.Name == other.Name && tt.Amount == other.Amount
+	if tt.PolicyID != other.PolicyID || tt.Amount != other.Amount {
+		return false
+	}
+
+	// Fast path: exact match
+	if tt.Name == other.Name {
+		return true
+	}
+
+	// Try decoding both names (only if hex)
+	decodeIfHex := func(s string) string {
+		if decoded, err := hex.DecodeString(s); err == nil {
+			return string(decoded)
+		}
+
+		return s
+	}
+
+	decodedName := decodeIfHex(tt.Name)
+	decodedOtherName := decodeIfHex(other.Name)
+
+	return decodedName == decodedOtherName
 }
 
 func (header BlockHeader) ToCardanoBlock(txs []Hash) *CardanoBlock {
