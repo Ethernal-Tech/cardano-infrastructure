@@ -14,42 +14,73 @@ const (
 	DefaultEra       = "latest"
 )
 
-type TokenAmount struct {
+type Token struct {
+	// Hexadecimal hash of the monetary policy script
 	PolicyID string `json:"pid"`
-	Name     string `json:"nam"` // name must not be hex encoded
-	Amount   uint64 `json:"val"`
+	// Human-readable name of the token
+	Name string `json:"nam"`
 }
 
-func NewTokenAmount(policyID string, name string, amount uint64) TokenAmount {
-	return TokenAmount{
+func NewToken(policyID string, name string) Token {
+	return Token{
 		PolicyID: policyID,
 		Name:     name,
-		Amount:   amount,
 	}
 }
 
-func NewTokenAmountWithFullName(name string, amount uint64, isNameEncoded bool) (TokenAmount, error) {
+func NewTokenWithFullName(name string, isNameEncoded bool) (Token, error) {
 	parts := strings.Split(name, ".")
 	if len(parts) != 2 {
-		return TokenAmount{}, fmt.Errorf("invalid full token name: %s", name)
+		return Token{}, fmt.Errorf("invalid full token name: %s", name)
 	}
 
 	if !isNameEncoded {
-		name = parts[1]
-	} else {
-		decodedName, err := hex.DecodeString(parts[1])
-		if err != nil {
-			return TokenAmount{}, fmt.Errorf("invalid full token name: %s", name)
-		}
-
-		name = string(decodedName)
+		return Token{
+			PolicyID: parts[0],
+			Name:     parts[1],
+		}, nil
 	}
 
-	return TokenAmount{
+	decodedName, err := hex.DecodeString(parts[1])
+	if err != nil {
+		return Token{}, fmt.Errorf("invalid full token name: %s", name)
+	}
+
+	return Token{
 		PolicyID: parts[0],
-		Name:     name,
-		Amount:   amount,
+		Name:     string(decodedName),
 	}, nil
+}
+
+func NewTokenWithFullNameTry(name string) (Token, error) {
+	token, err := NewTokenWithFullName(name, true)
+	if err == nil {
+		return token, nil
+	}
+
+	token, err = NewTokenWithFullName(name, false)
+	if err == nil {
+		return token, nil
+	}
+
+	return token, err
+}
+
+func (tt Token) String() string {
+	return fmt.Sprintf("%s.%s", tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
+}
+
+type TokenAmount struct {
+	Token
+	// Quantity of the token
+	Amount uint64 `json:"val"`
+}
+
+func NewTokenAmount(token Token, amount uint64) TokenAmount {
+	return TokenAmount{
+		Token:  token,
+		Amount: amount,
+	}
 }
 
 func (tt TokenAmount) TokenName() string {
@@ -65,6 +96,20 @@ type Utxo struct {
 	Index  uint32        `json:"ind"`
 	Amount uint64        `json:"amount"`
 	Tokens []TokenAmount `json:"tokens,omitempty"`
+}
+
+func (utxo Utxo) GetTokenAmount(tokenName string) uint64 {
+	if tokenName == AdaTokenName {
+		return utxo.Amount
+	}
+
+	for _, token := range utxo.Tokens {
+		if token.TokenName() == tokenName {
+			return token.Amount
+		}
+	}
+
+	return 0
 }
 
 type QueryTipData struct {

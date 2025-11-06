@@ -63,15 +63,15 @@ func GetTokensFromSumMap(sum map[string]uint64, skipTokenNames ...string) ([]Tok
 			continue
 		}
 
-		token, err := NewTokenAmountWithFullName(tokenName, amount, true)
+		token, err := NewTokenWithFullName(tokenName, true)
 		if err != nil {
-			token, err = NewTokenAmountWithFullName(tokenName, amount, false)
+			token, err = NewTokenWithFullName(tokenName, false)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		tokens = append(tokens, token)
+		tokens = append(tokens, NewTokenAmount(token, amount))
 	}
 
 	sort.Slice(tokens, func(i, j int) bool {
