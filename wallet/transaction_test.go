@@ -623,14 +623,19 @@ func TestCreateTxWitnessAndAssembleTxWitnesses(t *testing.T) {
 func TestCalculateMinUtxo(t *testing.T) {
 	t.Parallel()
 
-	token1, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.4b6173685f546f6b656e", 11_000_039, true)
-	token2, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.Route3", 236_872_039, false)
-	token3, _ := NewTokenAmountWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.Route345", 12_236_872_039, false)
+	token1, _ := NewTokenWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.4b6173685f546f6b656e", true)
+	token2, _ := NewTokenWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.Route3", false)
+	token3, _ := NewTokenWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.Route345", false)
+
+	tokenAmount1 := NewTokenAmount(token1, 11_000_039)
+	tokenAmount2 := NewTokenAmount(token2, 236_872_039)
+	tokenAmount3 := NewTokenAmount(token3, 12_236_872_039)
+
 	output := TxOutput{
 		Addr:   "addr_test1vqjysa7p4mhu0l25qknwznvj0kghtr29ud7zp732ezwtzec0w8g3u",
 		Amount: uint64(1_000_000),
 		Tokens: []TokenAmount{
-			token1, token2, token3,
+			tokenAmount1, tokenAmount2, tokenAmount3,
 		},
 	}
 
