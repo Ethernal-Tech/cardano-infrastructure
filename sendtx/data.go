@@ -28,17 +28,18 @@ type TokenExchangeConfig struct {
 }
 
 type ChainConfig struct {
-	CardanoCliBinary      string
-	TxProvider            cardanowallet.ITxProvider
-	MultiSigAddr          string
-	TestNetMagic          uint
-	TTLSlotNumberInc      uint64
-	MinUtxoValue          uint64
-	NativeTokens          []TokenExchangeConfig
-	MinBridgingFeeAmount  uint64
-	MinOperationFeeAmount uint64
-	PotentialFee          uint64
-	ProtocolParameters    []byte
+	CardanoCliBinary         string
+	TxProvider               cardanowallet.ITxProvider
+	MultiSigAddr             string
+	TestNetMagic             uint
+	TTLSlotNumberInc         uint64
+	MinUtxoValue             uint64
+	NativeTokens             []TokenExchangeConfig
+	DefaultMinFeeForBridging uint64
+	MinFeeForBridgingTokens  uint64
+	MinOperationFeeAmount    uint64
+	PotentialFee             uint64
+	ProtocolParameters       []byte
 }
 
 type BridgingTxReceiver struct {
