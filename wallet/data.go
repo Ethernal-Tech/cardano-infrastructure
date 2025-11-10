@@ -149,6 +149,7 @@ type ITxDataRetriever interface {
 	GetTip(ctx context.Context) (QueryTipData, error)
 	GetProtocolParameters(ctx context.Context) ([]byte, error)
 	EvaluateTx(ctx context.Context, rawTx []byte) (QueryEvaluateTxData, error)
+	IUTxORetriever
 }
 
 type IUTxORetriever interface {
