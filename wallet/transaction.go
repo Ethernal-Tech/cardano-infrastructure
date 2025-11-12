@@ -235,18 +235,12 @@ func (b *TxBuilder) RemoveOutput(index int) *TxBuilder {
 	return b
 }
 
-func (b *TxBuilder) UpdateCollateralOutputAmount(index int, amount uint64, tokenAmounts ...uint64) *TxBuilder {
+func (b *TxBuilder) UpdateCollateralOutputAmount(index int, amount uint64) *TxBuilder {
 	if index < 0 {
 		index = len(b.collateralOutputs) + index
 	}
 
 	b.collateralOutputs[index].Amount = amount
-
-	for i, amount := range tokenAmounts {
-		if len(b.collateralOutputs[index].Tokens) > i {
-			b.collateralOutputs[index].Tokens[i].Amount = amount
-		}
-	}
 
 	return b
 }
