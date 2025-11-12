@@ -692,3 +692,7 @@ func (m *txProviderMock) GetStakePools(ctx context.Context) ([]string, error) {
 func (m *txProviderMock) GetStakeAddressInfo(ctx context.Context, addr string) (cardanowallet.QueryStakeAddressInfo, error) {
 	return cardanowallet.QueryStakeAddressInfo{}, nil
 }
+
+func (m *txProviderMock) EvaluateTx(ctx context.Context, rawTx []byte) (cardanowallet.QueryEvaluateTxData, error) {
+	return cardanowallet.QueryEvaluateTxData{}, nil
+}

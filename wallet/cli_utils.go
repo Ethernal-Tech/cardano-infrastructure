@@ -131,7 +131,7 @@ func (cu CliUtils) GetPolicyScriptRewardAddress(
 }
 
 // GetPolicyID returns policy id
-func (cu CliUtils) GetPolicyID(policyScript IPolicyScript) (string, error) {
+func (cu CliUtils) GetPolicyID(policyScript ICardanoArtifact) (string, error) {
 	baseDirectory, err := os.MkdirTemp("", "ps-policy-id")
 	if err != nil {
 		return "", err

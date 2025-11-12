@@ -243,6 +243,31 @@ func (tt *TokenAmount) String() string {
 	return fmt.Sprintf("%d %s.%s", tt.Amount, tt.PolicyID, hex.EncodeToString([]byte(tt.Name)))
 }
 
+func (tt *TokenAmount) Equals(other TokenAmount) bool {
+	if tt.PolicyID != other.PolicyID || tt.Amount != other.Amount {
+		return false
+	}
+
+	// Fast path: exact match
+	if tt.Name == other.Name {
+		return true
+	}
+
+	// Try decoding both names (only if hex)
+	decodeIfHex := func(s string) string {
+		if decoded, err := hex.DecodeString(s); err == nil {
+			return string(decoded)
+		}
+
+		return s
+	}
+
+	decodedName := decodeIfHex(tt.Name)
+	decodedOtherName := decodeIfHex(other.Name)
+
+	return decodedName == decodedOtherName
+}
+
 func (header BlockHeader) ToCardanoBlock(txs []Hash) *CardanoBlock {
 	return &CardanoBlock{
 		Slot:   header.Slot,

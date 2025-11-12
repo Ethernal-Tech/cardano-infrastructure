@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	protocolParameters = []byte(`{"costModels":{"PlutusV1":[197209,0,1,1,396231,621,0,1,150000,1000,0,1,150000,32,2477736,29175,4,29773,100,29773,100,29773,100,29773,100,29773,100,29773,100,100,100,29773,100,150000,32,150000,32,150000,32,150000,1000,0,1,150000,32,150000,1000,0,8,148000,425507,118,0,1,1,150000,1000,0,8,150000,112536,247,1,150000,10000,1,136542,1326,1,1000,150000,1000,1,150000,32,150000,32,150000,32,1,1,150000,1,150000,4,103599,248,1,103599,248,1,145276,1366,1,179690,497,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,148000,425507,118,0,1,1,61516,11218,0,1,150000,32,148000,425507,118,0,1,1,148000,425507,118,0,1,1,2477736,29175,4,0,82363,4,150000,5000,0,1,150000,32,197209,0,1,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,3345831,1,1],"PlutusV2":[205665,812,1,1,1000,571,0,1,1000,24177,4,1,1000,32,117366,10475,4,23000,100,23000,100,23000,100,23000,100,23000,100,23000,100,100,100,23000,100,19537,32,175354,32,46417,4,221973,511,0,1,89141,32,497525,14068,4,2,196500,453240,220,0,1,1,1000,28662,4,2,245000,216773,62,1,1060367,12586,1,208512,421,1,187000,1000,52998,1,80436,32,43249,32,1000,32,80556,1,57667,4,1000,10,197145,156,1,197145,156,1,204924,473,1,208896,511,1,52467,32,64832,32,65493,32,22558,32,16563,32,76511,32,196500,453240,220,0,1,1,69522,11687,0,1,60091,32,196500,453240,220,0,1,1,196500,453240,220,0,1,1,1159724,392670,0,2,806990,30482,4,1927926,82523,4,265318,0,4,0,85931,32,205665,812,1,1,41182,32,212342,32,31220,32,32696,32,43357,32,32247,32,38314,32,35892428,10,9462713,1021,10,38887044,32947,10,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807],"PlutusV3":[100788,420,1,1,1000,173,0,1,1000,59957,4,1,11183,32,201305,8356,4,16000,100,16000,100,16000,100,16000,100,16000,100,16000,100,100,100,16000,100,94375,32,132994,32,61462,4,72010,178,0,1,22151,32,91189,769,4,2,85848,123203,7305,-900,1716,549,57,85848,0,1,1,1000,42921,4,2,24548,29498,38,1,898148,27279,1,51775,558,1,39184,1000,60594,1,141895,32,83150,32,15299,32,76049,1,13169,4,22100,10,28999,74,1,28999,74,1,43285,552,1,44749,541,1,33852,32,68246,32,72362,32,7243,32,7391,32,11546,32,85848,123203,7305,-900,1716,549,57,85848,0,1,90434,519,0,1,74433,32,85848,123203,7305,-900,1716,549,57,85848,0,1,1,85848,123203,7305,-900,1716,549,57,85848,0,1,955506,213312,0,2,270652,22588,4,1457325,64566,4,20467,1,4,0,141992,32,100788,420,1,1,81663,32,59498,32,20142,32,24588,32,20744,32,25933,32,24623,32,43053543,10,53384111,14333,10,43574283,26308,10,16000,100,16000,100,962335,18,2780678,6,442008,1,52538055,3756,18,267929,18,76433006,8868,18,52948122,18,1995836,36,3227919,12,901022,1,166917843,4307,36,284546,36,158221314,26549,36,74698472,36,333849714,1,254006273,72,2174038,72,2261318,64571,4,207616,8310,4,1293828,28716,63,0,1,1006041,43623,251,0,1]},"protocolVersion":{"major":7,"minor":0},"maxBlockHeaderSize":1100,"maxBlockBodySize":65536,"maxTxSize":16384,"txFeeFixed":155381,"txFeePerByte":44,"stakeAddressDeposit":400000,"stakePoolDeposit":0,"minPoolCost":0,"poolRetireMaxEpoch":18,"stakePoolTargetNum":100,"poolPledgeInfluence":0,"monetaryExpansion":0.1,"treasuryCut":0.1,"collateralPercentage":150,"executionUnitPrices":{"priceMemory":0.0577,"priceSteps":0.0000721},"utxoCostPerByte":4310,"maxTxExecutionUnits":{"memory":16000000,"steps":10000000000},"maxBlockExecutionUnits":{"memory":80000000,"steps":40000000000},"maxCollateralInputs":3,"maxValueSize":5000,"extraPraosEntropy":null,"decentralization":null,"minUTxOValue":null,"poolVotingThresholds":{"committeeNoConfidence":0.51,"committeeNormal":0.51,"hardForkInitiation":0.51,"motionNoConfidence":0.51,"ppSecurityGroup":0.51},"dRepVotingThresholds":{"committeeNoConfidence":0.51,"committeeNormal":0.51,"hardForkInitiation":0.51,"motionNoConfidence":0.51,"ppEconomicGroup":0.51,"ppGovGroup":0.51,"ppNetworkGroup":0.51,"ppTechnicalGroup":0.51,"treasuryWithdrawal":0.51,"updateToConstitution":0.51},"dRepActivity":0,"dRepDeposit":0,"govActionDeposit":0,"govActionLifetime":14,"minFeeRefScriptCostPerByte":15,"committeeMaxTermLength":60,"committeeMinSize":0}`)
-	eraName            = DefaultEra
+	protocolParameters         = []byte(`{"costModels":{"PlutusV1":[197209,0,1,1,396231,621,0,1,150000,1000,0,1,150000,32,2477736,29175,4,29773,100,29773,100,29773,100,29773,100,29773,100,29773,100,100,100,29773,100,150000,32,150000,32,150000,32,150000,1000,0,1,150000,32,150000,1000,0,8,148000,425507,118,0,1,1,150000,1000,0,8,150000,112536,247,1,150000,10000,1,136542,1326,1,1000,150000,1000,1,150000,32,150000,32,150000,32,1,1,150000,1,150000,4,103599,248,1,103599,248,1,145276,1366,1,179690,497,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,148000,425507,118,0,1,1,61516,11218,0,1,150000,32,148000,425507,118,0,1,1,148000,425507,118,0,1,1,2477736,29175,4,0,82363,4,150000,5000,0,1,150000,32,197209,0,1,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,3345831,1,1],"PlutusV2":[205665,812,1,1,1000,571,0,1,1000,24177,4,1,1000,32,117366,10475,4,23000,100,23000,100,23000,100,23000,100,23000,100,23000,100,100,100,23000,100,19537,32,175354,32,46417,4,221973,511,0,1,89141,32,497525,14068,4,2,196500,453240,220,0,1,1,1000,28662,4,2,245000,216773,62,1,1060367,12586,1,208512,421,1,187000,1000,52998,1,80436,32,43249,32,1000,32,80556,1,57667,4,1000,10,197145,156,1,197145,156,1,204924,473,1,208896,511,1,52467,32,64832,32,65493,32,22558,32,16563,32,76511,32,196500,453240,220,0,1,1,69522,11687,0,1,60091,32,196500,453240,220,0,1,1,196500,453240,220,0,1,1,1159724,392670,0,2,806990,30482,4,1927926,82523,4,265318,0,4,0,85931,32,205665,812,1,1,41182,32,212342,32,31220,32,32696,32,43357,32,32247,32,38314,32,35892428,10,9462713,1021,10,38887044,32947,10,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807],"PlutusV3":[100788,420,1,1,1000,173,0,1,1000,59957,4,1,11183,32,201305,8356,4,16000,100,16000,100,16000,100,16000,100,16000,100,16000,100,100,100,16000,100,94375,32,132994,32,61462,4,72010,178,0,1,22151,32,91189,769,4,2,85848,123203,7305,-900,1716,549,57,85848,0,1,1,1000,42921,4,2,24548,29498,38,1,898148,27279,1,51775,558,1,39184,1000,60594,1,141895,32,83150,32,15299,32,76049,1,13169,4,22100,10,28999,74,1,28999,74,1,43285,552,1,44749,541,1,33852,32,68246,32,72362,32,7243,32,7391,32,11546,32,85848,123203,7305,-900,1716,549,57,85848,0,1,90434,519,0,1,74433,32,85848,123203,7305,-900,1716,549,57,85848,0,1,1,85848,123203,7305,-900,1716,549,57,85848,0,1,955506,213312,0,2,270652,22588,4,1457325,64566,4,20467,1,4,0,141992,32,100788,420,1,1,81663,32,59498,32,20142,32,24588,32,20744,32,25933,32,24623,32,43053543,10,53384111,14333,10,43574283,26308,10,16000,100,16000,100,962335,18,2780678,6,442008,1,52538055,3756,18,267929,18,76433006,8868,18,52948122,18,1995836,36,3227919,12,901022,1,166917843,4307,36,284546,36,158221314,26549,36,74698472,36,333849714,1,254006273,72,2174038,72,2261318,64571,4,207616,8310,4,1293828,28716,63,0,1,1006041,43623,251,0,1]},"protocolVersion":{"major":7,"minor":0},"maxBlockHeaderSize":1100,"maxBlockBodySize":65536,"maxTxSize":16384,"txFeeFixed":155381,"txFeePerByte":44,"stakeAddressDeposit":400000,"stakePoolDeposit":0,"minPoolCost":0,"poolRetireMaxEpoch":18,"stakePoolTargetNum":100,"poolPledgeInfluence":0,"monetaryExpansion":0.1,"treasuryCut":0.1,"collateralPercentage":150,"executionUnitPrices":{"priceMemory":0.0577,"priceSteps":0.0000721},"utxoCostPerByte":4310,"maxTxExecutionUnits":{"memory":16000000,"steps":10000000000},"maxBlockExecutionUnits":{"memory":80000000,"steps":40000000000},"maxCollateralInputs":3,"maxValueSize":5000,"extraPraosEntropy":null,"decentralization":null,"minUTxOValue":null,"poolVotingThresholds":{"committeeNoConfidence":0.51,"committeeNormal":0.51,"hardForkInitiation":0.51,"motionNoConfidence":0.51,"ppSecurityGroup":0.51},"dRepVotingThresholds":{"committeeNoConfidence":0.51,"committeeNormal":0.51,"hardForkInitiation":0.51,"motionNoConfidence":0.51,"ppEconomicGroup":0.51,"ppGovGroup":0.51,"ppNetworkGroup":0.51,"ppTechnicalGroup":0.51,"treasuryWithdrawal":0.51,"updateToConstitution":0.51},"dRepActivity":0,"dRepDeposit":0,"govActionDeposit":0,"govActionLifetime":14,"minFeeRefScriptCostPerByte":15,"committeeMaxTermLength":60,"committeeMinSize":0}`)
+	primeTestnetProtocolParams = []byte(`{"collateralPercentage":150,"costModels":{"PlutusV1":[197209,0,1,1,396231,621,0,1,150000,1000,0,1,150000,32,2477736,29175,4,29773,100,29773,100,29773,100,29773,100,29773,100,29773,100,100,100,29773,100,150000,32,150000,32,150000,32,150000,1000,0,1,150000,32,150000,1000,0,8,148000,425507,118,0,1,1,150000,1000,0,8,150000,112536,247,1,150000,10000,1,136542,1326,1,1000,150000,1000,1,150000,32,150000,32,150000,32,1,1,150000,1,150000,4,103599,248,1,103599,248,1,145276,1366,1,179690,497,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,148000,425507,118,0,1,1,61516,11218,0,1,150000,32,148000,425507,118,0,1,1,148000,425507,118,0,1,1,2477736,29175,4,0,82363,4,150000,5000,0,1,150000,32,197209,0,1,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,3345831,1,1],"PlutusV2":[205665,812,1,1,1000,571,0,1,1000,24177,4,1,1000,32,117366,10475,4,23000,100,23000,100,23000,100,23000,100,23000,100,23000,100,100,100,23000,100,19537,32,175354,32,46417,4,221973,511,0,1,89141,32,497525,14068,4,2,196500,453240,220,0,1,1,1000,28662,4,2,245000,216773,62,1,1060367,12586,1,208512,421,1,187000,1000,52998,1,80436,32,43249,32,1000,32,80556,1,57667,4,1000,10,197145,156,1,197145,156,1,204924,473,1,208896,511,1,52467,32,64832,32,65493,32,22558,32,16563,32,76511,32,196500,453240,220,0,1,1,69522,11687,0,1,60091,32,196500,453240,220,0,1,1,196500,453240,220,0,1,1,1159724,392670,0,2,806990,30482,4,1927926,82523,4,265318,0,4,0,85931,32,205665,812,1,1,41182,32,212342,32,31220,32,32696,32,43357,32,32247,32,38314,32,35892428,10,9462713,1021,10,38887044,32947,10]},"decentralization":null,"executionUnitPrices":{"priceMemory":5.77,"priceSteps":0.00721},"extraPraosEntropy":null,"maxBlockBodySize":65536,"maxBlockExecutionUnits":{"memory":80000000,"steps":40000000000},"maxBlockHeaderSize":1100,"maxCollateralInputs":3,"maxTxExecutionUnits":{"memory":16000000,"steps":10000000000},"maxTxSize":16384,"maxValueSize":5000,"minPoolCost":0,"minUTxOValue":null,"monetaryExpansion":0.0038,"poolPledgeInfluence":0,"poolRetireMaxEpoch":18,"protocolVersion":{"major":7,"minor":0},"stakeAddressDeposit":0,"stakePoolDeposit":0,"stakePoolTargetNum":100,"treasuryCut":1.0e-8,"txFeeFixed":158298,"txFeePerByte":47,"utxoCostPerByte":4310}`)
+	eraName                    = DefaultEra
 )
 
 func Test_TransactionBuilder(t *testing.T) {
@@ -367,7 +368,7 @@ func Test_TransactionBuilderWithRegAndDelegCertificates(t *testing.T) {
 	require.True(t, strings.HasPrefix(delegationCertificate.Type, "Certificate"))
 	require.Equal(t, "Stake Delegation Certificate", delegationCertificate.Description)
 	require.Equal(t, "83028201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f581c09ec0ea0c2a57205f31e5fced2964c2658bac5a3cc8dfc0e259c54cb", delegationCertificate.CborHex)
-	certs := []ICertificate{registrationCertificate, delegationCertificate}
+	certs := []ICardanoArtifact{registrationCertificate, delegationCertificate}
 
 	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
 	require.NoError(t, err)
@@ -484,6 +485,145 @@ func Test_TransactionBuilderWithWithdraw(t *testing.T) {
 	require.Equal(t, "84a5008182582019fc8df9a93cd82d0c3a36d2bf7b8b8d9bc00f1918b0e0ac1ec11ee49345d6ff000181825839301ab8db33cbfe7f75036e213f48500a4723c6f48311beb8e39884ceeab59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f1a00a65afc021a0003433503194dc605a1581df0b59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f1a00177be3a10182830303848200581c0fb340e2fc18865fbf406dce76f743de13c46d2eb91d6e87e6eb63c68200581c41b46f772b622e7e5bc8970d128faccb7a457c610a48d514801a04118200581c5282885af1f234cb9407f05b120f2eb06872f297864ca9066a6570118200581c6a2f73455484b658c168c18ed54222d189e7e746ec3dc2d8d8891e42830303848200581c30356731c6f4d92598732163a68d9dcec7c386075d5da4f1dca5724d8200581c794eb34ded015c701fcf7b6ec4e0476e3dc2054a8831f636361680c98200581c8d2f93fdc4dbe32b1cb6951a441f081d2d111cb4a4c79a69f27d00a98200581c9f584550989f8a6cd6ce152b1c34661a764e0237200359e0f553d7dbf5f6", hex.EncodeToString(txRaw))
 }
 
+func Test_TransactionBuilderWithPlutusMint(t *testing.T) {
+	inputs := []TxInput{
+		{
+			Hash:  "2bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53",
+			Index: 0,
+		},
+		{
+			Hash:  "2bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53",
+			Index: 3,
+		},
+	}
+
+	collateralInputs := []TxInput{
+		{
+			Hash:  "2bbfe495f75b5bcb6953b437533beb5aed4ee5d07ce886dac100ae6977349b53",
+			Index: 3,
+		},
+	}
+
+	collateralOutput := TxOutput{
+		Addr:   "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+		Amount: 0,
+	}
+
+	tokensPolicyID := "626cad0064f02def9d61824cac7b9e9fef4292bcab4e439b78bc69bd"
+	token1 := NewToken(tokensPolicyID, "sara")
+	token2 := NewToken(tokensPolicyID, "sara1")
+	nft := NewToken("14b249936a64cbc96bde5a46e04174e7fb58b565103d0c3a32f8d61f", "TestToken")
+
+	mintToknes := []MintTokenAmount{
+		NewMintTokenAmount(token1, 15000000, false),
+		NewMintTokenAmount(token2, 15000000, false),
+	}
+
+	txInReference := TxInput{
+		Hash:  "20bbbeffee0f48bc03e4226e91cab16bd5778474c121365e13295da459a4251c",
+		Index: 0,
+	}
+
+	outputs := []TxOutput{
+		{
+			Addr:   "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+			Amount: 1500000,
+			Tokens: []TokenAmount{
+				{
+					Token:  nft,
+					Amount: 1,
+				},
+			},
+		},
+		{
+			Addr:   "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+			Amount: 1500000,
+			Tokens: []TokenAmount{
+				{
+					Token:  token1,
+					Amount: 15000000,
+				},
+			},
+		},
+		{
+			Addr:   "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+			Amount: 1500000,
+			Tokens: []TokenAmount{
+				{
+					Token:  token2,
+					Amount: 15000000,
+				},
+			},
+		},
+		{
+			Addr: "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+		},
+	}
+
+	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	require.NoError(t, err)
+
+	defer builder.Dispose()
+
+	primeTestnetProtocolParams := []byte(`{"collateralPercentage":150,"costModels":{"PlutusV1":[197209,0,1,1,396231,621,0,1,150000,1000,0,1,150000,32,2477736,29175,4,29773,100,29773,100,29773,100,29773,100,29773,100,29773,100,29773,100,100,100,29773,100,150000,32,150000,32,150000,32,150000,1000,0,1,150000,32,150000,1000,0,8,148000,425507,118,0,1,1,150000,1000,0,8,150000,112536,247,1,150000,10000,1,136542,1326,1,1000,150000,1000,1,150000,32,150000,32,150000,32,1,1,150000,1,150000,4,103599,248,1,103599,248,1,145276,1366,1,179690,497,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,148000,425507,118,0,1,1,61516,11218,0,1,150000,32,148000,425507,118,0,1,1,148000,425507,118,0,1,1,2477736,29175,4,0,82363,4,150000,5000,0,1,150000,32,197209,0,1,1,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,150000,32,3345831,1,1],"PlutusV2":[205665,812,1,1,1000,571,0,1,1000,24177,4,1,1000,32,117366,10475,4,23000,100,23000,100,23000,100,23000,100,23000,100,23000,100,23000,100,100,100,23000,100,19537,32,175354,32,46417,4,221973,511,0,1,89141,32,497525,14068,4,2,196500,453240,220,0,1,1,1000,28662,4,2,245000,216773,62,1,1060367,12586,1,208512,421,1,187000,1000,52998,1,80436,32,43249,32,1000,32,80556,1,57667,4,1000,10,197145,156,1,197145,156,1,204924,473,1,208896,511,1,52467,32,64832,32,65493,32,22558,32,16563,32,76511,32,196500,453240,220,0,1,1,69522,11687,0,1,60091,32,196500,453240,220,0,1,1,196500,453240,220,0,1,1,1159724,392670,0,2,806990,30482,4,1927926,82523,4,265318,0,4,0,85931,32,205665,812,1,1,41182,32,212342,32,31220,32,32696,32,43357,32,32247,32,38314,32,35892428,10,9462713,1021,10,38887044,32947,10]},"decentralization":null,"executionUnitPrices":{"priceMemory":5.77,"priceSteps":7.21e-3},"extraPraosEntropy":null,"maxBlockBodySize":65536,"maxBlockExecutionUnits":{"memory":80000000,"steps":40000000000},"maxBlockHeaderSize":1100,"maxCollateralInputs":3,"maxTxExecutionUnits":{"memory":16000000,"steps":10000000000},"maxTxSize":16384,"maxValueSize":5000,"minPoolCost":0,"minUTxOValue":null,"monetaryExpansion":3.8e-3,"poolPledgeInfluence":0,"poolRetireMaxEpoch":18,"protocolVersion":{"major":7,"minor":0},"stakeAddressDeposit":0,"stakePoolDeposit":0,"stakePoolTargetNum":100,"treasuryCut":1e-8,"txFeeFixed":158298,"txFeePerByte":47,"utxoCostPerByte":4310}`)
+
+	builder.SetProtocolParameters(primeTestnetProtocolParams)
+
+	builder.AddInputs(inputs...)
+	builder.AddCollateralInputs(collateralInputs)
+	builder.AddPlutusTokenMints(mintToknes, txInReference, tokensPolicyID)
+	builder.AddCollateralOutput(collateralOutput)
+	builder.AddOutputs(outputs...)
+	builder.SetTimeToLive(44552853)
+
+	_, _, err = builder.UncheckedBuild()
+	require.NoError(t, err)
+}
+
+func Test_TransactionBuilderWithPlutusDeployment(t *testing.T) {
+	const txRaw = "84a40081825820ed985f36a35bde10d4476720b5153c57ed098d962f5f1425c25a97993df80630010182a300581d70626cad0064f02def9d61824cac7b9e9fef4292bcab4e439b78bc69bd011a003567e003d818590167820259016259015f010000223232323232323232533357340022930b19baf32357426aae78dd50009aba1357446aae78dd50011aba135573c6ea8004c8c8cc004004008894ccd55cf8008b0992999ab9a3370e600e6eacd5d09aba235573c6ea800520021001133003003357440046ae84004dd61aba1357446ae88010c8c8cc004004008894ccd55cf8008b0992999ab9a3370e600c646eacd5d09aba235573c6ea8004d5d09aba235573c6ea800520021001133003003357440046ae84004dd61aba1003375a00c46466600200244a666aae7c0045200015333573466ebcd55ce9aba10014c10a4954657374546f6b656e001375a6aae78d5d08008998010011aba200100222253335573e002290000a999ab9a3375e6aae74d5d0800a611e581c14b249936a64cbc96bde5a46e04174e7fb58b565103d0c3a32f8d61f0013300200237566aae78d5d080089998018018011aba200135573c0026ea8004d5d09aab9e375400382581d603c0e06d68646870080ebff18a5f6875be76856f2a7eea6b16648cf36000200031a02b3de4aa0f5f6"
+
+	inputs := []TxInput{
+		{
+			Hash:  "ed985f36a35bde10d4476720b5153c57ed098d962f5f1425c25a97993df80630",
+			Index: 1,
+		},
+	}
+
+	outputs := []TxOutput{
+		{
+			Addr: "addr_test1vq7qupkksergwqyqa0l33f0ksad7w6zk72n7af43veyv7dsyux62h",
+		},
+	}
+
+	plutusScript := PlutusScript{
+		Type:        "PlutusScriptV2",
+		Description: "",
+		CborHex:     "59016259015f010000223232323232323232533357340022930b19baf32357426aae78dd50009aba1357446aae78dd50011aba135573c6ea8004c8c8cc004004008894ccd55cf8008b0992999ab9a3370e600e6eacd5d09aba235573c6ea800520021001133003003357440046ae84004dd61aba1357446ae88010c8c8cc004004008894ccd55cf8008b0992999ab9a3370e600c646eacd5d09aba235573c6ea8004d5d09aba235573c6ea800520021001133003003357440046ae84004dd61aba1003375a00c46466600200244a666aae7c0045200015333573466ebcd55ce9aba10014c10a4954657374546f6b656e001375a6aae78d5d08008998010011aba200100222253335573e002290000a999ab9a3375e6aae74d5d0800a611e581c14b249936a64cbc96bde5a46e04174e7fb58b565103d0c3a32f8d61f0013300200237566aae78d5d080089998018018011aba200135573c0026ea8004d5d09aab9e3754003",
+	}
+
+	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	require.NoError(t, err)
+
+	defer builder.Dispose()
+
+	builder.SetTimeToLive(45342282).SetProtocolParameters(primeTestnetProtocolParams)
+	builder.SetTestNetMagic(3311)
+	builder.AddInputs(inputs...)
+
+	_, plutusScriptAddr, err := builder.AddOutputWithPlutusScript(plutusScript, 3500000)
+	require.NoError(t, err)
+	require.NotEqual(t, "", plutusScriptAddr)
+
+	builder.AddOutputs(outputs...)
+	builder.SetFee(0)
+
+	txRawRes, _, err := builder.UncheckedBuild()
+	require.NoError(t, err)
+
+	require.Equal(t, hex.EncodeToString(txRawRes), txRaw)
+}
+
 func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
 	t.Parallel()
 
@@ -500,40 +640,40 @@ func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
 	)
 
 	require.Len(t, builder.outputs, 4)
-	assert.Equal(t, uint64(0), builder.outputs[2].Amount)
-	assert.Equal(t, uint64(0), builder.outputs[3].Amount)
+	assert.Equal(t, uint64(0), builder.outputs[2].TxOutput.Amount)
+	assert.Equal(t, uint64(0), builder.outputs[3].TxOutput.Amount)
 
 	builder.UpdateOutputAmount(2, 200)
 	builder.UpdateOutputAmount(-1, 500)
 
-	assert.Equal(t, uint64(200), builder.outputs[2].Amount)
-	assert.Equal(t, "0x3", builder.outputs[2].Addr)
-	assert.Equal(t, uint64(500), builder.outputs[3].Amount)
-	assert.Equal(t, "0x4", builder.outputs[3].Addr)
+	assert.Equal(t, uint64(200), builder.outputs[2].TxOutput.Amount)
+	assert.Equal(t, "0x3", builder.outputs[2].TxOutput.Addr)
+	assert.Equal(t, uint64(500), builder.outputs[3].TxOutput.Amount)
+	assert.Equal(t, "0x4", builder.outputs[3].TxOutput.Addr)
 
 	builder.RemoveOutput(1)
 
 	require.Len(t, builder.outputs, 3)
-	assert.Equal(t, "0x1", builder.outputs[0].Addr)
-	assert.Equal(t, uint64(0), builder.outputs[0].Amount)
-	assert.Equal(t, "0x3", builder.outputs[1].Addr)
-	assert.Equal(t, uint64(200), builder.outputs[1].Amount)
-	assert.Equal(t, "0x4", builder.outputs[2].Addr)
-	assert.Equal(t, uint64(500), builder.outputs[2].Amount)
+	assert.Equal(t, "0x1", builder.outputs[0].TxOutput.Addr)
+	assert.Equal(t, uint64(0), builder.outputs[0].TxOutput.Amount)
+	assert.Equal(t, "0x3", builder.outputs[1].TxOutput.Addr)
+	assert.Equal(t, uint64(200), builder.outputs[1].TxOutput.Amount)
+	assert.Equal(t, "0x4", builder.outputs[2].TxOutput.Addr)
+	assert.Equal(t, uint64(500), builder.outputs[2].TxOutput.Amount)
 
 	builder.RemoveOutput(0)
 
 	require.Len(t, builder.outputs, 2)
-	assert.Equal(t, "0x3", builder.outputs[0].Addr)
-	assert.Equal(t, uint64(200), builder.outputs[0].Amount)
-	assert.Equal(t, "0x4", builder.outputs[1].Addr)
-	assert.Equal(t, uint64(500), builder.outputs[1].Amount)
+	assert.Equal(t, "0x3", builder.outputs[0].TxOutput.Addr)
+	assert.Equal(t, uint64(200), builder.outputs[0].TxOutput.Amount)
+	assert.Equal(t, "0x4", builder.outputs[1].TxOutput.Addr)
+	assert.Equal(t, uint64(500), builder.outputs[1].TxOutput.Amount)
 
 	builder.RemoveOutput(1)
 
 	require.Len(t, builder.outputs, 1)
-	assert.Equal(t, "0x3", builder.outputs[0].Addr)
-	assert.Equal(t, uint64(200), builder.outputs[0].Amount)
+	assert.Equal(t, "0x3", builder.outputs[0].TxOutput.Addr)
+	assert.Equal(t, uint64(200), builder.outputs[0].TxOutput.Amount)
 
 	builder.RemoveOutput(0)
 
@@ -646,42 +786,54 @@ func TestCalculateMinUtxo(t *testing.T) {
 
 	txBuilder.SetProtocolParameters(protocolParameters)
 
-	minUtxo, err := txBuilder.CalculateMinUtxo(output)
+	minUtxo, err := txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		TxOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1189560), minUtxo)
 
 	output.Tokens[0].Amount = 2 // tokens amount does make a difference
 
-	minUtxo, err = txBuilder.CalculateMinUtxo(output)
+	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		TxOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1172320), minUtxo)
 
 	output.Tokens[1].Amount = 3 // tokens amount does make a difference
 
-	minUtxo, err = txBuilder.CalculateMinUtxo(output)
+	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		TxOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1155080), minUtxo)
 
 	output.Tokens = output.Tokens[:len(output.Tokens)-1]
 
-	minUtxo, err = txBuilder.CalculateMinUtxo(output)
+	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		TxOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1077500), minUtxo)
 
 	output.Tokens = nil
 
-	minUtxo, err = txBuilder.CalculateMinUtxo(output)
+	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		TxOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(849070), minUtxo)
 
 	output.Amount = 3_600_000_348_100_893_234 // lovelace amount does not make a difference
 
-	minUtxo, err = txBuilder.CalculateMinUtxo(output)
+	minUtxo, err = txBuilder.CalculateMinUtxo(TxOutputWithRefScript{
+		TxOutput: output,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(849070), minUtxo)

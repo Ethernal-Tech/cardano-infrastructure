@@ -23,6 +23,8 @@ type TokenExchangeConfig struct {
 	DstChainID string `json:"dstChainID"`
 	// Token identifier in the format "policyId.name"
 	TokenName string `json:"tokenName"`
+	// Indicates whether the token is to be minted
+	Mint bool `json:"mint"`
 }
 
 type ChainConfig struct {

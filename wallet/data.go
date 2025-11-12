@@ -131,6 +131,11 @@ type QueryStakeAddressInfo struct {
 	VoteDelegation       string `json:"voteDelegation"`
 }
 
+type QueryEvaluateTxData struct {
+	Memory uint64 `json:"memory"`
+	CPU    uint64 `json:"cpu"`
+}
+
 type ITxSubmitter interface {
 	// SubmitTx submits transaction - txSigned should be cbor serialized signed transaction
 	SubmitTx(ctx context.Context, txSigned []byte) error
@@ -143,6 +148,8 @@ type ITxRetriever interface {
 type ITxDataRetriever interface {
 	GetTip(ctx context.Context) (QueryTipData, error)
 	GetProtocolParameters(ctx context.Context) ([]byte, error)
+	EvaluateTx(ctx context.Context, rawTx []byte) (QueryEvaluateTxData, error)
+	IUTxORetriever
 }
 
 type IUTxORetriever interface {
@@ -172,21 +179,24 @@ type ISerializable interface {
 }
 
 type IPolicyScript interface {
-	ISerializable
+	ICardanoArtifact
 	GetCount() int
 }
 
-type ICertificate interface {
+type ICardanoArtifact interface {
 	ISerializable
 }
 
-type Certificate struct {
+type CardanoArtifact struct {
 	Type        string `json:"type"`
 	Description string `json:"description"`
 	CborHex     string `json:"cborHex"`
 }
 
-// GetBytesJSON returns certificate as JSON byte array.
-func (c Certificate) GetBytesJSON() ([]byte, error) {
+// GetBytesJSON returns Cardano artifact as JSON byte array.
+func (c CardanoArtifact) GetBytesJSON() ([]byte, error) {
 	return json.MarshalIndent(c, "", "  ")
 }
+
+type Certificate = CardanoArtifact
+type PlutusScript = CardanoArtifact
