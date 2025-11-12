@@ -347,7 +347,7 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 
 		witnessCount += getCertfificatesWitnessCount(b.certificates)
 		witnessCount += b.withdrawalData.GetWitnessCount()
-		witnessCount += b.additionalWitnesses
+		witnessCount = max(witnessCount+b.additionalWitnesses, 1)
 	}
 
 	response, err := runCommand(b.cardanoCliBinary, append([]string{
