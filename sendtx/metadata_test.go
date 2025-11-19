@@ -18,21 +18,47 @@ func TestMetaDataGetOutputAmounts(t *testing.T) {
 				Amount:  200,
 			},
 			{
-				Address:            common.SplitString("ffa00021", splitStringLength),
-				IsNativeTokenOnSrc: metadataBoolTrue,
-				Amount:             420,
+				Address:      common.SplitString("ffa00021", splitStringLength),
+				BridgingType: BridgingTypeWrappedTokenOnSource,
+				Amount:       420,
 			},
 			{
-				Address: common.SplitString("ffa00055a", splitStringLength),
-				Amount:  150,
+				Address:      common.SplitString("ffa00055a", splitStringLength),
+				BridgingType: BridgingTypeCurrencyOnSource,
+				Amount:       150,
+			},
+			{
+				Address:      common.SplitString("ffa00022", splitStringLength),
+				BridgingType: BridgingTypeWrappedTokenOnSource,
+				Amount:       220,
+			},
+			{
+				Address:       common.SplitString("ffa00023", splitStringLength),
+				BridgingType:  BridgingTypeColoredCoinOnSource,
+				ColoredCoinID: 1,
+				Amount:        20,
+			},
+			{
+				Address:       common.SplitString("ffa00024", splitStringLength),
+				BridgingType:  BridgingTypeColoredCoinOnSource,
+				ColoredCoinID: 1,
+				Amount:        320,
+			},
+			{
+				Address:       common.SplitString("ffa00024", splitStringLength),
+				BridgingType:  BridgingTypeColoredCoinOnSource,
+				ColoredCoinID: 2,
+				Amount:        300,
 			},
 		},
 	}
 
-	v1, v2 := metadata.GetOutputAmounts()
+	outputAmounts := metadata.GetOutputAmounts()
 
-	assert.Equal(t, uint64(120+200+200+150), v1)
-	assert.Equal(t, uint64(420), v2)
+	assert.Equal(t, uint64(120+200+200+150), outputAmounts.CurrencyLovelace)
+	assert.Equal(t, uint64(420+220), outputAmounts.WrappedTokens)
+	assert.Equal(t, uint64(20+320), outputAmounts.ColoredCoins[1])
+	assert.Equal(t, uint64(300), outputAmounts.ColoredCoins[2])
 }
 
 func TestMetaDataMarshal(t *testing.T) {

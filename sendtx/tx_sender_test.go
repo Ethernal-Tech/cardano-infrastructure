@@ -105,7 +105,7 @@ func TestTxSender(t *testing.T) {
 			SenderAddrPolicyScript: policyScript,
 			Receivers: []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeNativeTokenOnSource,
+					BridgingType: BridgingTypeWrappedTokenOnSource,
 					Addr:         receiverAddr.String(),
 					Amount:       uint64(1_000_000),
 				},
@@ -125,7 +125,7 @@ func TestTxSender(t *testing.T) {
 			SenderAddrPolicyScript: policyScript,
 			Receivers: []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeNativeTokenOnSource,
+					BridgingType: BridgingTypeWrappedTokenOnSource,
 					Addr:         receiverAddr.String(),
 					Amount:       uint64(1_000_000),
 				},
@@ -143,7 +143,7 @@ func TestTxSender(t *testing.T) {
 			SenderAddrPolicyScript: policyScript,
 			Receivers: []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeNativeTokenOnSource,
+					BridgingType: BridgingTypeWrappedTokenOnSource,
 					Addr:         receiverAddr.String(),
 					Amount:       uint64(1_000_000),
 				},
@@ -217,7 +217,7 @@ func TestCreateMetaData(t *testing.T) {
 					Amount:       uint64(61),
 				},
 				{
-					BridgingType: BridgingTypeNativeTokenOnSource,
+					BridgingType: BridgingTypeWrappedTokenOnSource,
 					Addr:         dummyAddr2,
 					Amount:       uint64(33),
 				},
@@ -231,17 +231,19 @@ func TestCreateMetaData(t *testing.T) {
 		assert.Equal(t, operationFeeAmount, metadata.OperationFee)
 		assert.Equal(t, []BridgingRequestMetadataTransaction{
 			{
-				Address: common.SplitString(dummyAddr2, splitStringLength),
-				Amount:  uint64(100),
+				Address:      common.SplitString(dummyAddr2, splitStringLength),
+				BridgingType: BridgingTypeNormal,
+				Amount:       uint64(100),
 			},
 			{
-				Address: common.SplitString(dummyAddr2, splitStringLength),
-				Amount:  uint64(61),
+				Address:      common.SplitString(dummyAddr2, splitStringLength),
+				BridgingType: BridgingTypeCurrencyOnSource,
+				Amount:       uint64(61),
 			},
 			{
-				Address:            common.SplitString(dummyAddr2, splitStringLength),
-				IsNativeTokenOnSrc: metadataBoolTrue,
-				Amount:             33,
+				Address:      common.SplitString(dummyAddr2, splitStringLength),
+				BridgingType: BridgingTypeWrappedTokenOnSource,
+				Amount:       33,
 			},
 		}, metadata.Transactions)
 	})
@@ -277,7 +279,7 @@ func TestCreateMetaData(t *testing.T) {
 		metadata, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeNativeTokenOnSource,
+					BridgingType: BridgingTypeWrappedTokenOnSource,
 					Addr:         dummyAddr2,
 					Amount:       uint64(200),
 				},
@@ -291,9 +293,9 @@ func TestCreateMetaData(t *testing.T) {
 		assert.Equal(t, operationFeeAmount, metadata.OperationFee)
 		assert.Equal(t, []BridgingRequestMetadataTransaction{
 			{
-				Address:            common.SplitString(dummyAddr2, splitStringLength),
-				IsNativeTokenOnSrc: metadataBoolTrue,
-				Amount:             200,
+				Address:      common.SplitString(dummyAddr2, splitStringLength),
+				BridgingType: BridgingTypeWrappedTokenOnSource,
+				Amount:       200,
 			},
 		}, metadata.Transactions)
 	})
@@ -304,7 +306,7 @@ func TestCreateMetaData(t *testing.T) {
 		_, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeNativeTokenOnSource,
+					BridgingType: BridgingTypeWrappedTokenOnSource,
 					Addr:         dummyAddr2,
 					Amount:       19,
 				},
@@ -405,13 +407,13 @@ func Test_checkFees(t *testing.T) {
 }
 
 func Test_getOutputAmounts(t *testing.T) {
-	lovelace, nativeTokens := getOutputAmounts([]BridgingTxReceiver{
+	outputAmounts := getOutputAmounts([]BridgingTxReceiver{
 		{
 			BridgingType: BridgingTypeCurrencyOnSource,
 			Amount:       1,
 		},
 		{
-			BridgingType: BridgingTypeNativeTokenOnSource,
+			BridgingType: BridgingTypeWrappedTokenOnSource,
 			Amount:       2,
 		},
 		{
@@ -423,13 +425,30 @@ func Test_getOutputAmounts(t *testing.T) {
 			Amount:       4,
 		},
 		{
-			BridgingType: BridgingTypeNativeTokenOnSource,
+			BridgingType: BridgingTypeWrappedTokenOnSource,
 			Amount:       5,
+		},
+		{
+			BridgingType:  BridgingTypeColoredCoinOnSource,
+			Amount:        6,
+			ColoredCoinID: 1,
+		},
+		{
+			BridgingType:  BridgingTypeColoredCoinOnSource,
+			Amount:        7,
+			ColoredCoinID: 2,
+		},
+		{
+			BridgingType:  BridgingTypeColoredCoinOnSource,
+			Amount:        8,
+			ColoredCoinID: 1,
 		},
 	})
 
-	assert.Equal(t, uint64(8), lovelace)
-	assert.Equal(t, uint64(7), nativeTokens)
+	assert.Equal(t, uint64(8), outputAmounts.CurrencyLovelace)
+	assert.Equal(t, uint64(7), outputAmounts.WrappedTokens)
+	assert.Equal(t, uint64(14), outputAmounts.ColoredCoins[1])
+	assert.Equal(t, uint64(7), outputAmounts.ColoredCoins[2])
 }
 
 func TestGetTokenFromTokenExchangeConfig(t *testing.T) {
@@ -499,7 +518,7 @@ func Test_prepareBridgingTx(t *testing.T) {
 					Amount:       500_000,
 				},
 				{
-					BridgingType: BridgingTypeNativeTokenOnSource,
+					BridgingType: BridgingTypeWrappedTokenOnSource,
 					Amount:       600_000,
 				},
 				{
@@ -507,7 +526,7 @@ func Test_prepareBridgingTx(t *testing.T) {
 					Amount:       500_001,
 				},
 				{
-					BridgingType: BridgingTypeNativeTokenOnSource,
+					BridgingType: BridgingTypeWrappedTokenOnSource,
 					Amount:       600_003,
 				},
 			},

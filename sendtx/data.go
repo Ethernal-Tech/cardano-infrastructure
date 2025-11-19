@@ -10,8 +10,9 @@ type BridgingType byte
 
 const (
 	BridgingTypeNormal BridgingType = iota
-	BridgingTypeNativeTokenOnSource
+	BridgingTypeWrappedTokenOnSource
 	BridgingTypeCurrencyOnSource
+	BridgingTypeColoredCoinOnSource
 
 	defaultPotentialFee     = 400_000
 	defaultMaxInputsPerTx   = 50
@@ -27,25 +28,33 @@ type TokenExchangeConfig struct {
 	Mint bool `json:"mint"`
 }
 
+type ColoredCoin struct {
+	TokenName     string `json:"tokenName"`
+	ColoredCoinID uint16 `json:"coloredCoinID"`
+}
+
 type ChainConfig struct {
-	CardanoCliBinary         string
-	TxProvider               cardanowallet.ITxProvider
-	MultiSigAddr             string
-	TestNetMagic             uint
-	TTLSlotNumberInc         uint64
-	MinUtxoValue             uint64
-	NativeTokens             []TokenExchangeConfig
-	DefaultMinFeeForBridging uint64
-	MinFeeForBridgingTokens  uint64
-	MinOperationFeeAmount    uint64
-	PotentialFee             uint64
-	ProtocolParameters       []byte
+	CardanoCliBinary           string
+	TxProvider                 cardanowallet.ITxProvider
+	MultiSigAddr               string
+	TestNetMagic               uint
+	TTLSlotNumberInc           uint64
+	MinUtxoValue               uint64
+	MinColCoinsAllowedToBridge uint64
+	NativeTokens               []TokenExchangeConfig
+	DefaultMinFeeForBridging   uint64
+	MinFeeForBridgingTokens    uint64
+	MinOperationFeeAmount      uint64
+	PotentialFee               uint64
+	ProtocolParameters         []byte
+	ColoredCoins               []ColoredCoin
 }
 
 type BridgingTxReceiver struct {
-	BridgingType BridgingType `json:"type"`
-	Addr         string       `json:"addr"`
-	Amount       uint64       `json:"amount"`
+	BridgingType  BridgingType `json:"type"`
+	Addr          string       `json:"addr"`
+	Amount        uint64       `json:"amount"`
+	ColoredCoinID uint16       `json:"colcoin"`
 }
 
 type TxInfo struct {
@@ -103,8 +112,8 @@ func (bt BridgingType) String() string {
 	switch bt {
 	case BridgingTypeNormal:
 		return "Bridging Request Reactor"
-	case BridgingTypeNativeTokenOnSource:
-		return "Bridging Native Token on Source"
+	case BridgingTypeWrappedTokenOnSource:
+		return "Bridging Wrapped Token on Source"
 	case BridgingTypeCurrencyOnSource:
 		return "Bridging Currency on Source"
 	default:
