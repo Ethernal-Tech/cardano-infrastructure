@@ -40,6 +40,7 @@ type ChainConfig struct {
 	MinOperationFeeAmount    uint64
 	PotentialFee             uint64
 	ProtocolParameters       []byte
+	TreasuryAddress          string
 }
 
 type BridgingTxReceiver struct {
@@ -97,6 +98,7 @@ type GenericTxDto struct {
 	SenderAddrPolicyScript *cardanowallet.PolicyScript
 	Metadata               []byte
 	Receivers              []TxReceiversDto
+	OperationFee           uint64
 }
 
 func (bt BridgingType) String() string {

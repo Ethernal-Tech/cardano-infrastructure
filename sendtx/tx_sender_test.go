@@ -16,6 +16,8 @@ const (
 	dummyAddr  = "addr_test1vqjysa7p4mhu0l25qknwznvj0kghtr29ud7zp732ezwtzec0w8g3u"
 	dummyAddr2 = "addr_test1wrphkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtcl6szpr"
 	dummyPID   = "29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8"
+
+	validPrimeTreasuryAddress = "addr_test1vq6xsx99frfepnsjuhzac48vl9s2lc9awkvfknkgs89srqqslj660"
 )
 
 var (
@@ -61,6 +63,7 @@ func TestTxSender(t *testing.T) {
 					TokenName:  fmt.Sprintf("%s.Route3", dummyPID),
 				},
 			},
+			TreasuryAddress: validPrimeTreasuryAddress,
 		},
 		"vector": {
 			TestNetMagic: 1790,
@@ -110,7 +113,8 @@ func TestTxSender(t *testing.T) {
 					Amount:       uint64(1_000_000),
 				},
 			},
-			BridgingFee: uint64(1_000_010),
+			BridgingFee:  uint64(1_000_010),
+			OperationFee: uint64(1_000_010),
 		})
 
 		require.NoError(t, err)
@@ -178,6 +182,7 @@ func TestTxSender(t *testing.T) {
 					Amount: uint64(2_000_030),
 				},
 			},
+			OperationFee: uint64(1_000_010),
 		})
 
 		require.NoError(t, err)
@@ -603,6 +608,8 @@ func Test_populateTxBuilder(t *testing.T) {
 		},
 	})
 
+	operationFee := uint64(1_000_010)
+
 	t.Run("valid without token", func(t *testing.T) {
 		data, err := txSnd.populateTxBuilder(
 			context.Background(), txBuilder,
@@ -614,10 +621,11 @@ func Test_populateTxBuilder(t *testing.T) {
 						Amount: 2_000_000,
 					},
 				},
+				OperationFee: operationFee,
 			})
 
 		require.NoError(t, err)
-		assert.Equal(t, uint64(8000000), data.ChangeLovelace)
+		assert.Equal(t, uint64(8000000)-operationFee, data.ChangeLovelace)
 		assert.Equal(t, uint64(1077500), data.ChangeMinUtxoAmount)
 		assert.GreaterOrEqual(t, len(data.ChosenInputs.Inputs), 1)
 	})
@@ -648,10 +656,11 @@ func Test_populateTxBuilder(t *testing.T) {
 						}},
 					},
 				},
+				OperationFee: operationFee,
 			})
 
 		require.NoError(t, err)
-		assert.Equal(t, uint64(10_000_000)-uint64(1_000_000)-uint64(2_000_000), data.ChangeLovelace)
+		assert.Equal(t, uint64(10_000_000)-uint64(1_000_000)-uint64(2_000_000)-operationFee, data.ChangeLovelace)
 		assert.Equal(t, uint64(1034400), data.ChangeMinUtxoAmount)
 		assert.GreaterOrEqual(t, len(data.ChosenInputs.Inputs), 1)
 	})
