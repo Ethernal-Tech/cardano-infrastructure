@@ -1,6 +1,8 @@
 package sendtx
 
-import cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
+import (
+	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
+)
 
 type IUtxosTransformer interface {
 	TransformUtxos(utxos []cardanowallet.Utxo) []cardanowallet.Utxo
@@ -28,9 +30,10 @@ type TokenExchangeConfig struct {
 	Mint bool `json:"mint"`
 }
 
-type ColoredCoin struct {
-	TokenName     string `json:"tokenName"`
-	ColoredCoinID uint16 `json:"coloredCoinID"`
+type ApexToken struct {
+	ChainSpecific     string `json:"chainSpecific"`
+	LockUnlock        bool   `json:"lockUnlock"`
+	IsWrappedCurrency bool   `json:"isWrappedCurrency"`
 }
 
 type ChainConfig struct {
@@ -41,20 +44,18 @@ type ChainConfig struct {
 	TTLSlotNumberInc           uint64
 	MinUtxoValue               uint64
 	MinColCoinsAllowedToBridge uint64
-	NativeTokens               []TokenExchangeConfig
+	Tokens                     map[uint16]ApexToken
 	DefaultMinFeeForBridging   uint64
 	MinFeeForBridgingTokens    uint64
 	MinOperationFeeAmount      uint64
 	PotentialFee               uint64
 	ProtocolParameters         []byte
-	ColoredCoins               []ColoredCoin
 }
 
 type BridgingTxReceiver struct {
-	BridgingType  BridgingType `json:"type"`
-	Addr          string       `json:"addr"`
-	Amount        uint64       `json:"amount"`
-	ColoredCoinID uint16       `json:"colcoin"`
+	Addr   string `json:"addr"`
+	Amount uint64 `json:"amount"`
+	Token  uint16 `json:"token"`
 }
 
 type TxInfo struct {
@@ -119,4 +120,14 @@ func (bt BridgingType) String() string {
 	default:
 		return "Unknown Bridging Type"
 	}
+}
+
+func (config ChainConfig) GetCurrencyID() (uint16, bool) {
+	for id, token := range config.Tokens {
+		if token.ChainSpecific == cardanowallet.AdaTokenName {
+			return id, true
+		}
+	}
+
+	return 0, false
 }

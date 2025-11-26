@@ -16,6 +16,11 @@ const (
 	dummyAddr  = "addr_test1vqjysa7p4mhu0l25qknwznvj0kghtr29ud7zp732ezwtzec0w8g3u"
 	dummyAddr2 = "addr_test1wrphkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtcl6szpr"
 	dummyPID   = "29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8"
+
+	currencyID     = uint16(1)
+	wrappedTokenID = uint16(2)
+	coloredCoinID1 = uint16(3)
+	coloredCoinID2 = uint16(4)
 )
 
 var (
@@ -55,11 +60,9 @@ func TestTxSender(t *testing.T) {
 			MultiSigAddr:     bridgingAddr.String(),
 			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(0),
 			TxProvider:       txProvider,
-			NativeTokens: []TokenExchangeConfig{
-				{
-					DstChainID: "vector",
-					TokenName:  fmt.Sprintf("%s.Route3", dummyPID),
-				},
+			Tokens: map[uint16]ApexToken{
+				1: {ChainSpecific: cardanowallet.AdaTokenName, LockUnlock: true},
+				2: {ChainSpecific: fmt.Sprintf("%s.Route3", dummyPID), LockUnlock: true},
 			},
 		},
 		"vector": {
@@ -105,9 +108,9 @@ func TestTxSender(t *testing.T) {
 			SenderAddrPolicyScript: policyScript,
 			Receivers: []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeWrappedTokenOnSource,
-					Addr:         receiverAddr.String(),
-					Amount:       uint64(1_000_000),
+					Addr:   receiverAddr.String(),
+					Amount: uint64(1_000_000),
+					Token:  wrappedTokenID,
 				},
 			},
 			BridgingFee: uint64(1_000_010),
@@ -125,9 +128,9 @@ func TestTxSender(t *testing.T) {
 			SenderAddrPolicyScript: policyScript,
 			Receivers: []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeWrappedTokenOnSource,
-					Addr:         receiverAddr.String(),
-					Amount:       uint64(1_000_000),
+					Addr:   receiverAddr.String(),
+					Amount: uint64(1_000_000),
+					Token:  wrappedTokenID,
 				},
 			},
 			BridgingFee: uint64(1_000_010),
@@ -143,9 +146,9 @@ func TestTxSender(t *testing.T) {
 			SenderAddrPolicyScript: policyScript,
 			Receivers: []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeWrappedTokenOnSource,
-					Addr:         receiverAddr.String(),
-					Amount:       uint64(1_000_000),
+					Addr:   receiverAddr.String(),
+					Amount: uint64(1_000_000),
+					Token:  wrappedTokenID,
 				},
 			},
 			BridgingFee: uint64(1_000_010),
@@ -195,6 +198,10 @@ func TestCreateMetaData(t *testing.T) {
 	configs := map[string]ChainConfig{
 		"prime": {
 			MinUtxoValue: 55,
+			Tokens: map[uint16]ApexToken{
+				1: {ChainSpecific: cardanowallet.AdaTokenName, LockUnlock: true},
+				2: {ChainSpecific: fmt.Sprintf("%s.Route3", dummyPID), LockUnlock: true, IsWrappedCurrency: true},
+			},
 		},
 		"vector": {
 			MinUtxoValue: 20,
@@ -207,19 +214,19 @@ func TestCreateMetaData(t *testing.T) {
 		metadata, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeNormal,
-					Addr:         dummyAddr2,
-					Amount:       uint64(100),
+					Addr:   dummyAddr2,
+					Amount: uint64(100),
+					Token:  currencyID,
 				},
 				{
-					BridgingType: BridgingTypeCurrencyOnSource,
-					Addr:         dummyAddr2,
-					Amount:       uint64(61),
+					Addr:   dummyAddr2,
+					Amount: uint64(61),
+					Token:  currencyID,
 				},
 				{
-					BridgingType: BridgingTypeWrappedTokenOnSource,
-					Addr:         dummyAddr2,
-					Amount:       uint64(33),
+					Addr:   dummyAddr2,
+					Amount: uint64(33),
+					Token:  wrappedTokenID,
 				},
 			}, bridgingFeeAmountForNativeTokens, operationFeeAmount)
 
@@ -231,19 +238,19 @@ func TestCreateMetaData(t *testing.T) {
 		assert.Equal(t, operationFeeAmount, metadata.OperationFee)
 		assert.Equal(t, []BridgingRequestMetadataTransaction{
 			{
-				Address:      common.SplitString(dummyAddr2, splitStringLength),
-				BridgingType: BridgingTypeNormal,
-				Amount:       uint64(100),
+				Address: common.SplitString(dummyAddr2, splitStringLength),
+				Amount:  uint64(100),
+				Token:   uint16(1),
 			},
 			{
-				Address:      common.SplitString(dummyAddr2, splitStringLength),
-				BridgingType: BridgingTypeCurrencyOnSource,
-				Amount:       uint64(61),
+				Address: common.SplitString(dummyAddr2, splitStringLength),
+				Amount:  uint64(61),
+				Token:   uint16(1),
 			},
 			{
-				Address:      common.SplitString(dummyAddr2, splitStringLength),
-				BridgingType: BridgingTypeWrappedTokenOnSource,
-				Amount:       33,
+				Address: common.SplitString(dummyAddr2, splitStringLength),
+				Amount:  33,
+				Token:   uint16(2),
 			},
 		}, metadata.Transactions)
 	})
@@ -254,8 +261,8 @@ func TestCreateMetaData(t *testing.T) {
 		_, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeNormal,
-					Amount:       uint64(100),
+					Amount: uint64(100),
+					Token:  currencyID,
 				},
 			}, defaultBridgingFeeAmount, operationFeeAmount)
 
@@ -279,9 +286,9 @@ func TestCreateMetaData(t *testing.T) {
 		metadata, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeWrappedTokenOnSource,
-					Addr:         dummyAddr2,
-					Amount:       uint64(200),
+					Addr:   dummyAddr2,
+					Amount: uint64(200),
+					Token:  wrappedTokenID,
 				},
 			}, bridgingFeeAmountForNativeTokens, operationFeeAmount)
 
@@ -293,9 +300,9 @@ func TestCreateMetaData(t *testing.T) {
 		assert.Equal(t, operationFeeAmount, metadata.OperationFee)
 		assert.Equal(t, []BridgingRequestMetadataTransaction{
 			{
-				Address:      common.SplitString(dummyAddr2, splitStringLength),
-				BridgingType: BridgingTypeWrappedTokenOnSource,
-				Amount:       200,
+				Address: common.SplitString(dummyAddr2, splitStringLength),
+				Amount:  200,
+				Token:   wrappedTokenID,
 			},
 		}, metadata.Transactions)
 	})
@@ -306,9 +313,9 @@ func TestCreateMetaData(t *testing.T) {
 		_, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeWrappedTokenOnSource,
-					Addr:         dummyAddr2,
-					Amount:       19,
+					Addr:   dummyAddr2,
+					Amount: 19,
+					Token:  wrappedTokenID,
 				},
 			}, bridgingFeeAmountForNativeTokens, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
@@ -320,9 +327,9 @@ func TestCreateMetaData(t *testing.T) {
 		_, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeCurrencyOnSource,
-					Addr:         dummyAddr2,
-					Amount:       9,
+					Addr:   dummyAddr2,
+					Amount: 9,
+					Token:  currencyID,
 				},
 			}, defaultBridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
@@ -348,6 +355,10 @@ func TestCreateMetaData(t *testing.T) {
 				DefaultMinFeeForBridging: defaultBridgingFeeAmount,
 				MinFeeForBridgingTokens:  bridgingFeeAmountForNativeTokens,
 				MinUtxoValue:             190,
+				Tokens: map[uint16]ApexToken{
+					1: {ChainSpecific: cardanowallet.AdaTokenName, LockUnlock: true},
+					2: {ChainSpecific: fmt.Sprintf("%s.Route3", dummyPID), LockUnlock: true, IsWrappedCurrency: true},
+				},
 			},
 			"vector": {
 				DefaultMinFeeForBridging: defaultBridgingFeeAmount,
@@ -359,9 +370,9 @@ func TestCreateMetaData(t *testing.T) {
 		_, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeNormal,
-					Addr:         dummyAddr2,
-					Amount:       189,
+					Addr:   dummyAddr2,
+					Amount: 189,
+					Token:  currencyID,
 				},
 			}, defaultBridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
@@ -407,48 +418,45 @@ func Test_checkFees(t *testing.T) {
 }
 
 func Test_getOutputAmounts(t *testing.T) {
-	outputAmounts := getOutputAmounts([]BridgingTxReceiver{
+	outputAmounts := getOutputAmounts(currencyID, []BridgingTxReceiver{
 		{
-			BridgingType: BridgingTypeCurrencyOnSource,
-			Amount:       1,
+			Amount: 1,
+			Token:  currencyID,
 		},
 		{
-			BridgingType: BridgingTypeWrappedTokenOnSource,
-			Amount:       2,
+			Amount: 2,
+			Token:  wrappedTokenID,
 		},
 		{
-			BridgingType: BridgingTypeCurrencyOnSource,
-			Amount:       3,
+			Amount: 3,
+			Token:  currencyID,
 		},
 		{
-			BridgingType: BridgingTypeNormal,
-			Amount:       4,
+			Amount: 4,
+			Token:  currencyID,
 		},
 		{
-			BridgingType: BridgingTypeWrappedTokenOnSource,
-			Amount:       5,
+			Amount: 5,
+			Token:  wrappedTokenID,
 		},
 		{
-			BridgingType:  BridgingTypeColoredCoinOnSource,
-			Amount:        6,
-			ColoredCoinID: 1,
+			Amount: 6,
+			Token:  coloredCoinID1,
 		},
 		{
-			BridgingType:  BridgingTypeColoredCoinOnSource,
-			Amount:        7,
-			ColoredCoinID: 2,
+			Amount: 7,
+			Token:  coloredCoinID2,
 		},
 		{
-			BridgingType:  BridgingTypeColoredCoinOnSource,
-			Amount:        8,
-			ColoredCoinID: 1,
+			Amount: 8,
+			Token:  coloredCoinID1,
 		},
 	})
 
 	assert.Equal(t, uint64(8), outputAmounts.CurrencyLovelace)
-	assert.Equal(t, uint64(7), outputAmounts.WrappedTokens)
-	assert.Equal(t, uint64(14), outputAmounts.ColoredCoins[1])
-	assert.Equal(t, uint64(7), outputAmounts.ColoredCoins[2])
+	assert.Equal(t, uint64(7), outputAmounts.NativeTokens[wrappedTokenID])
+	assert.Equal(t, uint64(14), outputAmounts.NativeTokens[coloredCoinID1])
+	assert.Equal(t, uint64(7), outputAmounts.NativeTokens[coloredCoinID2])
 }
 
 func TestGetTokenFromTokenExchangeConfig(t *testing.T) {
@@ -493,11 +501,9 @@ func Test_prepareBridgingTx(t *testing.T) {
 		"prime": {
 			MinUtxoValue: 55,
 			TestNetMagic: cardanowallet.PreviewProtocolMagic,
-			NativeTokens: []TokenExchangeConfig{
-				{
-					DstChainID: "vector",
-					TokenName:  token.String(),
-				},
+			Tokens: map[uint16]ApexToken{
+				1: {ChainSpecific: cardanowallet.AdaTokenName, LockUnlock: true},
+				2: {ChainSpecific: token.String(), LockUnlock: true},
 			},
 			TxProvider:       txProviderMock,
 			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(cardanowallet.TestNetNetwork),
@@ -514,20 +520,20 @@ func Test_prepareBridgingTx(t *testing.T) {
 			SenderAddr: dummyAddr,
 			Receivers: []BridgingTxReceiver{
 				{
-					BridgingType: BridgingTypeCurrencyOnSource,
-					Amount:       500_000,
+					Amount: 500_000,
+					Token:  currencyID,
 				},
 				{
-					BridgingType: BridgingTypeWrappedTokenOnSource,
-					Amount:       600_000,
+					Amount: 600_000,
+					Token:  wrappedTokenID,
 				},
 				{
-					BridgingType: BridgingTypeCurrencyOnSource,
-					Amount:       500_001,
+					Amount: 500_001,
+					Token:  currencyID,
 				},
 				{
-					BridgingType: BridgingTypeWrappedTokenOnSource,
-					Amount:       600_003,
+					Amount: 600_003,
+					Token:  wrappedTokenID,
 				},
 			},
 			BridgingAddress: dummyAddr,
@@ -611,11 +617,9 @@ func Test_populateTxBuilder(t *testing.T) {
 		"": {
 			MinUtxoValue: 55,
 			TestNetMagic: cardanowallet.PreviewProtocolMagic,
-			NativeTokens: []TokenExchangeConfig{
-				{
-					DstChainID: "vector",
-					TokenName:  token1.String(),
-				},
+			Tokens: map[uint16]ApexToken{
+				1: {ChainSpecific: cardanowallet.AdaTokenName, LockUnlock: true},
+				2: {ChainSpecific: token1.String(), LockUnlock: true},
 			},
 			TxProvider:       txProviderMock,
 			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(cardanowallet.TestNetNetwork),

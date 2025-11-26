@@ -16,18 +16,16 @@ const (
 
 type OutputAmounts struct {
 	CurrencyLovelace uint64
-	WrappedTokens    uint64
-	ColoredCoins     map[uint16]uint64
+	NativeTokens     map[uint16]uint64
 }
 
 // BridgingRequestMetadataTransaction represents a single transaction in a bridging request.
 // IsNativeTokenOnSrc is true if the user is bridging native tokens (e.g., WSADA, WSAPEX) ...
 // ... and false if bridging native currency (e.g., ADA, APEX).
 type BridgingRequestMetadataTransaction struct {
-	Address       []string     `cbor:"a" json:"a"`
-	BridgingType  BridgingType `cbor:"bt" json:"bt"`
-	ColoredCoinID uint16       `cbor:"cc" json:"cc"`
-	Amount        uint64       `cbor:"m" json:"m"`
+	Address []string `cbor:"a" json:"a"`
+	Amount  uint64   `cbor:"m" json:"m"`
+	Token   uint16   `cbor:"t" json:"t"`
 }
 
 // BridgingRequestMetadata represents metadata for a bridging request
@@ -54,24 +52,17 @@ func (brm BridgingRequestMetadata) Marshal() ([]byte, error) {
 }
 
 // GetOutputAmounts returns the required output amounts in lovelace, wrapped tokens, and colored coins.
-func (brm *BridgingRequestMetadata) GetOutputAmounts() OutputAmounts {
+func (brm *BridgingRequestMetadata) GetOutputAmounts(currencyID uint16) OutputAmounts {
 	amounts := OutputAmounts{
 		CurrencyLovelace: brm.BridgingFee + brm.OperationFee,
-		ColoredCoins:     make(map[uint16]uint64),
+		NativeTokens:     make(map[uint16]uint64),
 	}
 
 	for _, tx := range brm.Transactions {
-		switch tx.BridgingType {
-		case BridgingTypeWrappedTokenOnSource:
-			// WSADA/WSAPEX -> ADA/APEX
-			amounts.WrappedTokens += tx.Amount
-
-		case BridgingTypeColoredCoinOnSource:
-			amounts.ColoredCoins[tx.ColoredCoinID] += tx.Amount
-
-		default:
-			// ADA/APEX -> WSADA/WSAPEX or Reactor tokens
+		if tx.Token == currencyID {
 			amounts.CurrencyLovelace += tx.Amount
+		} else {
+			amounts.NativeTokens[tx.Token] += tx.Amount
 		}
 	}
 

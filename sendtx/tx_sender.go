@@ -167,56 +167,43 @@ func (txSnd *TxSender) CreateMetadata(
 	}
 
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
+	currencyID, _ := srcConfig.GetCurrencyID()
 
 	for i, x := range receivers {
 		if x.Addr == "" {
 			return nil, fmt.Errorf("receiver %d address is empty", i)
 		}
 
-		switch x.BridgingType {
-		case BridgingTypeWrappedTokenOnSource:
-			if x.Amount < dstConfig.MinUtxoValue {
-				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, dstConfig.MinUtxoValue)
-			}
-
-			txs[i] = BridgingRequestMetadataTransaction{
-				Address:      AddrToMetaDataAddr(x.Addr),
-				Amount:       x.Amount,
-				BridgingType: BridgingTypeWrappedTokenOnSource,
-			}
-
-		case BridgingTypeCurrencyOnSource:
-			if x.Amount < srcConfig.MinUtxoValue {
-				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, srcConfig.MinUtxoValue)
-			}
-
-			txs[i] = BridgingRequestMetadataTransaction{
-				Address:      AddrToMetaDataAddr(x.Addr),
-				Amount:       x.Amount,
-				BridgingType: BridgingTypeCurrencyOnSource,
-			}
-		case BridgingTypeColoredCoinOnSource:
-			if x.Amount < srcConfig.MinColCoinsAllowedToBridge {
-				return nil, fmt.Errorf("colored coins amount for receiver %d is lower than %d",
-					i, srcConfig.MinColCoinsAllowedToBridge)
-			}
-
-			txs[i] = BridgingRequestMetadataTransaction{
-				Address:       AddrToMetaDataAddr(x.Addr),
-				Amount:        x.Amount,
-				ColoredCoinID: x.ColoredCoinID,
-				BridgingType:  BridgingTypeColoredCoinOnSource,
-			}
-		default:
+		switch {
+		case x.Token == currencyID:
+			// Currency (e.g., ADA/APEX)
+			// TODO if Skyline mode, minAmountToBridge is set to srcConfig.MinUtxoValue
 			if x.Amount < txSnd.minAmountToBridge {
-				return nil, fmt.Errorf("amount for receiver %d is lower than %d", i, txSnd.minAmountToBridge)
+				return nil, fmt.Errorf("amount for receiver %d is lower than %d",
+					i, txSnd.minAmountToBridge)
 			}
 
-			txs[i] = BridgingRequestMetadataTransaction{
-				Address:      AddrToMetaDataAddr(x.Addr),
-				Amount:       x.Amount,
-				BridgingType: BridgingTypeNormal,
+		case srcConfig.Tokens[x.Token].IsWrappedCurrency:
+			// Wrapped currency token on source (WSADA/WSAPEX → ADA/APEX)
+			if x.Amount < dstConfig.MinUtxoValue {
+				return nil, fmt.Errorf("amount for receiver %d is lower than %d",
+					i, dstConfig.MinUtxoValue)
 			}
+
+		default:
+			// Other native tokens
+			if x.Amount < srcConfig.MinColCoinsAllowedToBridge {
+				return nil, fmt.Errorf(
+					"amount for receiver %d is lower than %d",
+					i, srcConfig.MinColCoinsAllowedToBridge,
+				)
+			}
+		}
+
+		txs[i] = BridgingRequestMetadataTransaction{
+			Address: AddrToMetaDataAddr(x.Addr),
+			Amount:  x.Amount,
+			Token:   x.Token,
 		}
 	}
 
@@ -260,13 +247,15 @@ func (txSnd *TxSender) prepareBridgingTx(
 		}
 	}
 
-	outputAmounts := getOutputAmounts(txDto.Receivers)
+	currencyID, _ := srcConfig.GetCurrencyID()
+
+	outputAmounts := getOutputAmounts(currencyID, txDto.Receivers)
 
 	if err := checkFees(
 		srcConfig,
 		txDto.BridgingFee,
 		txDto.OperationFee,
-		isNativeTokensBridging(&outputAmounts),
+		len(outputAmounts.NativeTokens) > 0,
 	); err != nil {
 		return nil, err
 	}
@@ -280,7 +269,7 @@ func (txSnd *TxSender) prepareBridgingTx(
 		return nil, err
 	}
 
-	outputNativeTokens, err := getOutputNativeTokens(srcConfig, txDto.DstChainID, outputAmounts)
+	outputNativeTokens, err := getOutputNativeTokens(srcConfig, outputAmounts)
 	if err != nil {
 		return nil, err
 	}
@@ -640,68 +629,45 @@ func getTokenFromTokenExchangeConfig(
 }
 
 // getOutputAmounts returns amount needed for outputs in lovelace and native tokens
-func getOutputAmounts(receivers []BridgingTxReceiver) OutputAmounts {
+func getOutputAmounts(currencyID uint16, receivers []BridgingTxReceiver) OutputAmounts {
 	amounts := OutputAmounts{
-		ColoredCoins: make(map[uint16]uint64),
+		NativeTokens: make(map[uint16]uint64),
 	}
 
 	for _, x := range receivers {
-		switch x.BridgingType {
-		case BridgingTypeWrappedTokenOnSource:
-			amounts.WrappedTokens += x.Amount // WSADA/WSAPEX to ADA/APEX
-		case BridgingTypeColoredCoinOnSource:
-			if x.Amount > 0 {
-				amounts.ColoredCoins[x.ColoredCoinID] += x.Amount
-			}
-		default:
-			amounts.CurrencyLovelace += x.Amount // ADA/APEX to WSADA/WSAPEX or Reactor tokens
+		if x.Token == currencyID {
+			amounts.CurrencyLovelace += x.Amount
+		} else {
+			amounts.NativeTokens[x.Token] += x.Amount
 		}
 	}
 
 	return amounts
 }
 
-func isNativeTokensBridging(a *OutputAmounts) bool {
-	if a.WrappedTokens > 0 {
-		return true
-	}
-
-	return len(a.ColoredCoins) > 0
-}
-
 func getOutputNativeTokens(
 	srcConfig *ChainConfig,
-	dstChainID string,
 	outputAmounts OutputAmounts,
 ) ([]cardanowallet.TokenAmount, error) {
 	outputNativeTokens := ([]cardanowallet.TokenAmount)(nil)
 
-	// Handle wrapped tokens
-	if outputAmounts.WrappedTokens > 0 {
-		nativeToken, err := getTokenFromTokenExchangeConfig(srcConfig.NativeTokens, dstChainID)
+	for tokenID, amount := range outputAmounts.NativeTokens {
+		if amount == 0 {
+			continue
+		}
+
+		token, ok := srcConfig.Tokens[tokenID]
+		if !ok {
+			return nil, fmt.Errorf("token ID %d not found in chain config", tokenID)
+		}
+
+		nativeToken, err := cardanowallet.NewTokenWithFullNameTry(token.ChainSpecific)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get native token for wrapped tokens: %w", err)
+			return nil, fmt.Errorf("failed to create token for %s: %w", token.ChainSpecific, err)
 		}
 
 		outputNativeTokens = append(outputNativeTokens,
-			cardanowallet.NewTokenAmount(nativeToken, outputAmounts.WrappedTokens))
-	}
-
-	// Prepare colored coins map
-	coloredCoins := make(map[uint16]string, len(srcConfig.ColoredCoins))
-	for _, cc := range srcConfig.ColoredCoins {
-		coloredCoins[cc.ColoredCoinID] = cc.TokenName
-	}
-
-	// Handle colored coins
-	for ccID, ccAmount := range outputAmounts.ColoredCoins {
-		coloredCoin, err := cardanowallet.NewTokenWithFullNameTry(coloredCoins[ccID])
-		if err != nil {
-			return nil, fmt.Errorf("failed to create token for colored coin ID %d: %w", ccID, err)
-		}
-
-		outputNativeTokens = append(outputNativeTokens,
-			cardanowallet.NewTokenAmount(coloredCoin, ccAmount))
+			cardanowallet.NewTokenAmount(nativeToken, amount))
 	}
 
 	return outputNativeTokens, nil
