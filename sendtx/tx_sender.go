@@ -11,11 +11,11 @@ import (
 )
 
 type TxSender struct {
-	minAmountToBridge uint64
-	maxInputsPerTx    int
-	chainConfigMap    map[string]ChainConfig
-	retryOptions      []infracommon.RetryConfigOption
-	utxosTransformer  IUtxosTransformer
+	MinAmountToBridge uint64
+	MaxInputsPerTx    int
+	ChainConfigMap    map[string]ChainConfig
+	RetryOptions      []infracommon.RetryConfigOption
+	UtxosTransformer  IUtxosTransformer
 }
 
 type TxSenderOption func(*TxSender)
@@ -25,12 +25,12 @@ func NewTxSender(
 	options ...TxSenderOption,
 ) *TxSender {
 	txSnd := &TxSender{
-		chainConfigMap: chainConfigMap,
-		maxInputsPerTx: defaultMaxInputsPerTx,
+		ChainConfigMap: chainConfigMap,
+		MaxInputsPerTx: defaultMaxInputsPerTx,
 	}
 
 	for _, config := range chainConfigMap {
-		txSnd.minAmountToBridge = max(txSnd.minAmountToBridge, config.MinUtxoValue)
+		txSnd.MinAmountToBridge = max(txSnd.MinAmountToBridge, config.MinUtxoValue)
 	}
 
 	for _, opt := range options {
@@ -95,7 +95,7 @@ func (txSnd *TxSender) CreateTxGeneric(
 	ctx context.Context,
 	txDto GenericTxDto,
 ) (*TxInfo, error) {
-	srcConfig, existsSrc := txSnd.chainConfigMap[txDto.SrcChainID]
+	srcConfig, existsSrc := txSnd.ChainConfigMap[txDto.SrcChainID]
 	if !existsSrc {
 		return nil, fmt.Errorf("chain %s config not found", txDto.SrcChainID)
 	}
@@ -129,7 +129,7 @@ func (txSnd *TxSender) CreateTxGeneric(
 func (txSnd *TxSender) SubmitTx(
 	ctx context.Context, chainID string, txRaw []byte, cardanoWallet cardanowallet.ITxSigner,
 ) error {
-	chainConfig, existsSrc := txSnd.chainConfigMap[chainID]
+	chainConfig, existsSrc := txSnd.ChainConfigMap[chainID]
 	if !existsSrc {
 		return fmt.Errorf("%s chain config not found", chainID)
 	}
@@ -148,7 +148,7 @@ func (txSnd *TxSender) SubmitTx(
 
 	_, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (bool, error) {
 		return true, chainConfig.TxProvider.SubmitTx(ctx, txSigned)
-	}, txSnd.retryOptions...)
+	}, txSnd.RetryOptions...)
 
 	return err
 }
@@ -177,10 +177,9 @@ func (txSnd *TxSender) CreateMetadata(
 		switch {
 		case x.Token == currencyID:
 			// Currency (e.g., ADA/APEX)
-			// TODO if Skyline mode, minAmountToBridge is set to srcConfig.MinUtxoValue
-			if x.Amount < txSnd.minAmountToBridge {
+			if x.Amount < txSnd.MinAmountToBridge {
 				return nil, fmt.Errorf("amount for receiver %d is lower than %d",
-					i, txSnd.minAmountToBridge)
+					i, txSnd.MinAmountToBridge)
 			}
 
 		case srcConfig.Tokens[x.Token].IsWrappedCurrency:
@@ -381,11 +380,11 @@ func (txSnd *TxSender) populateTxBuilder(
 	txBuilder *cardanowallet.TxBuilder,
 	txDto GenericTxDto,
 ) (*txBuilderPopulationData, error) {
-	config := txSnd.chainConfigMap[txDto.SrcChainID]
+	config := txSnd.ChainConfigMap[txDto.SrcChainID]
 
 	utxos, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]cardanowallet.Utxo, error) {
 		return config.TxProvider.GetUtxos(ctx, txDto.SenderAddr)
-	}, txSnd.retryOptions...)
+	}, txSnd.RetryOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -443,11 +442,11 @@ func (txSnd *TxSender) populateTxBuilder(
 		conditions[token.TokenName()] += token.Amount
 	}
 
-	if txSnd.utxosTransformer != nil && !reflect.ValueOf(txSnd.utxosTransformer).IsNil() {
-		utxos = txSnd.utxosTransformer.TransformUtxos(utxos)
+	if txSnd.UtxosTransformer != nil && !reflect.ValueOf(txSnd.UtxosTransformer).IsNil() {
+		utxos = txSnd.UtxosTransformer.TransformUtxos(utxos)
 	}
 
-	inputs, err := GetUTXOsForAmounts(utxos, conditions, txSnd.maxInputsPerTx, 1)
+	inputs, err := GetUTXOsForAmounts(utxos, conditions, txSnd.MaxInputsPerTx, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -537,7 +536,7 @@ func (txSnd *TxSender) populateProtocolParameters(
 	if protocolParams == nil {
 		protocolParams, err = infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) ([]byte, error) {
 			return config.TxProvider.GetProtocolParameters(ctx)
-		}, txSnd.retryOptions...)
+		}, txSnd.RetryOptions...)
 		if err != nil {
 			return err
 		}
@@ -553,7 +552,7 @@ func (txSnd *TxSender) populateTimeToLive(
 ) error {
 	qtd, err := infracommon.ExecuteWithRetry(ctx, func(ctx context.Context) (cardanowallet.QueryTipData, error) {
 		return config.TxProvider.GetTip(ctx)
-	}, txSnd.retryOptions...)
+	}, txSnd.RetryOptions...)
 	if err != nil {
 		return err
 	}
@@ -568,12 +567,12 @@ func (txSnd *TxSender) populateTimeToLive(
 func (txSnd *TxSender) getConfigs(
 	srcChainID, dstChainID string,
 ) (*ChainConfig, *ChainConfig, error) {
-	srcConfig, exists := txSnd.chainConfigMap[srcChainID]
+	srcConfig, exists := txSnd.ChainConfigMap[srcChainID]
 	if !exists {
 		return nil, nil, fmt.Errorf("source chain %s config not found", srcChainID)
 	}
 
-	dstConfig, exists := txSnd.chainConfigMap[dstChainID]
+	dstConfig, exists := txSnd.ChainConfigMap[dstChainID]
 	if !exists {
 		return nil, nil, fmt.Errorf("destination chain %s config not found", dstChainID)
 	}
@@ -697,18 +696,18 @@ func checkAddress(
 
 func WithUtxosTransformer(utxosTransformer IUtxosTransformer) TxSenderOption {
 	return func(txSnd *TxSender) {
-		txSnd.utxosTransformer = utxosTransformer
+		txSnd.UtxosTransformer = utxosTransformer
 	}
 }
 
 func WithMaxInputsPerTx(maxInputsPerTx int) TxSenderOption {
 	return func(txSnd *TxSender) {
-		txSnd.maxInputsPerTx = maxInputsPerTx
+		txSnd.MaxInputsPerTx = maxInputsPerTx
 	}
 }
 
 func WithRetryOptions(retryOptions []infracommon.RetryConfigOption) TxSenderOption {
 	return func(txSnd *TxSender) {
-		txSnd.retryOptions = retryOptions
+		txSnd.RetryOptions = retryOptions
 	}
 }
