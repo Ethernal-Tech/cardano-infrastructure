@@ -699,3 +699,9 @@ func WithRetryOptions(retryOptions []infracommon.RetryConfigOption) TxSenderOpti
 		txSnd.RetryOptions = retryOptions
 	}
 }
+
+func WithMinAmountToBridge(minAmountToBridge uint64) TxSenderOption {
+	return func(txSnd *TxSender) {
+		txSnd.MinAmountToBridge = minAmountToBridge
+	}
+}
