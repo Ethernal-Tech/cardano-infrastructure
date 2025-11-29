@@ -615,18 +615,6 @@ func checkFees(config *ChainConfig, bridgingFee, operationFee uint64, isNativeTo
 	return nil
 }
 
-func getTokenFromTokenExchangeConfig(
-	nativeTokenDsts []TokenExchangeConfig, dstChainID string,
-) (cardanowallet.Token, error) {
-	for _, cfg := range nativeTokenDsts {
-		if cfg.DstChainID == dstChainID {
-			return cardanowallet.NewTokenWithFullNameTry(cfg.TokenName)
-		}
-	}
-
-	return cardanowallet.Token{}, fmt.Errorf("native token name not specified for destination %s", dstChainID)
-}
-
 // getOutputAmounts returns amount needed for outputs in lovelace and native tokens
 func getOutputAmounts(currencyID uint16, receivers []BridgingTxReceiver) OutputAmounts {
 	amounts := OutputAmounts{
@@ -660,9 +648,9 @@ func getOutputNativeTokens(
 			return nil, fmt.Errorf("token ID %d not found in chain config", tokenID)
 		}
 
-		nativeToken, err := cardanowallet.NewTokenWithFullNameTry(token.ChainSpecific)
+		nativeToken, err := cardanowallet.NewTokenWithFullNameTry(token.FullName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create token for %s: %w", token.ChainSpecific, err)
+			return nil, fmt.Errorf("failed to create token for %s: %w", token.FullName, err)
 		}
 
 		outputNativeTokens = append(outputNativeTokens,

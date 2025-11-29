@@ -61,8 +61,8 @@ func TestTxSender(t *testing.T) {
 			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(0),
 			TxProvider:       txProvider,
 			Tokens: map[uint16]ApexToken{
-				1: {ChainSpecific: cardanowallet.AdaTokenName, LockUnlock: true},
-				2: {ChainSpecific: fmt.Sprintf("%s.Route3", dummyPID), LockUnlock: true},
+				1: {FullName: cardanowallet.AdaTokenName},
+				2: {FullName: fmt.Sprintf("%s.Route3", dummyPID)},
 			},
 		},
 		"vector": {
@@ -199,8 +199,8 @@ func TestCreateMetaData(t *testing.T) {
 		"prime": {
 			MinUtxoValue: 55,
 			Tokens: map[uint16]ApexToken{
-				1: {ChainSpecific: cardanowallet.AdaTokenName, LockUnlock: true},
-				2: {ChainSpecific: fmt.Sprintf("%s.Route3", dummyPID), LockUnlock: true, IsWrappedCurrency: true},
+				1: {FullName: cardanowallet.AdaTokenName},
+				2: {FullName: fmt.Sprintf("%s.Route3", dummyPID), IsWrappedCurrency: true},
 			},
 		},
 		"vector": {
@@ -356,8 +356,8 @@ func TestCreateMetaData(t *testing.T) {
 				MinFeeForBridgingTokens:  bridgingFeeAmountForNativeTokens,
 				MinUtxoValue:             190,
 				Tokens: map[uint16]ApexToken{
-					1: {ChainSpecific: cardanowallet.AdaTokenName, LockUnlock: true},
-					2: {ChainSpecific: fmt.Sprintf("%s.Route3", dummyPID), LockUnlock: true, IsWrappedCurrency: true},
+					1: {FullName: cardanowallet.AdaTokenName},
+					2: {FullName: fmt.Sprintf("%s.Route3", dummyPID), IsWrappedCurrency: true},
 				},
 			},
 			"vector": {
@@ -459,37 +459,6 @@ func Test_getOutputAmounts(t *testing.T) {
 	assert.Equal(t, uint64(7), outputAmounts.NativeTokens[coloredCoinID2])
 }
 
-func TestGetTokenFromTokenExchangeConfig(t *testing.T) {
-	cfg := []TokenExchangeConfig{
-		{
-			DstChainID: "prime",
-			TokenName:  "pid.ffaabb",
-		},
-		{
-			DstChainID: "nexus",
-			TokenName:  "pid.roko",
-		},
-		{
-			DstChainID: "vector",
-			TokenName:  "pidffaabb",
-		},
-	}
-
-	token, err := getTokenFromTokenExchangeConfig(cfg, "prime")
-
-	require.NoError(t, err)
-	assert.Equal(t, cfg[0].TokenName, token.String())
-
-	token, err = getTokenFromTokenExchangeConfig(cfg, "nexus")
-
-	require.NoError(t, err)
-	assert.Equal(t, "pid."+hex.EncodeToString([]byte("roko")), token.String())
-
-	_, err = getTokenFromTokenExchangeConfig(cfg, "vector")
-
-	assert.Error(t, err)
-}
-
 func Test_prepareBridgingTx(t *testing.T) {
 	const bridgingFee = uint64(1_000_87)
 
@@ -502,8 +471,8 @@ func Test_prepareBridgingTx(t *testing.T) {
 			MinUtxoValue: 55,
 			TestNetMagic: cardanowallet.PreviewProtocolMagic,
 			Tokens: map[uint16]ApexToken{
-				1: {ChainSpecific: cardanowallet.AdaTokenName, LockUnlock: true},
-				2: {ChainSpecific: token.String(), LockUnlock: true},
+				1: {FullName: cardanowallet.AdaTokenName},
+				2: {FullName: token.String()},
 			},
 			TxProvider:       txProviderMock,
 			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(cardanowallet.TestNetNetwork),
@@ -618,8 +587,8 @@ func Test_populateTxBuilder(t *testing.T) {
 			MinUtxoValue: 55,
 			TestNetMagic: cardanowallet.PreviewProtocolMagic,
 			Tokens: map[uint16]ApexToken{
-				1: {ChainSpecific: cardanowallet.AdaTokenName, LockUnlock: true},
-				2: {ChainSpecific: token1.String(), LockUnlock: true},
+				1: {FullName: cardanowallet.AdaTokenName},
+				2: {FullName: token1.String()},
 			},
 			TxProvider:       txProviderMock,
 			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(cardanowallet.TestNetNetwork),

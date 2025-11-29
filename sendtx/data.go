@@ -8,32 +8,15 @@ type IUtxosTransformer interface {
 	TransformUtxos(utxos []cardanowallet.Utxo) []cardanowallet.Utxo
 }
 
-type BridgingType byte
-
 const (
-	BridgingTypeNormal BridgingType = iota
-	BridgingTypeWrappedTokenOnSource
-	BridgingTypeCurrencyOnSource
-	BridgingTypeColoredCoinOnSource
-
 	defaultPotentialFee     = 400_000
 	defaultMaxInputsPerTx   = 50
 	defaultTTLSlotNumberInc = 500
 )
 
-type TokenExchangeConfig struct {
-	// Destination chain ID
-	DstChainID string `json:"dstChainID"`
-	// Token identifier in the format "policyId.name"
-	TokenName string `json:"tokenName"`
-	// Indicates whether the token is to be minted
-	Mint bool `json:"mint"`
-}
-
 type ApexToken struct {
-	ChainSpecific     string `json:"chainSpecific"`
-	LockUnlock        bool   `json:"lockUnlock"`
-	IsWrappedCurrency bool   `json:"isWrappedCurrency"`
+	FullName          string
+	IsWrappedCurrency bool
 }
 
 type ChainConfig struct {
@@ -109,22 +92,9 @@ type GenericTxDto struct {
 	Receivers              []TxReceiversDto
 }
 
-func (bt BridgingType) String() string {
-	switch bt {
-	case BridgingTypeNormal:
-		return "Bridging Request Reactor"
-	case BridgingTypeWrappedTokenOnSource:
-		return "Bridging Wrapped Token on Source"
-	case BridgingTypeCurrencyOnSource:
-		return "Bridging Currency on Source"
-	default:
-		return "Unknown Bridging Type"
-	}
-}
-
 func (config ChainConfig) GetCurrencyID() (uint16, bool) {
 	for id, token := range config.Tokens {
-		if token.ChainSpecific == cardanowallet.AdaTokenName {
+		if token.FullName == cardanowallet.AdaTokenName {
 			return id, true
 		}
 	}
