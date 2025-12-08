@@ -25,7 +25,7 @@ type OutputAmounts struct {
 type BridgingRequestMetadataTransaction struct {
 	Address []string `cbor:"a" json:"a"`
 	Amount  uint64   `cbor:"m" json:"m"`
-	Token   uint16   `cbor:"t" json:"t"`
+	TokenID uint16   `cbor:"t" json:"t"`
 }
 
 // BridgingRequestMetadata represents metadata for a bridging request
@@ -59,10 +59,10 @@ func (brm *BridgingRequestMetadata) GetOutputAmounts(currencyID uint16) OutputAm
 	}
 
 	for _, tx := range brm.Transactions {
-		if tx.Token == currencyID {
+		if tx.TokenID == currencyID {
 			amounts.CurrencyLovelace += tx.Amount
 		} else {
-			amounts.NativeTokens[tx.Token] += tx.Amount
+			amounts.NativeTokens[tx.TokenID] += tx.Amount
 		}
 	}
 

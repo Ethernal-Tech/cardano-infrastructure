@@ -166,23 +166,32 @@ func (txSnd *TxSender) CreateMetadata(
 		return nil, err
 	}
 
+	currencyID, found := srcConfig.GetCurrencyID()
+	if !found {
+		return nil, fmt.Errorf("currency id not found in srcConfig")
+	}
+
 	txs := make([]BridgingRequestMetadataTransaction, len(receivers))
-	currencyID, _ := srcConfig.GetCurrencyID()
 
 	for i, x := range receivers {
 		if x.Addr == "" {
 			return nil, fmt.Errorf("receiver %d address is empty", i)
 		}
 
+		token, found := srcConfig.Tokens[x.TokenID]
+		if !found {
+			return nil, fmt.Errorf("token not found in srcConfig for tokenID: %d", x.TokenID)
+		}
+
 		switch {
-		case x.Token == currencyID:
+		case x.TokenID == currencyID:
 			// Currency (e.g., ADA/APEX)
 			if x.Amount < txSnd.minAmountToBridge {
 				return nil, fmt.Errorf("amount for receiver %d is lower than %d",
 					i, txSnd.minAmountToBridge)
 			}
 
-		case srcConfig.Tokens[x.Token].IsWrappedCurrency:
+		case token.IsWrappedCurrency:
 			// Wrapped currency token on source (WSADA/WSAPEX → ADA/APEX)
 			if x.Amount < dstConfig.MinUtxoValue {
 				return nil, fmt.Errorf("amount for receiver %d is lower than %d",
@@ -202,7 +211,7 @@ func (txSnd *TxSender) CreateMetadata(
 		txs[i] = BridgingRequestMetadataTransaction{
 			Address: AddrToMetaDataAddr(x.Addr),
 			Amount:  x.Amount,
-			Token:   x.Token,
+			TokenID: x.TokenID,
 		}
 	}
 
@@ -246,7 +255,10 @@ func (txSnd *TxSender) prepareBridgingTx(
 		}
 	}
 
-	currencyID, _ := srcConfig.GetCurrencyID()
+	currencyID, found := srcConfig.GetCurrencyID()
+	if !found {
+		return nil, fmt.Errorf("currency id not found in srcConfig")
+	}
 
 	outputAmounts := getOutputAmounts(currencyID, txDto.Receivers)
 
@@ -622,10 +634,10 @@ func getOutputAmounts(currencyID uint16, receivers []BridgingTxReceiver) OutputA
 	}
 
 	for _, x := range receivers {
-		if x.Token == currencyID {
+		if x.TokenID == currencyID {
 			amounts.CurrencyLovelace += x.Amount
 		} else {
-			amounts.NativeTokens[x.Token] += x.Amount
+			amounts.NativeTokens[x.TokenID] += x.Amount
 		}
 	}
 

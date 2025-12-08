@@ -21,37 +21,37 @@ func TestMetaDataGetOutputAmounts(t *testing.T) {
 			{
 				Address: common.SplitString("ffa000", splitStringLength),
 				Amount:  200,
-				Token:   currencyID,
+				TokenID: currencyID,
 			},
 			{
 				Address: common.SplitString("ffa00021", splitStringLength),
 				Amount:  420,
-				Token:   wrappedTokenID,
+				TokenID: wrappedTokenID,
 			},
 			{
 				Address: common.SplitString("ffa00055a", splitStringLength),
 				Amount:  150,
-				Token:   currencyID,
+				TokenID: currencyID,
 			},
 			{
 				Address: common.SplitString("ffa00022", splitStringLength),
 				Amount:  220,
-				Token:   wrappedTokenID,
+				TokenID: wrappedTokenID,
 			},
 			{
 				Address: common.SplitString("ffa00023", splitStringLength),
 				Amount:  20,
-				Token:   coloredCoinID1,
+				TokenID: coloredCoinID1,
 			},
 			{
 				Address: common.SplitString("ffa00024", splitStringLength),
 				Amount:  320,
-				Token:   coloredCoinID1,
+				TokenID: coloredCoinID1,
 			},
 			{
 				Address: common.SplitString("ffa00024", splitStringLength),
 				Amount:  300,
-				Token:   coloredCoinID2,
+				TokenID: coloredCoinID2,
 			},
 		},
 	}

@@ -108,9 +108,9 @@ func TestTxSender(t *testing.T) {
 			SenderAddrPolicyScript: policyScript,
 			Receivers: []BridgingTxReceiver{
 				{
-					Addr:   receiverAddr.String(),
-					Amount: uint64(1_000_000),
-					Token:  wrappedTokenID,
+					Addr:    receiverAddr.String(),
+					Amount:  uint64(1_000_000),
+					TokenID: wrappedTokenID,
 				},
 			},
 			BridgingFee: uint64(1_000_010),
@@ -128,9 +128,9 @@ func TestTxSender(t *testing.T) {
 			SenderAddrPolicyScript: policyScript,
 			Receivers: []BridgingTxReceiver{
 				{
-					Addr:   receiverAddr.String(),
-					Amount: uint64(1_000_000),
-					Token:  wrappedTokenID,
+					Addr:    receiverAddr.String(),
+					Amount:  uint64(1_000_000),
+					TokenID: wrappedTokenID,
 				},
 			},
 			BridgingFee: uint64(1_000_010),
@@ -146,9 +146,9 @@ func TestTxSender(t *testing.T) {
 			SenderAddrPolicyScript: policyScript,
 			Receivers: []BridgingTxReceiver{
 				{
-					Addr:   receiverAddr.String(),
-					Amount: uint64(1_000_000),
-					Token:  wrappedTokenID,
+					Addr:    receiverAddr.String(),
+					Amount:  uint64(1_000_000),
+					TokenID: wrappedTokenID,
 				},
 			},
 			BridgingFee: uint64(1_000_010),
@@ -214,19 +214,19 @@ func TestCreateMetaData(t *testing.T) {
 		metadata, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					Addr:   dummyAddr2,
-					Amount: uint64(100),
-					Token:  currencyID,
+					Addr:    dummyAddr2,
+					Amount:  uint64(100),
+					TokenID: currencyID,
 				},
 				{
-					Addr:   dummyAddr2,
-					Amount: uint64(61),
-					Token:  currencyID,
+					Addr:    dummyAddr2,
+					Amount:  uint64(61),
+					TokenID: currencyID,
 				},
 				{
-					Addr:   dummyAddr2,
-					Amount: uint64(33),
-					Token:  wrappedTokenID,
+					Addr:    dummyAddr2,
+					Amount:  uint64(33),
+					TokenID: wrappedTokenID,
 				},
 			}, bridgingFeeAmountForNativeTokens, operationFeeAmount)
 
@@ -240,17 +240,17 @@ func TestCreateMetaData(t *testing.T) {
 			{
 				Address: common.SplitString(dummyAddr2, splitStringLength),
 				Amount:  uint64(100),
-				Token:   uint16(1),
+				TokenID: uint16(1),
 			},
 			{
 				Address: common.SplitString(dummyAddr2, splitStringLength),
 				Amount:  uint64(61),
-				Token:   uint16(1),
+				TokenID: uint16(1),
 			},
 			{
 				Address: common.SplitString(dummyAddr2, splitStringLength),
 				Amount:  33,
-				Token:   uint16(2),
+				TokenID: uint16(2),
 			},
 		}, metadata.Transactions)
 	})
@@ -261,8 +261,8 @@ func TestCreateMetaData(t *testing.T) {
 		_, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					Amount: uint64(100),
-					Token:  currencyID,
+					Amount:  uint64(100),
+					TokenID: currencyID,
 				},
 			}, defaultBridgingFeeAmount, operationFeeAmount)
 
@@ -275,6 +275,15 @@ func TestCreateMetaData(t *testing.T) {
 				DefaultMinFeeForBridging: defaultBridgingFeeAmount,
 				MinFeeForBridgingTokens:  bridgingFeeAmountForNativeTokens,
 				MinUtxoValue:             550,
+				Tokens: map[uint16]ApexToken{
+					currencyID: {
+						FullName:          "lovelace",
+						IsWrappedCurrency: false,
+					},
+					wrappedTokenID: {
+						IsWrappedCurrency: true,
+					},
+				},
 			},
 			"vector": {
 				DefaultMinFeeForBridging: defaultBridgingFeeAmount,
@@ -286,9 +295,9 @@ func TestCreateMetaData(t *testing.T) {
 		metadata, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					Addr:   dummyAddr2,
-					Amount: uint64(200),
-					Token:  wrappedTokenID,
+					Addr:    dummyAddr2,
+					Amount:  uint64(200),
+					TokenID: wrappedTokenID,
 				},
 			}, bridgingFeeAmountForNativeTokens, operationFeeAmount)
 
@@ -302,7 +311,7 @@ func TestCreateMetaData(t *testing.T) {
 			{
 				Address: common.SplitString(dummyAddr2, splitStringLength),
 				Amount:  200,
-				Token:   wrappedTokenID,
+				TokenID: wrappedTokenID,
 			},
 		}, metadata.Transactions)
 	})
@@ -313,9 +322,9 @@ func TestCreateMetaData(t *testing.T) {
 		_, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					Addr:   dummyAddr2,
-					Amount: 19,
-					Token:  wrappedTokenID,
+					Addr:    dummyAddr2,
+					Amount:  19,
+					TokenID: wrappedTokenID,
 				},
 			}, bridgingFeeAmountForNativeTokens, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
@@ -327,9 +336,9 @@ func TestCreateMetaData(t *testing.T) {
 		_, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					Addr:   dummyAddr2,
-					Amount: 9,
-					Token:  currencyID,
+					Addr:    dummyAddr2,
+					Amount:  9,
+					TokenID: currencyID,
 				},
 			}, defaultBridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
@@ -370,9 +379,9 @@ func TestCreateMetaData(t *testing.T) {
 		_, err := txSnd.CreateMetadata(
 			dummyAddr, "prime", "vector", []BridgingTxReceiver{
 				{
-					Addr:   dummyAddr2,
-					Amount: 189,
-					Token:  currencyID,
+					Addr:    dummyAddr2,
+					Amount:  189,
+					TokenID: currencyID,
 				},
 			}, defaultBridgingFeeAmount, operationFeeAmount)
 		require.ErrorContains(t, err, "amount for receiver ")
@@ -420,36 +429,36 @@ func Test_checkFees(t *testing.T) {
 func Test_getOutputAmounts(t *testing.T) {
 	outputAmounts := getOutputAmounts(currencyID, []BridgingTxReceiver{
 		{
-			Amount: 1,
-			Token:  currencyID,
+			Amount:  1,
+			TokenID: currencyID,
 		},
 		{
-			Amount: 2,
-			Token:  wrappedTokenID,
+			Amount:  2,
+			TokenID: wrappedTokenID,
 		},
 		{
-			Amount: 3,
-			Token:  currencyID,
+			Amount:  3,
+			TokenID: currencyID,
 		},
 		{
-			Amount: 4,
-			Token:  currencyID,
+			Amount:  4,
+			TokenID: currencyID,
 		},
 		{
-			Amount: 5,
-			Token:  wrappedTokenID,
+			Amount:  5,
+			TokenID: wrappedTokenID,
 		},
 		{
-			Amount: 6,
-			Token:  coloredCoinID1,
+			Amount:  6,
+			TokenID: coloredCoinID1,
 		},
 		{
-			Amount: 7,
-			Token:  coloredCoinID2,
+			Amount:  7,
+			TokenID: coloredCoinID2,
 		},
 		{
-			Amount: 8,
-			Token:  coloredCoinID1,
+			Amount:  8,
+			TokenID: coloredCoinID1,
 		},
 	})
 
@@ -489,20 +498,20 @@ func Test_prepareBridgingTx(t *testing.T) {
 			SenderAddr: dummyAddr,
 			Receivers: []BridgingTxReceiver{
 				{
-					Amount: 500_000,
-					Token:  currencyID,
+					Amount:  500_000,
+					TokenID: currencyID,
 				},
 				{
-					Amount: 600_000,
-					Token:  wrappedTokenID,
+					Amount:  600_000,
+					TokenID: wrappedTokenID,
 				},
 				{
-					Amount: 500_001,
-					Token:  currencyID,
+					Amount:  500_001,
+					TokenID: currencyID,
 				},
 				{
-					Amount: 600_003,
-					Token:  wrappedTokenID,
+					Amount:  600_003,
+					TokenID: wrappedTokenID,
 				},
 			},
 			BridgingAddress: dummyAddr,

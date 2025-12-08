@@ -36,9 +36,9 @@ type ChainConfig struct {
 }
 
 type BridgingTxReceiver struct {
-	Addr   string `json:"addr"`
-	Amount uint64 `json:"amount"`
-	Token  uint16 `json:"token"`
+	Addr    string `json:"addr"`
+	Amount  uint64 `json:"amount"`
+	TokenID uint16 `json:"token"`
 }
 
 type TxInfo struct {
