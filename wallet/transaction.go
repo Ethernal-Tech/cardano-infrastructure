@@ -913,6 +913,7 @@ func (txMint txPlutusTokenMintInputs) Apply(args *[]string) error {
 	}
 
 	parts := make([]string, 0, len(txMint.tokens))
+	populated := false
 
 	for _, token := range txMint.tokens {
 		sign := ""
@@ -920,19 +921,24 @@ func (txMint txPlutusTokenMintInputs) Apply(args *[]string) error {
 			sign = "-"
 		}
 
-		parts = append(parts, fmt.Sprintf("%s%d %s", sign, token.Amount, token.String()))
+		if token.Amount > 0 {
+			parts = append(parts, fmt.Sprintf("%s%d %s", sign, token.Amount, token.String()))
+			populated = true
+		}
 	}
 
-	mintArgs := []string{
-		"--mint", strings.Join(parts, " + "),
-		"--mint-tx-in-reference", txMint.txInReference.String(),
-		"--mint-plutus-script-v2",
-		"--mint-reference-tx-in-redeemer-value", "0",
-		"--mint-reference-tx-in-execution-units", fmt.Sprintf("(%d,%d)", txMint.CPU, txMint.Memory),
-		"--policy-id", txMint.tokensPolicyID,
-	}
+	if populated {
+		mintArgs := []string{
+			"--mint", strings.Join(parts, " + "),
+			"--mint-tx-in-reference", txMint.txInReference.String(),
+			"--mint-plutus-script-v2",
+			"--mint-reference-tx-in-redeemer-value", "0",
+			"--mint-reference-tx-in-execution-units", fmt.Sprintf("(%d,%d)", txMint.CPU, txMint.Memory),
+			"--policy-id", txMint.tokensPolicyID,
+		}
 
-	*args = append(*args, mintArgs...)
+		*args = append(*args, mintArgs...)
+	}
 
 	return nil
 }
