@@ -781,7 +781,7 @@ type txCertificateWithPolicyScript struct {
 func (txCert txCertificateWithPolicyScript) Apply(
 	args *[]string, basePath string, index int,
 ) error {
-	if txCert.certificate == nil {
+	if txCert.certificate == nil || txCert.policyScript == nil {
 		return nil
 	}
 
@@ -794,12 +794,6 @@ func (txCert txCertificateWithPolicyScript) Apply(
 		return err
 	}
 
-	*args = append(*args, "--certificate-file", certificateFilePath)
-
-	if txCert.policyScript == nil {
-		return nil
-	}
-
 	policyFilePath, err := writeSerializableToFile(
 		txCert.policyScript,
 		basePath,
@@ -809,7 +803,8 @@ func (txCert txCertificateWithPolicyScript) Apply(
 		return err
 	}
 
-	*args = append(*args, "--certificate-script-file", policyFilePath)
+	*args = append(*args, "--certificate-file", certificateFilePath,
+		"--certificate-script-file", policyFilePath)
 
 	return nil
 }
@@ -913,32 +908,35 @@ func (txMint txPlutusTokenMintInputs) Apply(args *[]string) error {
 	}
 
 	parts := make([]string, 0, len(txMint.tokens))
-	populated := false
 
 	for _, token := range txMint.tokens {
+		if token.Amount == 0 {
+			continue
+		}
+
 		sign := ""
 		if token.IsNegative {
 			sign = "-"
 		}
 
-		if token.Amount > 0 {
-			parts = append(parts, fmt.Sprintf("%s%d %s", sign, token.Amount, token.String()))
-			populated = true
-		}
+		parts = append(parts, fmt.Sprintf("%s%d %s", sign, token.Amount, token.String()))
 	}
 
-	if populated {
-		mintArgs := []string{
-			"--mint", strings.Join(parts, " + "),
-			"--mint-tx-in-reference", txMint.txInReference.String(),
-			"--mint-plutus-script-v2",
-			"--mint-reference-tx-in-redeemer-value", "0",
-			"--mint-reference-tx-in-execution-units", fmt.Sprintf("(%d,%d)", txMint.CPU, txMint.Memory),
-			"--policy-id", txMint.tokensPolicyID,
-		}
-
-		*args = append(*args, mintArgs...)
+	if len(parts) == 0 {
+		return fmt.Errorf("provided %d Plutus mint tokens, but none have a non-zero amount",
+			len(txMint.tokens))
 	}
+
+	mintArgs := []string{
+		"--mint", strings.Join(parts, " + "),
+		"--mint-tx-in-reference", txMint.txInReference.String(),
+		"--mint-plutus-script-v2",
+		"--mint-reference-tx-in-redeemer-value", "0",
+		"--mint-reference-tx-in-execution-units", fmt.Sprintf("(%d,%d)", txMint.CPU, txMint.Memory),
+		"--policy-id", txMint.tokensPolicyID,
+	}
+
+	*args = append(*args, mintArgs...)
 
 	return nil
 }
