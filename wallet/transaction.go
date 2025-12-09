@@ -781,7 +781,7 @@ type txCertificateWithPolicyScript struct {
 func (txCert txCertificateWithPolicyScript) Apply(
 	args *[]string, basePath string, index int,
 ) error {
-	if txCert.certificate == nil || txCert.policyScript == nil {
+	if txCert.certificate == nil {
 		return nil
 	}
 
@@ -794,6 +794,12 @@ func (txCert txCertificateWithPolicyScript) Apply(
 		return err
 	}
 
+	*args = append(*args, "--certificate-file", certificateFilePath)
+
+	if txCert.policyScript == nil {
+		return nil
+	}
+
 	policyFilePath, err := writeSerializableToFile(
 		txCert.policyScript,
 		basePath,
@@ -803,8 +809,7 @@ func (txCert txCertificateWithPolicyScript) Apply(
 		return err
 	}
 
-	*args = append(*args, "--certificate-file", certificateFilePath,
-		"--certificate-script-file", policyFilePath)
+	*args = append(*args, "--certificate-script-file", policyFilePath)
 
 	return nil
 }
