@@ -209,9 +209,8 @@ func (o *TxProviderOgmios) GetUtxos(ctx context.Context, addr string) ([]Utxo, e
 					}
 
 					tokens = append(tokens, TokenAmount{
-						PolicyID: policyID,
-						Name:     name,
-						Amount:   value,
+						Token:  NewToken(policyID, name),
+						Amount: value,
 					})
 				}
 			}
