@@ -117,7 +117,7 @@ func (txSnd *TxSender) CreateTxGeneric(
 
 	for i, rcv := range txDto.Receivers {
 		txDto.Receivers[i].Amount, err = adjustLovelaceOutput(
-			txBuilder, rcv.Addr, nil, srcConfig.MinUtxoValue, rcv.Amount)
+			txBuilder, rcv.Addr, rcv.NativeTokens, srcConfig.MinUtxoValue, rcv.Amount)
 		if err != nil {
 			return nil, err
 		}

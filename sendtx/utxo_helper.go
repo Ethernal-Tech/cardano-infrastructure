@@ -8,6 +8,21 @@ import (
 	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
 )
 
+// GetUTXOsForAmounts selects UTXOs that fulfill specified token amount conditions while adhering
+// to a maximum input limit per transaction.
+//
+// Parameters:
+//   - utxos: A list of available UTXOs for selection.
+//   - conditions: A map defining required token conditions (e.g., exact or minimum amounts).
+//   - maxInputs: The maximum number of UTXOs that should be returned.
+//   - tryAtLeastInputs: If possible it should be returned at least this number of UTXOs
+//
+// Returns:
+// - Selected UTXOs and their total sum if conditions are met (cardanowallet.TxInputs)
+// - An error if no valid selection can satisfy the conditions.
+//
+// The function iteratively selects UTXOs, replacing the smallest ones when the limit is reached,
+// until the specified conditions are satisfied or no valid selection is possible.
 func GetUTXOsForAmounts(
 	utxos []cardanowallet.Utxo,
 	conditions map[string]uint64,
