@@ -123,16 +123,21 @@ func GetUTXOsForAmount(
 		currentSum[tokenName], desiredSum)
 }
 
-// until the specified conditions are satisfied or no valid selection is possible.
-
-func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, userTokenSum map[string]uint64) (uint64, error) {
+// GetUtxosSum calculates the minimum required Lovelace amount for a UTXO,
+// based on the sumMap that contains all tokens and their respective amounts
+// to be included in that UTXO and an optional Plutus reference script.
+func GetMinUtxoForSumMap(
+	txBuilder *TxBuilder,
+	userAddress string,
+	sumMap map[string]uint64,
+) (uint64, error) {
 	txOutput := TxOutput{
 		Addr:   userAddress,
-		Amount: userTokenSum[AdaTokenName],
+		Amount: sumMap[AdaTokenName],
 	}
 
-	for tokenName, amount := range userTokenSum {
-		if tokenName != AdaTokenName {
+	for tokenName, amount := range sumMap {
+		if tokenName != AdaTokenName && amount > 0 {
 			token, err := NewTokenWithFullName(tokenName, true)
 			if err != nil {
 				return 0, err
@@ -142,12 +147,7 @@ func GetTokenCostSum(txBuilder *TxBuilder, userAddress string, userTokenSum map[
 		}
 	}
 
-	retSum, err := txBuilder.CalculateMinUtxo(txOutput)
-	if err != nil {
-		return 0, err
-	}
-
-	return retSum, nil
+	return txBuilder.CalculateMinUtxo(txOutput)
 }
 
 // CreateTxOutputChange generates a TxOutput representing the change

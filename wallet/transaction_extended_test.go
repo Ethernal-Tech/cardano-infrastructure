@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetTokenCostSum(t *testing.T) {
+func TestGetMinUtxoForSumMap(t *testing.T) {
 	t.Parallel()
 
 	token1, _ := NewTokenWithFullName("29f8873beb52e126f207a2dfd50f7cff556806b5b4cba9834a7b26a8.4b6173685f546f6b656e", true)
@@ -46,21 +46,21 @@ func TestGetTokenCostSum(t *testing.T) {
 	}
 
 	userTokenSum := GetUtxosSum(utxos)
-	result, err := GetTokenCostSum(txBuilder, address, userTokenSum)
+	result, err := GetMinUtxoForSumMap(txBuilder, address, userTokenSum)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1189560), result)
 
 	utxos[1].Tokens[0].Amount = 1 // changing token amount will change the output
 
 	userTokenSum = GetUtxosSum(utxos)
-	result, err = GetTokenCostSum(txBuilder, address, userTokenSum)
+	result, err = GetMinUtxoForSumMap(txBuilder, address, userTokenSum)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1172320), result)
 
 	utxos[2].Tokens[0].Amount = 3 // changing token amount will change the output
 
 	userTokenSum = GetUtxosSum(utxos)
-	result, err = GetTokenCostSum(txBuilder, address, userTokenSum)
+	result, err = GetMinUtxoForSumMap(txBuilder, address, userTokenSum)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1137840), result)
 
@@ -68,7 +68,7 @@ func TestGetTokenCostSum(t *testing.T) {
 	utxos[1].Amount = 300_021_416_931_256_900 // changing lovelace amounts won't make any difference
 
 	userTokenSum = GetUtxosSum(utxos)
-	result, err = GetTokenCostSum(txBuilder, address, userTokenSum)
+	result, err = GetMinUtxoForSumMap(txBuilder, address, userTokenSum)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1137840), result)
 }

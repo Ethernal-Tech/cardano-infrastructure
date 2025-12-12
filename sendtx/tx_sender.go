@@ -221,7 +221,9 @@ func (txSnd *TxSender) prepareBridgingTx(
 		}
 	}
 
-	if err := checkFee(srcConfig, txDto.BridgingFee); err != nil {
+	outputLovelaceBase := getOutputAmounts(txDto.Receivers)
+
+	if err := checkFees(srcConfig, txDto.BridgingFee); err != nil {
 		return nil, err
 	}
 
@@ -235,7 +237,6 @@ func (txSnd *TxSender) prepareBridgingTx(
 	}
 
 	outputNativeTokens := ([]cardanowallet.TokenAmount)(nil)
-	outputLovelaceBase := getOutputAmounts(txDto.Receivers)
 
 	bridgingAddress := txDto.BridgingAddress
 	if bridgingAddress == "" {
@@ -384,7 +385,7 @@ func (txSnd *TxSender) populateTxBuilder(
 	}
 
 	// calculate minUtxo for change output
-	potentialChangeTokenCost, err := cardanowallet.GetTokenCostSum(
+	potentialChangeTokenCost, err := cardanowallet.GetMinUtxoForSumMap(
 		txBuilder,
 		txDto.SenderAddr,
 		cardanowallet.SubtractSumMaps(
@@ -552,7 +553,7 @@ func adjustLovelaceOutput(
 	}
 
 	// calculate min lovelace amount (min utxo) for receiver output
-	calculatedMinUtxo, err := cardanowallet.GetTokenCostSum(
+	calculatedMinUtxo, err := cardanowallet.GetMinUtxoForSumMap(
 		txBuilder, addr, cardanowallet.GetTokensSumMap(tokens...))
 	if err != nil {
 		return 0, err
@@ -561,7 +562,7 @@ func adjustLovelaceOutput(
 	return max(lovelaceOutputBase, calculatedMinUtxo, defaultMinUtxo), nil
 }
 
-func checkFee(config *ChainConfig, bridgingFee uint64) error {
+func checkFees(config *ChainConfig, bridgingFee uint64) error {
 	if bridgingFee < config.MinBridgingFeeAmount {
 		return fmt.Errorf("bridging fee is less than: %d", config.MinBridgingFeeAmount)
 	}

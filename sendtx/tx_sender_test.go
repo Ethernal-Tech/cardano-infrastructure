@@ -330,11 +330,11 @@ func Test_checkFees(t *testing.T) {
 	}
 
 	t.Run("invalid bridging fee", func(t *testing.T) {
-		require.ErrorContains(t, checkFee(cfg, bridgingFeeAmount-1), "bridging fee")
+		require.ErrorContains(t, checkFees(cfg, bridgingFeeAmount-1), "bridging fee")
 	})
 
 	t.Run("valid", func(t *testing.T) {
-		require.NoError(t, checkFee(cfg, bridgingFeeAmount))
+		require.NoError(t, checkFees(cfg, bridgingFeeAmount))
 	})
 }
 
