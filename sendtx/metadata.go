@@ -9,19 +9,23 @@ type BridgingRequestType string
 
 const (
 	metadataMapKey                           = 1
-	metadataBoolTrue                         = 1
 	bridgingMetaDataType BridgingRequestType = "bridge"
 
 	splitStringLength = 40
 )
 
+type OutputAmounts struct {
+	CurrencyLovelace uint64
+	NativeTokens     map[uint16]uint64
+}
+
 // BridgingRequestMetadataTransaction represents a single transaction in a bridging request.
 // IsNativeTokenOnSrc is true if the user is bridging native tokens (e.g., WSADA, WSAPEX) ...
 // ... and false if bridging native currency (e.g., ADA, APEX).
 type BridgingRequestMetadataTransaction struct {
-	Address            []string `cbor:"a" json:"a"`
-	IsNativeTokenOnSrc byte     `cbor:"nt" json:"nt"` // bool is not supported by Cardano!
-	Amount             uint64   `cbor:"m" json:"m"`
+	Address []string `cbor:"a" json:"a"`
+	Amount  uint64   `cbor:"m" json:"m"`
+	TokenID uint16   `cbor:"t" json:"t"`
 }
 
 // BridgingRequestMetadata represents metadata for a bridging request
@@ -47,21 +51,20 @@ func (brm BridgingRequestMetadata) Marshal() ([]byte, error) {
 	return result, nil
 }
 
-// GetOutputAmounts returns amount needed for outputs in lovelace and native tokens
-func (brm *BridgingRequestMetadata) GetOutputAmounts() (outputCurrencyLovelace uint64, outputNativeToken uint64) {
-	outputCurrencyLovelace = brm.BridgingFee + brm.OperationFee
+// GetOutputAmounts returns the required output amounts in lovelace, wrapped tokens, and colored coins.
+func (brm *BridgingRequestMetadata) GetOutputAmounts(currencyID uint16) OutputAmounts {
+	amounts := OutputAmounts{
+		CurrencyLovelace: brm.BridgingFee + brm.OperationFee,
+		NativeTokens:     make(map[uint16]uint64),
+	}
 
-	for _, x := range brm.Transactions {
-		if x.IsNativeTokenOnSource() {
-			outputNativeToken += x.Amount // WSADA/WSAPEX to ADA/APEX
+	for _, tx := range brm.Transactions {
+		if tx.TokenID == currencyID {
+			amounts.CurrencyLovelace += tx.Amount
 		} else {
-			outputCurrencyLovelace += x.Amount // ADA/APEX to WSADA/WSAPEX or Reactor tokens
+			amounts.NativeTokens[tx.TokenID] += tx.Amount
 		}
 	}
 
-	return outputCurrencyLovelace, outputNativeToken
-}
-
-func (brmt BridgingRequestMetadataTransaction) IsNativeTokenOnSource() bool {
-	return brmt.IsNativeTokenOnSrc != 0
+	return amounts
 }
