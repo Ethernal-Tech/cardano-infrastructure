@@ -297,7 +297,7 @@ func (txSnd *TxSender) prepareBridgingTx(
 	}
 
 	bridgingFee := txDto.BridgingFee
-	outputLovelace := outputLovelaceBeforeAdditionalCharges + bridgingFee + txDto.OperationFee
+	outputLovelace := outputLovelaceBeforeAdditionalCharges + bridgingFee
 
 	if outputLovelaceBeforeAdditionalCharges > outputAmounts.CurrencyLovelace {
 		bridgingFee += outputLovelaceBeforeAdditionalCharges - outputAmounts.CurrencyLovelace
@@ -431,6 +431,16 @@ func (txSnd *TxSender) populateTxBuilder(
 		}
 	}
 
+	if txDto.OperationFee > 0 {
+		txBuilder.AddOutputs(cardanowallet.TxOutput{
+			Addr:   config.TreasuryAddress,
+			Amount: txDto.OperationFee,
+			Tokens: []cardanowallet.TokenAmount{},
+		})
+
+		outputLovelace += txDto.OperationFee
+	}
+
 	// calculate minUtxo for change output
 	potentialChangeTokenCost, err := cardanowallet.GetMinUtxoForSumMap(
 		txBuilder,
@@ -537,6 +547,7 @@ func (txSnd *TxSender) createGenericTxDtoAndMetadata(
 					NativeTokens: preparedData.OutputNativeTokens,
 				},
 			},
+			OperationFee: txDto.OperationFee,
 		},
 		metadata, nil
 }
