@@ -571,13 +571,25 @@ func Test_TransactionBuilderWithPlutusMint(t *testing.T) {
 
 	builder.AddInputs(inputs...)
 	builder.AddCollateralInputs(collateralInputs)
-	builder.AddPlutusTokenMints(mintToknes, txInReference, tokensPolicyID)
 	builder.AddCollateralOutput(collateralOutput)
 	builder.AddOutputs(outputs...)
 	builder.SetTimeToLive(44552853)
 
-	_, _, err = builder.UncheckedBuild()
-	require.NoError(t, err)
+	t.Run("valid", func(t *testing.T) {
+		builder.plutusTokenMint = txPlutusTokenMintInputs{}
+		builder.AddPlutusTokenMints(mintToknes, txInReference, tokensPolicyID)
+
+		_, _, err = builder.UncheckedBuild()
+		require.NoError(t, err)
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		builder.plutusTokenMint = txPlutusTokenMintInputs{}
+		builder.AddPlutusTokenMints([]MintTokenAmount{{}}, txInReference, tokensPolicyID)
+
+		_, _, err = builder.UncheckedBuild()
+		require.ErrorContains(t, err, "Plutus mint tokens, but none have a non-zero amount")
+	})
 }
 
 func Test_TransactionBuilderWithPlutusDeployment(t *testing.T) {

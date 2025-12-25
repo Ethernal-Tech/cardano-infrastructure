@@ -915,12 +915,21 @@ func (txMint txPlutusTokenMintInputs) Apply(args *[]string) error {
 	parts := make([]string, 0, len(txMint.tokens))
 
 	for _, token := range txMint.tokens {
+		if token.Amount == 0 {
+			continue
+		}
+
 		sign := ""
 		if token.IsNegative {
 			sign = "-"
 		}
 
 		parts = append(parts, fmt.Sprintf("%s%d %s", sign, token.Amount, token.String()))
+	}
+
+	if len(parts) == 0 {
+		return fmt.Errorf("provided %d Plutus mint tokens, but none have a non-zero amount",
+			len(txMint.tokens))
 	}
 
 	mintArgs := []string{

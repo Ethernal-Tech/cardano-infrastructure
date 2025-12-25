@@ -1,52 +1,45 @@
 package sendtx
 
-import cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
+import (
+	cardanowallet "github.com/Ethernal-Tech/cardano-infrastructure/wallet"
+)
 
 type IUtxosTransformer interface {
 	TransformUtxos(utxos []cardanowallet.Utxo) []cardanowallet.Utxo
 }
 
-type BridgingType byte
-
 const (
-	BridgingTypeNormal BridgingType = iota
-	BridgingTypeNativeTokenOnSource
-	BridgingTypeCurrencyOnSource
-
 	defaultPotentialFee     = 400_000
 	defaultMaxInputsPerTx   = 50
 	defaultTTLSlotNumberInc = 500
 )
 
-type TokenExchangeConfig struct {
-	// Destination chain ID
-	DstChainID string `json:"dstChainID"`
-	// Token identifier in the format "policyId.name"
-	TokenName string `json:"tokenName"`
-	// Indicates whether the token is to be minted
-	Mint bool `json:"mint"`
+type ApexToken struct {
+	FullName          string
+	IsWrappedCurrency bool
 }
 
 type ChainConfig struct {
-	CardanoCliBinary         string
-	TxProvider               cardanowallet.ITxProvider
-	MultiSigAddr             string
-	TestNetMagic             uint
-	TTLSlotNumberInc         uint64
-	MinUtxoValue             uint64
-	NativeTokens             []TokenExchangeConfig
-	DefaultMinFeeForBridging uint64
-	MinFeeForBridgingTokens  uint64
-	MinOperationFeeAmount    uint64
-	PotentialFee             uint64
-	ProtocolParameters       []byte
-	TreasuryAddress          string
+	CardanoCliBinary           string
+	TxProvider                 cardanowallet.ITxProvider
+	MultiSigAddr               string
+	TestNetMagic               uint
+	TTLSlotNumberInc           uint64
+	MinUtxoValue               uint64
+	MinColCoinsAllowedToBridge uint64
+	Tokens                     map[uint16]ApexToken
+	DefaultMinFeeForBridging   uint64
+	MinFeeForBridgingTokens    uint64
+	MinOperationFeeAmount      uint64
+	PotentialFee               uint64
+	ProtocolParameters         []byte
+	TreasuryAddress            string
 }
 
 type BridgingTxReceiver struct {
-	BridgingType BridgingType `json:"type"`
-	Addr         string       `json:"addr"`
-	Amount       uint64       `json:"amount"`
+	Addr    string `json:"addr"`
+	Amount  uint64 `json:"amount"`
+	TokenID uint16 `json:"token"`
 }
 
 type TxInfo struct {
@@ -101,15 +94,12 @@ type GenericTxDto struct {
 	OperationFee           uint64
 }
 
-func (bt BridgingType) String() string {
-	switch bt {
-	case BridgingTypeNormal:
-		return "Bridging Request Reactor"
-	case BridgingTypeNativeTokenOnSource:
-		return "Bridging Native Token on Source"
-	case BridgingTypeCurrencyOnSource:
-		return "Bridging Currency on Source"
-	default:
-		return "Unknown Bridging Type"
+func (config ChainConfig) GetCurrencyID() (uint16, bool) {
+	for id, token := range config.Tokens {
+		if token.FullName == cardanowallet.AdaTokenName {
+			return id, true
+		}
 	}
+
+	return 0, false
 }
