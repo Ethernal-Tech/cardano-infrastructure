@@ -357,9 +357,9 @@ func convertUroBorosProtocolParameters(ps localstatequery.CurrentProtocolParamsR
 			ExecutionUnitPrices:  NewProtocolParametersPriceMemorySteps(priceMem, priceSteps),
 			UtxoCostPerByte:      gupp.AdaPerUtxoByte,
 			MaxTxExecutionUnits: NewProtocolParametersMemorySteps(
-				uint64(gupp.MaxTxExUnits.Mem), uint64(gupp.MaxTxExUnits.Steps)),
+				uint64(gupp.MaxTxExUnits.Memory), uint64(gupp.MaxTxExUnits.Steps)),
 			MaxBlockExecutionUnits: NewProtocolParametersMemorySteps(
-				uint64(gupp.MaxBlockExUnits.Mem), uint64(gupp.MaxBlockExUnits.Steps)),
+				uint64(gupp.MaxBlockExUnits.Memory), uint64(gupp.MaxBlockExUnits.Steps)),
 			MaxCollateralInputs: uint64(gupp.MaxCollateralInputs),
 			MaxValueSize:        uint64(gupp.MaxValueSize),
 			CostModels:          map[string][]int64{},
@@ -422,9 +422,9 @@ func convertUroBorosProtocolParameters(ps localstatequery.CurrentProtocolParamsR
 			ExecutionUnitPrices:  NewProtocolParametersPriceMemorySteps(priceMem, priceSteps),
 			UtxoCostPerByte:      gupp.AdaPerUtxoByte,
 			MaxTxExecutionUnits: NewProtocolParametersMemorySteps(
-				uint64(gupp.MaxTxExUnits.Mem), uint64(gupp.MaxTxExUnits.Steps)),
+				uint64(gupp.MaxTxExUnits.Memory), uint64(gupp.MaxTxExUnits.Steps)),
 			MaxBlockExecutionUnits: NewProtocolParametersMemorySteps(
-				uint64(gupp.MaxBlockExUnits.Mem), uint64(gupp.MaxBlockExUnits.Steps)),
+				uint64(gupp.MaxBlockExUnits.Memory), uint64(gupp.MaxBlockExUnits.Steps)),
 			MaxCollateralInputs: uint64(gupp.MaxCollateralInputs),
 			MaxValueSize:        uint64(gupp.MaxValueSize),
 			CostModels:          map[string][]int64{},
