@@ -5,6 +5,7 @@ go 1.23.1
 require (
 	github.com/blinklabs-io/gouroboros v0.103.1
 	github.com/fxamacker/cbor/v2 v2.7.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/quasilyte/go-ruleguard v0.4.2
 	github.com/quasilyte/go-ruleguard/dsl v0.3.22
