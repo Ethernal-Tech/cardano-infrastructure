@@ -431,7 +431,7 @@ func (txSnd *TxSender) populateTxBuilder(
 		}
 	}
 
-	if txDto.OperationFee > 0 {
+	if txDto.OperationFee >= config.MinUtxoValue {
 		txBuilder.AddOutputs(cardanowallet.TxOutput{
 			Addr:   config.TreasuryAddress,
 			Amount: txDto.OperationFee,
