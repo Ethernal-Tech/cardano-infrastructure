@@ -135,7 +135,7 @@ func (o *TxProviderOgmios) GetProtocolParameters(ctx context.Context) ([]byte, e
 	}
 
 	for scriptName, values := range params.Result.PlutusCostModels {
-		if parts := strings.Split(scriptName, ":"); len(parts) == 2 && len(parts[1]) > 0 {
+		if parts := strings.Split(scriptName, ":"); len(parts) == 2 && len(parts[1]) > 0 && len(values) > 0 {
 			pp.CostModels["PlutusV"+parts[1][1:]] = values
 		}
 	}

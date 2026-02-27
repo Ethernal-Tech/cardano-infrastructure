@@ -392,7 +392,9 @@ func convertUroBorosProtocolParameters(ps localstatequery.CurrentProtocolParamsR
 		}
 
 		for scriptIndx, values := range gupp.CostModels {
-			pp.CostModels[fmt.Sprintf("PlutusV%d", scriptIndx+1)] = values
+			if len(values) > 0 {
+				pp.CostModels[fmt.Sprintf("PlutusV%d", scriptIndx+1)] = values
+			}
 		}
 
 		return json.Marshal(pp)

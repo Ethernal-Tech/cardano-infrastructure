@@ -322,6 +322,10 @@ func convertProtocolParameters(bytes []byte) ([]byte, error) {
 	}
 
 	for scriptName, mapValue := range bfpp.CostModels {
+		if len(mapValue) == 0 {
+			continue
+		}
+
 		ints := make([]int64, len(mapValue))
 
 		for k, v := range mapValue {
