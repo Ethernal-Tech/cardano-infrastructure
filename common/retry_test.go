@@ -72,3 +72,30 @@ func TestIsRetryableError(t *testing.T) {
 	assert.True(t, IsRetryableError(&net.DNSError{IsTimeout: true}))
 	assert.True(t, IsRetryableError(errors.New("replacement tx underpriced")))
 }
+
+func TestIsRetryableError_Resolver(t *testing.T) {
+	// Reproduce "lookup rpc.nexus.testnet.apexfusion.org: i/o timeout" by using
+	// a resolver that dials a non-responsive address so the DNS connection times out.
+	resolver := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{Timeout: 10 * time.Millisecond}
+			// RFC 5737 documentation address; no DNS server there, so dial times out
+			return d.DialContext(ctx, network, "198.51.100.1:53")
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := resolver.LookupHost(ctx, "rpc.nexus.testnet.apexfusion.org")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "i/o timeout")
+	require.Contains(t, err.Error(), "rpc.nexus.testnet.apexfusion.org")
+
+	var netErr net.Error
+
+	require.True(t, errors.As(err, &netErr))
+	assert.True(t, netErr.Timeout(), "DNSError should be a timeout")
+	assert.True(t, IsRetryableError(err), "DNS i/o timeout should be retryable")
+}
