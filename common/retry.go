@@ -135,6 +135,7 @@ func IsRetryableError(err error) bool {
 		"transaction underpriced",
 		"status code 429", // blockfrost rate limiter
 		"status code 500", // ogmios "status code 500" error
+		"i/o timeout",     // DNS i/o timeout
 	}
 	errStr := err.Error()
 
