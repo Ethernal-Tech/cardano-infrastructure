@@ -45,7 +45,7 @@ func ParseTxInfo(rawTx []byte, full bool) (indexer.TxInfo, error) {
 	}
 
 	return indexer.TxInfo{
-		Hash:     gtx.Hash(),
+		Hash:     gtx.Hash().String(),
 		TTL:      gtx.TTL(),
 		MetaData: metadata,
 		Fee:      gtx.Fee(),

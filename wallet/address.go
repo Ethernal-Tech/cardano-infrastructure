@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/Ethernal-Tech/cardano-infrastructure/wallet/bech32"
-	"github.com/blinklabs-io/gouroboros/base58"
+	"github.com/btcsuite/btcd/btcutil/base58"
 )
 
 var (
