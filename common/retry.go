@@ -133,9 +133,11 @@ func IsRetryableError(err error) bool {
 		"tx with the same nonce is already present",
 		"rejected future tx due to low slots",
 		"transaction underpriced",
-		"status code 429", // blockfrost rate limiter
-		"status code 500", // ogmios "status code 500" error
-		"i/o timeout",     // DNS i/o timeout
+		"status code 429",    // blockfrost rate limiter
+		"status code 500",    // ogmios "status code 500" error
+		"i/o timeout",        // DNS i/o timeout
+		"status code is 429", // polygon testnet rpc rate limiter
+		"error code: 1015",   // polygon testnet rpc rate limiter
 	}
 	errStr := err.Error()
 
