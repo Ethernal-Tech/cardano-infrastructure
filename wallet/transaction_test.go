@@ -42,7 +42,7 @@ func Test_TransactionBuilder(t *testing.T) {
 
 	policyScriptMultiSig := NewPolicyScript(walletsKeyHashes, len(walletsKeyHashes)*2/3+1)
 	policyScriptFeeMultiSig := NewPolicyScript(walletsFeeKeyHashes, len(walletsFeeKeyHashes)*2/3+1)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	multisigPolicyID, err := cliUtils.GetPolicyID(policyScriptMultiSig)
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func Test_TransactionBuilder(t *testing.T) {
 	}
 	outputsSum := GetOutputsSum(outputs)
 
-	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(), eraName)
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -177,7 +177,7 @@ func Test_TransactionBuilderWithRegistrationCertificate(t *testing.T) {
 
 	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
 	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
 	require.NoError(t, err)
@@ -200,7 +200,7 @@ func Test_TransactionBuilderWithRegistrationCertificate(t *testing.T) {
 	require.Equal(t, "Stake Address Registration Certificate", registrationCertificate.Description)
 	require.Equal(t, "82008201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f", registrationCertificate.CborHex)
 
-	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(), eraName)
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -258,7 +258,7 @@ func Test_TransactionBuilderWithDelegationCertificate(t *testing.T) {
 
 	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
 	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
 	require.NoError(t, err)
@@ -282,7 +282,7 @@ func Test_TransactionBuilderWithDelegationCertificate(t *testing.T) {
 	require.Equal(t, "Stake Delegation Certificate", delegationCertificate.Description)
 	require.Equal(t, "83028201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f581c5acc3f8fbc6ecfb86ce73543217a860387c4281bb394b4a123f35b24", delegationCertificate.CborHex)
 
-	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(), eraName)
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -339,7 +339,7 @@ func Test_TransactionBuilderWithRegAndDelegCertificates(t *testing.T) {
 
 	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
 	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
 	require.NoError(t, err)
@@ -370,7 +370,7 @@ func Test_TransactionBuilderWithRegAndDelegCertificates(t *testing.T) {
 	require.Equal(t, "83028201581cb59d7c9f689fcbc2a19da2689f9fe52c5f65c3b3c56b7b7e2f08f15f581c09ec0ea0c2a57205f31e5fced2964c2658bac5a3cc8dfc0e259c54cb", delegationCertificate.CborHex)
 	certs := []ICardanoArtifact{registrationCertificate, delegationCertificate}
 
-	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(), eraName)
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -427,7 +427,7 @@ func Test_TransactionBuilderWithWithdraw(t *testing.T) {
 
 	policyScriptPaymentMultiSig := NewPolicyScript(policyPaymentKeyHashes, len(policyPaymentKeyHashes)*2/3+1)
 	policyScriptStakeMultiSig := NewPolicyScript(policyStakeKeyHashes, len(policyStakeKeyHashes)*2/3+1)
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	multisigPaymentPolicyID, err := cliUtils.GetPolicyID(policyScriptPaymentMultiSig)
 	require.NoError(t, err)
@@ -443,7 +443,7 @@ func Test_TransactionBuilderWithWithdraw(t *testing.T) {
 	require.Equal(t, "addr_test1xqdt3kene0l87agrdcsn7jzspfrj83h5svgmaw8rnzzva644n47f76yle0p2r8dzdz0elefvtaju8v79ddahutcg790s37mp24", multiSigAddr.String())
 	require.Equal(t, "stake_test17z6e6lyldz0uhs4pnk3x38ulu5k97ewrk0zkk7m79uy0zhcp9x067", multiSigRewardAddr.String())
 
-	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(), eraName)
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -560,7 +560,7 @@ func Test_TransactionBuilderWithPlutusMint(t *testing.T) {
 		},
 	}
 
-	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(), eraName)
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -614,7 +614,7 @@ func Test_TransactionBuilderWithPlutusDeployment(t *testing.T) {
 		CborHex:     "59016259015f010000223232323232323232533357340022930b19baf32357426aae78dd50009aba1357446aae78dd50011aba135573c6ea8004c8c8cc004004008894ccd55cf8008b0992999ab9a3370e600e6eacd5d09aba235573c6ea800520021001133003003357440046ae84004dd61aba1357446ae88010c8c8cc004004008894ccd55cf8008b0992999ab9a3370e600c646eacd5d09aba235573c6ea8004d5d09aba235573c6ea800520021001133003003357440046ae84004dd61aba1003375a00c46466600200244a666aae7c0045200015333573466ebcd55ce9aba10014c10a4954657374546f6b656e001375a6aae78d5d08008998010011aba200100222253335573e002290000a999ab9a3375e6aae74d5d0800a611e581c14b249936a64cbc96bde5a46e04174e7fb58b565103d0c3a32f8d61f0013300200237566aae78d5d080089998018018011aba200135573c0026ea8004d5d09aab9e3754003",
 	}
 
-	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(), eraName)
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -639,7 +639,7 @@ func Test_TransactionBuilderWithPlutusDeployment(t *testing.T) {
 func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
 	t.Parallel()
 
-	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	builder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(), eraName)
 	require.NoError(t, err)
 
 	defer builder.Dispose()
@@ -695,7 +695,7 @@ func Test_TxBuilder_UpdateOutputAmountAndRemoveOutput(t *testing.T) {
 func Test_TxBuilder_CheckOutputs(t *testing.T) {
 	t.Parallel()
 
-	b, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	b, err := NewTxBuilderForEra(ResolveCardanoCliBinary(), eraName)
 	require.NoError(t, err)
 
 	defer b.Dispose()
@@ -739,7 +739,7 @@ func TestCreateTxWitnessAndAssembleTxWitnesses(t *testing.T) {
 
 	wallet := NewWallet(skeyBytes, nil)
 
-	txBuilder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(TestNetNetwork), eraName)
+	txBuilder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(), eraName)
 	require.NoError(t, err)
 
 	defer txBuilder.Dispose()
@@ -749,7 +749,7 @@ func TestCreateTxWitnessAndAssembleTxWitnesses(t *testing.T) {
 
 	require.Equal(t, witnessData, strings.TrimPrefix(hex.EncodeToString(txWitnessBytes), "8200"))
 
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	txHash, err := cliUtils.GetTxHash(txRawBytes)
 	require.NoError(t, err)
@@ -791,7 +791,7 @@ func TestCalculateMinUtxo(t *testing.T) {
 		},
 	}
 
-	txBuilder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(MainNetNetwork), eraName)
+	txBuilder, err := NewTxBuilderForEra(ResolveCardanoCliBinary(), eraName)
 	require.NoError(t, err)
 
 	defer txBuilder.Dispose()

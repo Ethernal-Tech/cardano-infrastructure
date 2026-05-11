@@ -18,7 +18,7 @@ func TestGetTokenCostSum(t *testing.T) {
 	tokenAmount2 := NewTokenAmount(token2, 236_872_039)
 	tokenAmount3 := NewTokenAmount(token3, 12_236_872_039)
 
-	txBuilder, err := NewTxBuilder(ResolveCardanoCliBinary(MainNetNetwork))
+	txBuilder, err := NewTxBuilder(ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer txBuilder.Dispose()

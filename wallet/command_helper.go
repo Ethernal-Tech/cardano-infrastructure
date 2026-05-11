@@ -7,7 +7,11 @@ import (
 	"strconv"
 )
 
-const FilePermission = 0750
+const (
+	FilePermission        = 0750
+	cardanoCliEnv         = "CARDANO_CLI_BINARY"
+	defaultCardanoCliName = "cardano-cli"
+)
 
 type runCommandError struct {
 	desc string
@@ -22,14 +26,16 @@ func (rce runCommandError) Error() string {
 	return rce.base.Error()
 }
 
-func ResolveCardanoCliBinary(_ CardanoNetworkType) string {
-	env, name := "CARDANO_CLI_BINARY", "cardano-cli"
+func ResolveCardanoCliBinary(name ...string) string {
+	if len(name) > 0 && name[0] != "" {
+		return name[0]
+	}
 
-	if bin := os.Getenv(env); bin != "" {
+	if bin := os.Getenv(cardanoCliEnv); bin != "" {
 		return bin
 	}
 	// fallback
-	return name
+	return defaultCardanoCliName
 }
 
 func runCommand(binary string, args []string, envVariables ...string) (string, error) {
