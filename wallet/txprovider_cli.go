@@ -204,10 +204,29 @@ func (b *TxProviderCli) GetStakeAddressInfo(ctx context.Context, stakeAddress st
 		return QueryStakeAddressInfo{}, err
 	}
 
+	if strings.Contains(res, "stakePoolBech32") {
+		var result11 []QueryStakeAddressInfo11
+		if err := json.Unmarshal([]byte(res), &result11); err != nil {
+			return QueryStakeAddressInfo{}, err
+		}
+
+		if len(result11) == 0 {
+			return QueryStakeAddressInfo{}, fmt.Errorf("stake address is not registered yet")
+		}
+
+		return QueryStakeAddressInfo{
+			Address:              result11[0].Address,
+			RewardAccountBalance: result11[0].RewardAccountBalance,
+			StakeDelegation:      result11[0].StakeDelegation.PoolID,
+			DelegationDeposit:    result11[0].StakeRegistrationDeposit,
+			VoteDelegation:       result11[0].VoteDelegation,
+		}, nil
+	}
+
 	var result []QueryStakeAddressInfo
 
 	if err := json.Unmarshal([]byte(res), &result); err != nil {
-		return result[0], err
+		return QueryStakeAddressInfo{}, err
 	}
 
 	if len(result) > 0 {

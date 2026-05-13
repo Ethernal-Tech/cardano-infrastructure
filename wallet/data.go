@@ -125,10 +125,23 @@ type QueryTipData struct {
 
 type QueryStakeAddressInfo struct {
 	Address              string `json:"address"`
+	StakeDelegation      string `json:"delegation"`
 	DelegationDeposit    uint64 `json:"delegationDeposit"`
 	RewardAccountBalance uint64 `json:"rewardAccountBalance"`
-	StakeDelegation      string `json:"delegation"`
 	VoteDelegation       string `json:"voteDelegation"`
+}
+
+type QueryStakeAddressInfo11 struct {
+	Address                  string          `json:"address"`
+	RewardAccountBalance     uint64          `json:"rewardAccountBalance"`
+	StakeDelegation          StakeDelegation `json:"stakeDelegation"`
+	StakeRegistrationDeposit uint64          `json:"stakeRegistrationDeposit"`
+	VoteDelegation           string          `json:"voteDelegation"`
+}
+
+type StakeDelegation struct {
+	PoolID    string `json:"stakePoolBech32"`
+	PoolIDHex string `json:"stakePoolHex"`
 }
 
 type QueryEvaluateTxData struct {
