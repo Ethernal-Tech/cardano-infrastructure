@@ -60,7 +60,7 @@ func TestTxSender(t *testing.T) {
 		"prime": {
 			TestNetMagic:     3113,
 			MultiSigAddr:     bridgingAddr.String(),
-			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(0),
+			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(),
 			TxProvider:       txProvider,
 			Tokens: map[uint16]ApexToken{
 				1: {FullName: cardanowallet.AdaTokenName},
@@ -86,7 +86,7 @@ func TestTxSender(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	cliBinary := cardanowallet.ResolveCardanoCliBinary(0)
+	cliBinary := cardanowallet.ResolveCardanoCliBinary()
 	cliUtils := cardanowallet.NewCliUtils(cliBinary)
 
 	receiverAddr, err := cardanowallet.NewEnterpriseAddress(0, wallets[0].VerificationKey)
@@ -489,7 +489,7 @@ func Test_prepareBridgingTx(t *testing.T) {
 				2: {FullName: token.String()},
 			},
 			TxProvider:       txProviderMock,
-			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(cardanowallet.TestNetNetwork),
+			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(),
 		},
 		"vector": {
 			MinUtxoValue: 20,
@@ -542,7 +542,7 @@ func Test_prepareBridgingTx(t *testing.T) {
 }
 
 func Test_adjustLovelaceOutput(t *testing.T) {
-	txBuilder, err := cardanowallet.NewTxBuilder(cardanowallet.ResolveCardanoCliBinary(cardanowallet.TestNetNetwork))
+	txBuilder, err := cardanowallet.NewTxBuilder(cardanowallet.ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer txBuilder.Dispose()
@@ -575,7 +575,7 @@ func Test_adjustLovelaceOutput(t *testing.T) {
 }
 
 func Test_populateTxBuilder(t *testing.T) {
-	txBuilder, err := cardanowallet.NewTxBuilder(cardanowallet.ResolveCardanoCliBinary(cardanowallet.TestNetNetwork))
+	txBuilder, err := cardanowallet.NewTxBuilder(cardanowallet.ResolveCardanoCliBinary())
 	require.NoError(t, err)
 
 	defer txBuilder.Dispose()
@@ -605,7 +605,7 @@ func Test_populateTxBuilder(t *testing.T) {
 				2: {FullName: token1.String()},
 			},
 			TxProvider:       txProviderMock,
-			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(cardanowallet.TestNetNetwork),
+			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(),
 		},
 	})
 

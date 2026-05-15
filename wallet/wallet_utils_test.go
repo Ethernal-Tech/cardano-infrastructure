@@ -70,7 +70,7 @@ func TestKeyHash(t *testing.T) {
 
 	const accountsNumber = 20
 
-	cliUtils := NewCliUtils(ResolveCardanoCliBinary(TestNetNetwork))
+	cliUtils := NewCliUtils(ResolveCardanoCliBinary())
 
 	for i := 0; i < accountsNumber; i++ {
 		wallet, err := GenerateWallet(true)
