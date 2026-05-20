@@ -353,25 +353,26 @@ func (txSnd *TxSender) createTx(
 		witnessCount = txDto.SenderAddrPolicyScript.GetCount()
 	}
 
-	feeCurrencyLovelace, err := txBuilder.CalculateFee(witnessCount)
+	// Rough fee estimation on a draft where change output equals 0.
+	roughFee, err := txBuilder.CalculateFee(witnessCount)
 	if err != nil {
 		return nil, err
 	}
 
-	txBuilder.SetFee(feeCurrencyLovelace)
-
-	change := data.ChangeLovelace - feeCurrencyLovelace
-	// handle overflow or insufficient amount
-	if change != 0 && (change > data.ChangeLovelace || change < data.ChangeMinUtxoAmount) {
-		return nil,
-			fmt.Errorf("insufficient remaining amount %d for fee %d, or minimum UTXO (%d) not satisfied",
-				data.ChangeLovelace, feeCurrencyLovelace, data.ChangeMinUtxoAmount)
+	if err := applyFeeAndChange(txBuilder, data, roughFee); err != nil {
+		return nil, err
 	}
 
-	if change != 0 {
-		txBuilder.UpdateOutputAmount(-1, change)
-	} else {
-		txBuilder.RemoveOutput(-1)
+	// Re-estimate on the realistic draft. The change output now carries its final
+	// CBOR-encoded amount, so the fee returned here matches what the node will
+	// require when the tx is submitted.
+	finalFee, err := txBuilder.CalculateFee(witnessCount)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := applyFeeAndChange(txBuilder, data, finalFee); err != nil {
+		return nil, err
 	}
 
 	txRaw, txHash, err := txBuilder.Build()
@@ -385,6 +386,39 @@ func (txSnd *TxSender) createTx(
 		ChangeMinUtxoAmount: data.ChangeMinUtxoAmount,
 		ChosenInputs:        data.ChosenInputs,
 	}, nil
+}
+
+// applyFeeAndChange writes the given fee into the tx builder and adjusts the
+// change output accordingly. The change output is expected to be the last one
+// (added by populateTxBuilder with Amount=0). If the remaining change is zero
+// the change output is removed; otherwise its amount is set to (total - fee).
+//
+// It always starts from data.ChangeLovelace (the original "total inputs minus
+// recipient outputs" amount), so calling it multiple times with different fees
+// produces the correct final state - it never compounds.
+func applyFeeAndChange(
+	txBuilder *cardanowallet.TxBuilder, data *txBuilderPopulationData, fee uint64,
+) error {
+	if fee > data.ChangeLovelace {
+		return fmt.Errorf("insufficient remaining amount %d for fee %d, or minimum UTXO (%d) not satisfied",
+			data.ChangeLovelace, fee, data.ChangeMinUtxoAmount)
+	}
+
+	change := data.ChangeLovelace - fee
+	if change != 0 && change < data.ChangeMinUtxoAmount {
+		return fmt.Errorf("insufficient remaining amount %d for fee %d, or minimum UTXO (%d) not satisfied",
+			data.ChangeLovelace, fee, data.ChangeMinUtxoAmount)
+	}
+
+	if change != 0 {
+		txBuilder.UpdateOutputAmount(-1, change)
+	} else {
+		txBuilder.RemoveOutput(-1)
+	}
+
+	txBuilder.SetFee(fee)
+
+	return nil
 }
 
 func (txSnd *TxSender) populateTxBuilder(
