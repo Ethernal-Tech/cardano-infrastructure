@@ -330,7 +330,7 @@ func (b *TxBuilder) CalculateFee(witnessCount int) (uint64, error) {
 		return 0, err
 	}
 
-	if err := b.buildRawTx(protocolParamsFilePath, 0); err != nil {
+	if err := b.buildRawTx(protocolParamsFilePath, b.fee); err != nil {
 		return 0, err
 	}
 
