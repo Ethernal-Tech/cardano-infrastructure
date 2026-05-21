@@ -667,6 +667,217 @@ func Test_populateTxBuilder(t *testing.T) {
 	})
 }
 
+func Test_applyFeeAndChangeErrors(t *testing.T) {
+	const inputLovelace = 10_000_000 // 10 ADA
+
+	ctx := context.Background()
+
+	utxos := []cardanowallet.Utxo{
+		{
+			Hash:   "f97a06232cd0998821768cf053964d8c265d28984a1ff29f50de097ed3add8b5",
+			Index:  0,
+			Amount: inputLovelace,
+		},
+	}
+
+	txSnd := NewTxSender(map[string]ChainConfig{
+		"": {
+			MinUtxoValue:     55,
+			TestNetMagic:     cardanowallet.PreviewProtocolMagic,
+			TreasuryAddress:  validPrimeTreasuryAddress,
+			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(),
+			TxProvider: &txProviderMock{
+				protocolParameters: dummyProtoParams,
+				utxos:              utxos,
+			},
+			Tokens: map[uint16]ApexToken{
+				1: {FullName: cardanowallet.AdaTokenName},
+			},
+		},
+	})
+
+	const receiverLovelace = 2_000_000
+
+	txDto := GenericTxDto{
+		SenderAddr: dummyAddr,
+		Receivers: []TxReceiversDto{
+			{Addr: dummyAddr, Amount: receiverLovelace},
+		},
+	}
+
+	t.Run("fee exceeds available change", func(t *testing.T) {
+		txBuilder, err := cardanowallet.NewTxBuilder(cardanowallet.ResolveCardanoCliBinary())
+		require.NoError(t, err)
+		defer txBuilder.Dispose()
+
+		txBuilder.SetProtocolParameters(dummyProtoParams)
+
+		data, err := txSnd.populateTxBuilder(ctx, txBuilder, txDto)
+		require.NoError(t, err)
+
+		oversizedFee := data.ChangeLovelace + 1
+		err = applyFeeAndChange(txBuilder, data, oversizedFee)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient remaining amount")
+
+		txBuilder2, err := cardanowallet.NewTxBuilder(cardanowallet.ResolveCardanoCliBinary())
+		require.NoError(t, err)
+		defer txBuilder2.Dispose()
+
+		txBuilder2.SetProtocolParameters(dummyProtoParams)
+
+		_, err = txSnd.createTx(ctx, txBuilder2, txDto)
+		require.NoError(t, err)
+	})
+
+	t.Run("non-zero ADA change below minimum UTXO after fee", func(t *testing.T) {
+		const (
+			minUtxoValue     = 1_500_000
+			potentialFee     = 1
+			receiverLovelace = 8_499_000
+		)
+
+		txSnd := NewTxSender(map[string]ChainConfig{
+			"": {
+				MinUtxoValue:     minUtxoValue,
+				PotentialFee:     potentialFee,
+				TestNetMagic:     cardanowallet.PreviewProtocolMagic,
+				TreasuryAddress:  validPrimeTreasuryAddress,
+				CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(),
+				TxProvider: &txProviderMock{
+					protocolParameters: dummyProtoParams,
+					utxos:              utxos,
+				},
+				Tokens: map[uint16]ApexToken{
+					1: {FullName: cardanowallet.AdaTokenName},
+				},
+			},
+		})
+
+		txBuilder, err := cardanowallet.NewTxBuilder(cardanowallet.ResolveCardanoCliBinary())
+		require.NoError(t, err)
+		defer txBuilder.Dispose()
+
+		txBuilder.SetProtocolParameters(dummyProtoParams)
+
+		_, err = txSnd.createTx(ctx, txBuilder, GenericTxDto{
+			SenderAddr: dummyAddr,
+			Receivers: []TxReceiversDto{
+				{Addr: dummyAddr, Amount: receiverLovelace},
+			},
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient remaining amount")
+	})
+
+	t.Run("valid fee and change", func(t *testing.T) {
+		txBuilder, err := cardanowallet.NewTxBuilder(cardanowallet.ResolveCardanoCliBinary())
+		require.NoError(t, err)
+		defer txBuilder.Dispose()
+
+		txBuilder.SetProtocolParameters(dummyProtoParams)
+
+		txInfo, err := txSnd.createTx(ctx, txBuilder, txDto)
+		require.NoError(t, err)
+		require.NotEmpty(t, txInfo.TxRaw)
+		require.NotEmpty(t, txInfo.TxHash)
+		require.GreaterOrEqual(t, len(txInfo.ChosenInputs.Inputs), 1)
+	})
+}
+
+func Test_createTx_doubleFeeCalculation(t *testing.T) {
+	const (
+		inputLovelace    = 10_000_000 // 10 ADA UTXO
+		receiverLovelace = 2_000_000  // 2 ADA to receiver
+	)
+
+	ctx := context.Background()
+
+	utxos := []cardanowallet.Utxo{
+		{
+			Hash:   "f97a06232cd0998821768cf053964d8c265d28984a1ff29f50de097ed3add8b5",
+			Index:  0,
+			Amount: inputLovelace,
+		},
+	}
+
+	txSnd := NewTxSender(map[string]ChainConfig{
+		"": {
+			MinUtxoValue:     55,
+			TestNetMagic:     cardanowallet.PreviewProtocolMagic,
+			TreasuryAddress:  validPrimeTreasuryAddress,
+			CardanoCliBinary: cardanowallet.ResolveCardanoCliBinary(),
+			TxProvider: &txProviderMock{
+				protocolParameters: dummyProtoParams,
+				utxos:              utxos,
+			},
+			Tokens: map[uint16]ApexToken{
+				1: {FullName: cardanowallet.AdaTokenName},
+			},
+		},
+	})
+
+	txDto := GenericTxDto{
+		SenderAddr: dummyAddr,
+		Receivers: []TxReceiversDto{
+			{Addr: dummyAddr, Amount: receiverLovelace},
+		},
+	}
+
+	witnessCount := 1
+
+	t.Run("final fee is at least rough fee after fee and change output are sized", func(t *testing.T) {
+		txBuilder, err := cardanowallet.NewTxBuilder(cardanowallet.ResolveCardanoCliBinary())
+		require.NoError(t, err)
+		defer txBuilder.Dispose()
+
+		txBuilder.SetProtocolParameters(dummyProtoParams)
+
+		data, err := txSnd.populateTxBuilder(ctx, txBuilder, txDto)
+		require.NoError(t, err)
+
+		// ChangeLovelace = input - receiver = 10_000_000 - 2_000_000 = 8_000_000 (when one UTXO covers the tx)
+		assert.Equal(t, uint64(inputLovelace-receiverLovelace), data.ChangeLovelace)
+
+		roughFee, err := txBuilder.CalculateFee(witnessCount)
+		require.NoError(t, err)
+		require.Greater(t, roughFee, uint64(0))
+
+		err = applyFeeAndChange(txBuilder, data, roughFee)
+		require.NoError(t, err)
+
+		// Second estimate runs on a draft that includes roughFee and the full change lovelace amount.
+		finalFee, err := txBuilder.CalculateFee(witnessCount)
+		require.NoError(t, err)
+
+		assert.GreaterOrEqual(t, finalFee, roughFee)
+
+		err = applyFeeAndChange(txBuilder, data, finalFee)
+		require.NoError(t, err)
+
+		expectedChange := data.ChangeLovelace - finalFee
+		require.GreaterOrEqual(t, expectedChange, data.ChangeMinUtxoAmount)
+
+		_, _, err = txBuilder.Build()
+		require.NoError(t, err)
+	})
+
+	t.Run("createTx succeeds with two fee passes", func(t *testing.T) {
+		txBuilder, err := cardanowallet.NewTxBuilder(cardanowallet.ResolveCardanoCliBinary())
+		require.NoError(t, err)
+		defer txBuilder.Dispose()
+
+		txBuilder.SetProtocolParameters(dummyProtoParams)
+
+		txInfo, err := txSnd.createTx(ctx, txBuilder, txDto)
+		require.NoError(t, err)
+		require.NotEmpty(t, txInfo.TxRaw)
+		require.NotEmpty(t, txInfo.TxHash)
+		require.GreaterOrEqual(t, len(txInfo.ChosenInputs.Inputs), 1)
+	})
+}
+
 type txProviderMock struct {
 	protocolParameters []byte
 	utxos              []cardanowallet.Utxo
