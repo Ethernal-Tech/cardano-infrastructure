@@ -353,7 +353,7 @@ func (txSnd *TxSender) createTx(
 		witnessCount = txDto.SenderAddrPolicyScript.GetCount()
 	}
 
-	// Rough fee estimation on a draft where change output equals 0.
+	// Rough fee estimation on a draft.
 	roughFee, err := txBuilder.CalculateFee(witnessCount)
 	if err != nil {
 		return nil, err
