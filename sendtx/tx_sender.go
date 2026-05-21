@@ -389,9 +389,9 @@ func (txSnd *TxSender) createTx(
 }
 
 // applyFeeAndChange writes the given fee into the tx builder and adjusts the
-// change output accordingly. The change output is expected to be the last one
-// (added by populateTxBuilder with Amount=0). If the remaining change is zero
-// the change output is removed; otherwise its amount is set to (total - fee).
+// change output accordingly. The change output is expected to be the last one.
+// If the remaining change is zero the change output is removed; otherwise its
+// amount is set to (total - fee).
 //
 // It always starts from data.ChangeLovelace (the original "total inputs minus
 // recipient outputs" amount), so calling it multiple times with different fees
