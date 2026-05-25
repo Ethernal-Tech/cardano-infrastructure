@@ -327,6 +327,19 @@ func (txSnd *TxSender) calculateFee(
 		witnessCount = txDto.SenderAddrPolicyScript.GetCount()
 	}
 
+	// Rough fee estimation on a draft.
+	roughFee, err := txBuilder.CalculateFee(witnessCount)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := applyFeeAndChange(txBuilder, data, roughFee); err != nil {
+		return nil, err
+	}
+
+	// Re-estimate on the realistic draft. The change output now carries its final
+	// CBOR-encoded amount, so the fee returned here matches what the node will
+	// require when the tx is submitted.
 	fee, err := txBuilder.CalculateFee(witnessCount)
 	if err != nil {
 		return nil, err
