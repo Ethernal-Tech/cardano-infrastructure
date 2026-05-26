@@ -327,20 +327,7 @@ func (txSnd *TxSender) calculateFee(
 		witnessCount = txDto.SenderAddrPolicyScript.GetCount()
 	}
 
-	// Rough fee estimation on a draft.
-	roughFee, err := txBuilder.CalculateFee(witnessCount)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := applyFeeAndChange(txBuilder, data, roughFee); err != nil {
-		return nil, err
-	}
-
-	// Re-estimate on the realistic draft. The change output now carries its final
-	// CBOR-encoded amount, so the fee returned here matches what the node will
-	// require when the tx is submitted.
-	fee, err := txBuilder.CalculateFee(witnessCount)
+	fee, err := calculateTxFee(txBuilder, witnessCount, data)
 	if err != nil {
 		return nil, err
 	}
@@ -349,6 +336,29 @@ func (txSnd *TxSender) calculateFee(
 		Fee:                 fee,
 		ChangeMinUtxoAmount: data.ChangeMinUtxoAmount,
 	}, nil
+}
+
+func calculateTxFee(
+	txBuilder *cardanowallet.TxBuilder, witnessCount int, data *txBuilderPopulationData) (uint64, error) {
+	// Rough fee estimation on a draft.
+	roughFee, err := txBuilder.CalculateFee(witnessCount)
+	if err != nil {
+		return 0, err
+	}
+
+	if err := applyFeeAndChange(txBuilder, data, roughFee); err != nil {
+		return 0, err
+	}
+
+	// Re-estimate on the realistic draft. The change output now carries its final
+	// CBOR-encoded amount, so the fee returned here matches what the node will
+	// require when the tx is submitted.
+	fee, err := txBuilder.CalculateFee(witnessCount)
+	if err != nil {
+		return 0, err
+	}
+
+	return fee, nil
 }
 
 func (txSnd *TxSender) createTx(
