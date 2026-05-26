@@ -235,6 +235,10 @@ func (b *TxBuilder) RemoveOutput(index int) *TxBuilder {
 	return b
 }
 
+func (b *TxBuilder) GetOutputs() []TxOutputWithRefScript {
+	return b.outputs
+}
+
 func (b *TxBuilder) UpdateCollateralOutputAmount(index int, amount uint64) *TxBuilder {
 	if index < 0 {
 		index = len(b.collateralOutputs) + index
