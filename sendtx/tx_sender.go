@@ -358,7 +358,7 @@ func calculateTxFee(
 		return 0, err
 	}
 
-	if err := applyFeeAndChange(txBuilder, data, roughFee); err != nil {
+	if err := applyFeeAndChange(txBuilder, data, fee); err != nil {
 		return 0, err
 	}
 
