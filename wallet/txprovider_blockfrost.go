@@ -344,37 +344,54 @@ func (b *TxProviderBlockFrost) GetTxByHash(ctx context.Context, hash string) (ma
 
 func convertProtocolParameters(bytes []byte) ([]byte, error) {
 	var bfpp struct {
-		ProtocolMajorVer         uint64                      `json:"protocol_major_ver"`
-		ProtocolMinorVer         uint64                      `json:"protocol_minor_ver"`
-		MaxBlockHeaderSize       uint64                      `json:"max_block_header_size"`
-		MaxBlockSize             uint64                      `json:"max_block_size"`
-		MaxTxSize                uint64                      `json:"max_tx_size"`
-		MinFeeB                  uint64                      `json:"min_fee_b"`
-		MinFeeA                  uint64                      `json:"min_fee_a"`
-		KeyDeposit               string                      `json:"key_deposit"`
-		PoolDeposit              string                      `json:"pool_deposit"`
-		MinPoolCost              string                      `json:"min_pool_cost"`
-		EMax                     uint64                      `json:"e_max"`
-		NOpt                     uint64                      `json:"n_opt"`
-		A0                       float64                     `json:"a0"`
-		Rho                      float64                     `json:"rho"`
-		Tau                      float64                     `json:"tau"`
-		CollateralPercent        uint64                      `json:"collateral_percent"`
-		PriceMem                 float64                     `json:"price_mem"`
-		PriceStep                float64                     `json:"price_step"`
-		CoinsPerUtxoWord         string                      `json:"coins_per_utxo_word"`
-		MaxTxExMem               string                      `json:"max_tx_ex_mem"`
-		MaxTxExSteps             string                      `json:"max_tx_ex_steps"`
-		MaxBlockExMem            string                      `json:"max_block_ex_mem"`
-		MaxBlockExSteps          string                      `json:"max_block_ex_steps"`
-		MaxCollateralInputs      uint64                      `json:"max_collateral_inputs"`
-		MaxValSize               string                      `json:"max_val_size"`
-		CostModels               map[string]map[string]int64 `json:"cost_models"`
-		PVTMotionNoConfidence    float64                     `json:"pvt_motion_no_confidence"`
-		PVTCommitteeNormal       float64                     `json:"pvt_committee_normal"`
-		PVTCommitteeNoConfidence float64                     `json:"pvt_committee_no_confidence"`
-		PVTHardForkInitiation    float64                     `json:"pvt_hard_fork_initiation"`
-		PVTPPSecurityGroup       float64                     `json:"pvt_p_p_security_group"`
+		ProtocolMajorVer           uint64                      `json:"protocol_major_ver"`
+		ProtocolMinorVer           uint64                      `json:"protocol_minor_ver"`
+		MaxBlockHeaderSize         uint64                      `json:"max_block_header_size"`
+		MaxBlockSize               uint64                      `json:"max_block_size"`
+		MaxTxSize                  uint64                      `json:"max_tx_size"`
+		MinFeeB                    uint64                      `json:"min_fee_b"`
+		MinFeeA                    uint64                      `json:"min_fee_a"`
+		KeyDeposit                 string                      `json:"key_deposit"`
+		PoolDeposit                string                      `json:"pool_deposit"`
+		MinPoolCost                string                      `json:"min_pool_cost"`
+		EMax                       uint64                      `json:"e_max"`
+		NOpt                       uint64                      `json:"n_opt"`
+		A0                         float64                     `json:"a0"`
+		Rho                        float64                     `json:"rho"`
+		Tau                        float64                     `json:"tau"`
+		CollateralPercent          uint64                      `json:"collateral_percent"`
+		PriceMem                   float64                     `json:"price_mem"`
+		PriceStep                  float64                     `json:"price_step"`
+		CoinsPerUtxoWord           string                      `json:"coins_per_utxo_word"`
+		MaxTxExMem                 string                      `json:"max_tx_ex_mem"`
+		MaxTxExSteps               string                      `json:"max_tx_ex_steps"`
+		MaxBlockExMem              string                      `json:"max_block_ex_mem"`
+		MaxBlockExSteps            string                      `json:"max_block_ex_steps"`
+		MaxCollateralInputs        uint64                      `json:"max_collateral_inputs"`
+		MaxValSize                 string                      `json:"max_val_size"`
+		CostModels                 map[string]map[string]int64 `json:"cost_models"`
+		PVTMotionNoConfidence      float64                     `json:"pvt_motion_no_confidence"`
+		PVTCommitteeNormal         float64                     `json:"pvt_committee_normal"`
+		PVTCommitteeNoConfidence   float64                     `json:"pvt_committee_no_confidence"`
+		PVTHardForkInitiation      float64                     `json:"pvt_hard_fork_initiation"`
+		PVTPPSecurityGroup         float64                     `json:"pvt_p_p_security_group"`
+		DVTMotionNoConfidence      float64                     `json:"dvt_motion_no_confidence"`
+		DVTCommitteeNormal         float64                     `json:"dvt_committee_normal"`
+		DVTCommitteeNoConfidence   float64                     `json:"dvt_committee_no_confidence"`
+		DVTUpdateToConstitution    float64                     `json:"dvt_update_to_constitution"`
+		DVTHardForkInitiation      float64                     `json:"dvt_hard_fork_initiation"`
+		DVTPPNetworkGroup          float64                     `json:"dvt_p_p_network_group"`
+		DVTPPEconomicGroup         float64                     `json:"dvt_p_p_economic_group"`
+		DVTPPTechnicalGroup        float64                     `json:"dvt_p_p_technical_group"`
+		DVTPPGovGroup              float64                     `json:"dvt_p_p_gov_group"`
+		DVTTreasuryWithdrawal      float64                     `json:"dvt_treasury_withdrawal"`
+		DRepActivity               string                      `json:"drep_activity"`
+		DRepDeposit                string                      `json:"drep_deposit"`
+		GovActionDeposit           string                      `json:"gov_action_deposit"`
+		GovActionLifetime          string                      `json:"gov_action_lifetime"`
+		MinFeeRefScriptCostPerByte float64                     `json:"min_fee_ref_script_cost_per_byte"`
+		CommitteeMaxTermLength     string                      `json:"committee_max_term_length"`
+		CommitteeMinSize           string                      `json:"committee_min_size"`
 	}
 
 	if err := json.Unmarshal(bytes, &bfpp); err != nil {
@@ -386,6 +403,16 @@ func convertProtocolParameters(bytes []byte) ([]byte, error) {
 
 		return v
 	}
+
+	var (
+		dRepActivity               = strToUInt64(bfpp.DRepActivity)
+		dRepDeposit                = strToUInt64(bfpp.DRepDeposit)
+		govActionDeposit           = strToUInt64(bfpp.GovActionDeposit)
+		govActionLifetime          = strToUInt64(bfpp.GovActionLifetime)
+		minFeeRefScriptCostPerByte = bfpp.MinFeeRefScriptCostPerByte
+		committeeMaxTermLength     = strToUInt64(bfpp.CommitteeMaxTermLength)
+		committeeMinSize           = strToUInt64(bfpp.CommitteeMinSize)
+	)
 
 	pp := ProtocolParameters{
 		ProtocolVersion: NewProtocolParametersVersion(
@@ -421,6 +448,25 @@ func convertProtocolParameters(bytes []byte) ([]byte, error) {
 			HardForkInitiation:    bfpp.PVTHardForkInitiation,
 			PPSecurityGroup:       bfpp.PVTPPSecurityGroup,
 		},
+		DRepVotingThresholds: &VotingThresholds{
+			MotionNoConfidence:    bfpp.DVTMotionNoConfidence,
+			CommitteeNormal:       bfpp.DVTCommitteeNormal,
+			CommitteeNoConfidence: bfpp.DVTCommitteeNoConfidence,
+			UpdateToConstitution:  bfpp.DVTUpdateToConstitution,
+			HardForkInitiation:    bfpp.DVTHardForkInitiation,
+			PPNetworkGroup:        bfpp.DVTPPNetworkGroup,
+			PPEconomicGroup:       bfpp.DVTPPEconomicGroup,
+			PPTechnicalGroup:      bfpp.DVTPPTechnicalGroup,
+			PPGovGroup:            bfpp.DVTPPGovGroup,
+			TreasuryWithdrawal:    bfpp.DVTTreasuryWithdrawal,
+		},
+		DRepActivity:               &dRepActivity,
+		DRepDeposit:                &dRepDeposit,
+		GovActionDeposit:           &govActionDeposit,
+		GovActionLifetime:          &govActionLifetime,
+		MinFeeRefScriptCostPerByte: &minFeeRefScriptCostPerByte,
+		CommitteeMaxTermLength:     &committeeMaxTermLength,
+		CommitteeMinSize:           &committeeMinSize,
 	}
 
 	for scriptName, mapValue := range bfpp.CostModels {
