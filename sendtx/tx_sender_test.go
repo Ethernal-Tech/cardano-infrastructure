@@ -143,6 +143,31 @@ func TestTxSender(t *testing.T) {
 		require.ErrorContains(t, err, "policy script does not belong to address")
 	})
 
+	t.Run("create bridging tx to solana type chain with multiple receivers", func(t *testing.T) {
+		bridgingTxInput := BridgingTxDto{
+			SrcChainID: "vector",
+			DstChainID: "solana",
+			SenderAddr: dummyAddr,
+			Receivers: []BridgingTxReceiver{
+				{
+					Amount:  500_000,
+					TokenID: currencyID,
+				},
+				{
+					Amount:  600_000,
+					TokenID: wrappedTokenID,
+				},
+			},
+			BridgingAddress: dummyAddr,
+			BridgingFee:     10,
+			OperationFee:    0,
+		}
+
+		_, _, err := txSender.CreateBridgingTx(ctx, bridgingTxInput)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "solana type chain does not support multiple receivers")
+	})
+
 	t.Run("calculate bridging tx fee", func(t *testing.T) {
 		txFeeInfo, metadata, err := txSender.CalculateBridgingTxFee(ctx, BridgingTxDto{
 			SrcChainID: "prime", DstChainID: "vector",
