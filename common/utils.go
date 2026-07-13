@@ -40,3 +40,7 @@ func WaitForAmount(
 		return balance, nil
 	}, options...)
 }
+
+func IsSolanaTypeChain(chainID string) bool {
+	return chainID == "solana"
+}

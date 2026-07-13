@@ -244,6 +244,10 @@ func (txSnd *TxSender) prepareBridgingTx(
 	txDto BridgingTxDto,
 	validateAddressData bool,
 ) (*bridgingTxPreparedData, error) {
+	if infracommon.IsSolanaTypeChain(txDto.DstChainID) && len(txDto.Receivers) > 1 {
+		return nil, fmt.Errorf("solana type chain does not support multiple receivers")
+	}
+
 	srcConfig, _, err := txSnd.getConfigs(txDto.SrcChainID, txDto.DstChainID)
 	if err != nil {
 		return nil, err
