@@ -138,6 +138,8 @@ func IsRetryableError(err error) bool {
 		"i/o timeout",        // DNS i/o timeout
 		"status code is 429", // polygon testnet rpc rate limiter
 		"error code: 1015",   // polygon testnet rpc rate limiter
+		"status code is 500", // polygon temporary internal error
+		"EOF",                // ogmios EOF error
 	}
 	errStr := err.Error()
 
