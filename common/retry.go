@@ -136,9 +136,10 @@ func IsRetryableError(err error) bool {
 		"status code 429",    // blockfrost rate limiter
 		"status code 500",    // ogmios "status code 500" error
 		"i/o timeout",        // DNS i/o timeout
-		"status code is 429", // polygon testnet rpc rate limiter
-		"error code: 1015",   // polygon testnet rpc rate limiter
-		"status code is 500", // polygon temporary internal error
+		"status code is 408", // evm request timeout on the free tier
+		"status code is 429", // evm testnet rpc rate limiter
+		"error code: 1015",   // evm testnet rpc rate limiter
+		"status code is 500", // evm temporary internal error
 		"EOF",                // ogmios EOF error
 	}
 	errStr := err.Error()
