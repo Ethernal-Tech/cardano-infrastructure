@@ -133,10 +133,12 @@ func IsRetryableError(err error) bool {
 		"tx with the same nonce is already present",
 		"rejected future tx due to low slots",
 		"transaction underpriced",
-		"status code 429",    // blockfrost rate limiter
-		"status code 500",    // ogmios "status code 500" error
-		"i/o timeout",        // DNS i/o timeout
-		"status code is 408", // evm request timeout on the free tier
+		"status code 429",     // blockfrost rate limiter
+		"status code 500",     // ogmios "status code 500" error
+		"i/o timeout",         // DNS i/o timeout
+		"status code is 408",  // evm request timeout on the free tier
+		"408 Request Timeout", // evm request timeout on the free tier
+		"Request timeout on the free plan, please upgrade to paid plan", // evm request timeout on the free tier
 		"status code is 429", // evm testnet rpc rate limiter
 		"error code: 1015",   // evm testnet rpc rate limiter
 		"status code is 500", // evm temporary internal error
