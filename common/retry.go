@@ -142,6 +142,7 @@ func IsRetryableError(err error) bool {
 		"status code is 429", // evm testnet rpc rate limiter
 		"error code: 1015",   // evm testnet rpc rate limiter
 		"status code is 500", // evm temporary internal error
+		"status code 502",    // ogmios 502 error
 		"EOF",                // ogmios EOF error
 	}
 	errStr := err.Error()
