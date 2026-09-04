@@ -139,11 +139,14 @@ func IsRetryableError(err error) bool {
 		"status code is 408",  // evm request timeout on the free tier
 		"408 Request Timeout", // evm request timeout on the free tier
 		"Request timeout on the free plan, please upgrade to paid plan", // evm request timeout on the free tier
-		"status code is 429", // evm testnet rpc rate limiter
-		"error code: 1015",   // evm testnet rpc rate limiter
-		"status code is 500", // evm temporary internal error
-		"status code 502",    // ogmios 502 error
-		"EOF",                // ogmios EOF error
+		"status code is 429",       // evm testnet rpc rate limiter
+		"error code: 1015",         // evm testnet rpc rate limiter
+		"status code is 500",       // evm temporary internal error
+		"Temporary internal error", // evm temporary internal error
+		"Please retry",             // evm temporary internal error
+		"\"code\":19",              // evm temporary internal error
+		"status code 502",          // ogmios 502 error
+		"EOF",                      // ogmios EOF error
 	}
 	errStr := err.Error()
 
