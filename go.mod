@@ -2,6 +2,11 @@ module github.com/Ethernal-Tech/cardano-infrastructure
 
 go 1.23.1
 
+// The following replace directive is used to point to a forked version of the gouroboros library,
+// which is necessary for resolving the CBOR nesting limit issue.
+// The original library is replaced with a specific commit from the Ethernal-Tech fork with fix.
+replace github.com/blinklabs-io/gouroboros => github.com/Ethernal-Tech/gouroboros v0.0.0-20260914132917-4454e1199f8f
+
 require (
 	github.com/blinklabs-io/gouroboros v0.103.1
 	github.com/fxamacker/cbor/v2 v2.7.0
