@@ -36,7 +36,8 @@ func (br *blockTxsRetrieverImpl) GetBlockTransactions(blockHeader indexer.BlockH
 
 	for i, ledgerTx := range legderTxs {
 		if ledgerTx == nil || !ledgerTx.IsValid() {
-			br.logger.Warn("Ledger tx nil or not valid", "slot", blockHeader.Slot, "hash", blockHeader.Hash, "ledgerTx", ledgerTx)
+			br.logger.Warn("Ledger tx nil or not valid",
+				"slot", blockHeader.Slot, "hash", blockHeader.Hash, "ledgerTx", ledgerTx)
 
 			continue
 		}
