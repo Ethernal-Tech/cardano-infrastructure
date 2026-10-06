@@ -32,15 +32,22 @@ func (br *blockTxsRetrieverImpl) GetBlockTransactions(blockHeader indexer.BlockH
 	}
 
 	legderTxs := block.Transactions()
-	txs := make([]*indexer.Tx, len(legderTxs))
+	txs := make([]*indexer.Tx, 0, len(legderTxs))
 
 	for i, ledgerTx := range legderTxs {
+		if ledgerTx == nil || !ledgerTx.IsValid() {
+			br.logger.Warn("Ledger tx nil or not valid",
+				"slot", blockHeader.Slot, "hash", blockHeader.Hash, "ledgerTx", ledgerTx)
+
+			continue
+		}
+
 		tx, err := createTx(&blockHeader, ledgerTx, uint32(i)) //nolint:gosec
 		if err != nil {
 			return nil, err
 		}
 
-		txs[i] = tx
+		txs = append(txs, tx)
 	}
 
 	return txs, nil
