@@ -17,6 +17,7 @@ type TxOutputRetriever interface {
 type BlockIndexerDB interface {
 	TxOutputRetriever
 	GetLatestBlockPoint() (*BlockPoint, error)
+	GetLatestConfirmedBlocks(maxCnt int) ([]*CardanoBlock, error)
 	OpenTx() DBTransactionWriter
 }
 
@@ -27,7 +28,6 @@ type Database interface {
 
 	MarkConfirmedTxsProcessed(txs []*Tx) error
 	GetUnprocessedConfirmedTxs(maxCnt int) ([]*Tx, error)
-	GetLatestConfirmedBlocks(maxCnt int) ([]*CardanoBlock, error)
 	GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) ([]*CardanoBlock, error)
 	GetAllTxOutputs(address string, onlyNotUsed bool) ([]*TxInputOutput, error)
 }
