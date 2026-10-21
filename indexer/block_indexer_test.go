@@ -548,6 +548,162 @@ func TestBlockIndexer_RollBackwardFunc_Error(t *testing.T) {
 	dbMock.AssertExpectations(t)
 }
 
+func TestBlockIndexer_RollBackward_AllowDeepRollback(t *testing.T) {
+	t.Parallel()
+
+	latestPoint := BlockPoint{BlockSlot: 10, BlockHash: Hash{0, 10}}
+	rollbackPoint := BlockPoint{BlockSlot: 7, BlockHash: Hash{0, 7}}
+	config := &BlockIndexerConfig{
+		ConfirmationBlockCount: 2,
+		AddressCheck:           AddressCheckAll,
+		AllowDeepRollback:      true,
+	}
+	dbMock := &DatabaseMock{
+		Writter: &DBTransactionWriterMock{},
+	}
+	blockIndexer := NewBlockIndexer(config, nil, dbMock, hclog.NewNullLogger())
+	blockIndexer.latestBlockPoint = &latestPoint
+
+	require.NoError(t, blockIndexer.unconfirmedBlocks.Push(BlockHeader{Slot: 11, Hash: Hash{0, 11}}))
+
+	dbMock.On("OpenTx").Once()
+	dbMock.Writter.On("SetLatestBlockPoint", &rollbackPoint).Once()
+	dbMock.Writter.On("Execute").Return(error(nil)).Once()
+
+	require.NoError(t, blockIndexer.RollBackward(rollbackPoint))
+
+	require.Equal(t, rollbackPoint, *blockIndexer.latestBlockPoint)
+	require.Equal(t, 0, blockIndexer.unconfirmedBlocks.Len())
+	dbMock.AssertExpectations(t)
+	dbMock.Writter.AssertExpectations(t)
+}
+
+func TestBlockIndexer_Reset_AllowDeepRollback(t *testing.T) {
+	t.Parallel()
+
+	startPoint := &BlockPoint{BlockSlot: 1, BlockHash: Hash{0, 1}}
+	latestPoint := &BlockPoint{BlockSlot: 100, BlockHash: Hash{0, 100}}
+	confirmedBlocks := make([]*CardanoBlock, deepRollbackResumeBlockCount+1)
+
+	for i := range confirmedBlocks {
+		confirmedBlocks[i] = &CardanoBlock{Slot: uint64(100 - i), Hash: Hash{0, byte(100 - i)}}
+	}
+
+	config := &BlockIndexerConfig{
+		StartingBlockPoint: startPoint,
+		AddressCheck:       AddressCheckAll,
+		AllowDeepRollback:  true,
+	}
+	dbMock := &DatabaseMock{}
+	blockIndexer := NewBlockIndexer(config, nil, dbMock, hclog.NewNullLogger())
+
+	dbMock.On("GetLatestBlockPoint").Return(latestPoint, error(nil))
+
+	// the latest confirmed block first
+	point, err := blockIndexer.Reset()
+	require.NoError(t, err)
+	require.Equal(t, *latestPoint, point)
+
+	// the sync did not start from it, so an older one is used
+	dbMock.On("GetLatestConfirmedBlocks", deepRollbackResumeBlockCount+1).Return(confirmedBlocks, error(nil)).Once()
+
+	point, err = blockIndexer.Reset()
+	require.NoError(t, err)
+	require.Equal(t, BlockPoint{BlockSlot: 80, BlockHash: Hash{0, 80}}, point)
+
+	// the starting point when there are not enough confirmed blocks
+	dbMock.On("GetLatestConfirmedBlocks", deepRollbackResumeBlockCount+1).Return(confirmedBlocks[:5], error(nil)).Once()
+
+	point, err = blockIndexer.Reset()
+	require.NoError(t, err)
+	require.Equal(t, *startPoint, point)
+
+	// the latest confirmed block again once syncing has started
+	require.NoError(t, blockIndexer.RollBackward(*startPoint))
+
+	point, err = blockIndexer.Reset()
+	require.NoError(t, err)
+	require.Equal(t, *latestPoint, point)
+
+	dbMock.AssertExpectations(t)
+}
+
+func TestBlockIndexer_Reset_DeepRollbackNotAllowed(t *testing.T) {
+	t.Parallel()
+
+	latestPoint := &BlockPoint{BlockSlot: 100, BlockHash: Hash{0, 100}}
+	config := &BlockIndexerConfig{
+		AddressCheck: AddressCheckAll,
+	}
+	dbMock := &DatabaseMock{}
+	blockIndexer := NewBlockIndexer(config, nil, dbMock, hclog.NewNullLogger())
+
+	dbMock.On("GetLatestBlockPoint").Return(latestPoint, error(nil))
+
+	for range 3 {
+		point, err := blockIndexer.Reset()
+		require.NoError(t, err)
+		require.Equal(t, *latestPoint, point)
+	}
+
+	dbMock.AssertNotCalled(t, "GetLatestConfirmedBlocks", mock.Anything)
+}
+
+func TestBlockIndexer_RollForward_NoConfirmations(t *testing.T) {
+	t.Parallel()
+
+	address := addresses[1]
+	blockHeader := BlockHeader{Slot: 5, Hash: Hash{5}}
+	tx := &Tx{
+		BlockSlot: blockHeader.Slot,
+		BlockHash: blockHeader.Hash,
+		Hash:      Hash{0, 5},
+		Outputs:   []*TxOutput{{Address: address, Amount: 50}},
+	}
+	getTxsMock := &BlockTxsRetrieverMock{
+		RetrieveFn: func(header BlockHeader) ([]*Tx, error) {
+			require.Equal(t, blockHeader, header)
+
+			return []*Tx{tx}, nil
+		},
+	}
+	config := &BlockIndexerConfig{
+		AddressCheck:        AddressCheckOutputs,
+		AddressesOfInterest: []string{address},
+	}
+	dbMock := &DatabaseMock{
+		Writter: &DBTransactionWriterMock{},
+	}
+
+	var (
+		confirmedBlock *CardanoBlock
+		confirmedTxs   []*Tx
+	)
+
+	blockIndexer := NewBlockIndexer(config, func(cb *CardanoBlock, txs []*Tx) error {
+		confirmedBlock, confirmedTxs = cb, txs
+
+		return nil
+	}, dbMock, hclog.NewNullLogger())
+
+	dbMock.On("OpenTx").Once()
+	dbMock.Writter.On("AddConfirmedTxs", []*Tx{tx}).Once()
+	dbMock.Writter.On("AddConfirmedBlock", blockHeader.ToCardanoBlock([]Hash{tx.Hash})).Once()
+	dbMock.Writter.On("SetLatestBlockPoint", &BlockPoint{BlockSlot: 5, BlockHash: Hash{5}}).Once()
+	dbMock.Writter.On("AddTxOutputs", mock.Anything).Once()
+	dbMock.Writter.On("RemoveTxOutputs", []TxInput(nil), false).Once()
+	dbMock.Writter.On("Execute").Return(error(nil)).Once()
+
+	require.NoError(t, blockIndexer.RollForward(blockHeader, getTxsMock))
+
+	require.Equal(t, blockHeader.Hash, confirmedBlock.Hash)
+	require.Equal(t, []*Tx{tx}, confirmedTxs)
+	require.Equal(t, BlockPoint{BlockSlot: 5, BlockHash: Hash{5}}, *blockIndexer.latestBlockPoint)
+	require.Equal(t, 0, blockIndexer.unconfirmedBlocks.Len())
+	dbMock.AssertExpectations(t)
+	dbMock.Writter.AssertExpectations(t)
+}
+
 func TestBlockIndexer_RollForward(t *testing.T) {
 	t.Parallel()
 

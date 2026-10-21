@@ -14,6 +14,10 @@ const (
 	AddressCheckInputs  = 1 << (iota - 1) // 1 << 0 = 0x00...0001 = 1
 	AddressCheckOutputs                   // 1 << 1 = 0x00...0010 = 2
 	AddressCheckAll     = AddressCheckInputs | AddressCheckOutputs
+
+	// how many confirmed blocks before the latest one syncing starts from when the sync could not start
+	// from the latest one and deep rollbacks are allowed
+	deepRollbackResumeBlockCount = 20
 )
 
 type BlockIndexerConfig struct {
@@ -25,6 +29,12 @@ type BlockIndexerConfig struct {
 	AddressCheck            int      `json:"addressCheck"`
 	SoftDeleteUtxo          bool     `json:"softDeleteUtxo"`
 	KeepAllTxsHashesInBlock bool     `json:"keepAllTxsHashesInBlock"`
+	// A rollback past the latest confirmed block is a fatal error by default. When allowed, the indexer
+	// moves back to the rollback point and continues, and if the node does not recognize the latest
+	// confirmed block on start (it was rolled back while the indexer was not running), syncing starts
+	// from older confirmed blocks. Blocks, txs and outputs after the rollback point are not reverted
+	// and blocks may be processed again, so it is meant only for indexers that just observe txs
+	AllowDeepRollback bool `json:"allowDeepRollback"`
 }
 
 type BlockIndexer struct {
@@ -35,6 +45,8 @@ type BlockIndexer struct {
 	unconfirmedBlocks     infracommon.CircularQueue[BlockHeader]
 	confirmedBlockHandler NewConfirmedBlockHandler
 	addressesOfInterest   map[string]bool
+	// number of Reset calls since the last received block, more than one means the sync could not start
+	resetsWithoutBlocks int
 
 	db BlockIndexerDB
 
@@ -79,6 +91,8 @@ func (bi *BlockIndexer) RollBackward(point BlockPoint) error {
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
+	bi.resetsWithoutBlocks = 0
+
 	// linear is ok, there will be smaller number of unconfirmed blocks in memory
 	indx := bi.unconfirmedBlocks.Find(func(header BlockHeader) bool {
 		return header.Slot == point.BlockSlot && header.Hash == point.BlockHash
@@ -101,6 +115,14 @@ func (bi *BlockIndexer) RollBackward(point BlockPoint) error {
 		return nil
 	}
 
+	if bi.config.AllowDeepRollback {
+		bi.logger.Warn("Roll backward before the latest confirmed block",
+			"slot", point.BlockSlot, "hash", point.BlockHash,
+			"latest slot", bi.latestBlockPoint.BlockSlot, "latest hash", bi.latestBlockPoint.BlockHash)
+
+		return bi.setLatestBlockPoint(&point)
+	}
+
 	// we have confirmed a block that should NOT have been confirmed!
 	// recovering from this error is difficult and requires manual database changes
 	return errors.Join(ErrBlockIndexerFatal,
@@ -112,15 +134,22 @@ func (bi *BlockIndexer) RollForward(blockHeader BlockHeader, txsRetriever BlockT
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
-	if !bi.unconfirmedBlocks.IsFull() {
-		// If there are not enough children blocks to promote the first one to the confirmed state,
-		// a new block header is added, and the function returns
-		_ = bi.unconfirmedBlocks.Push(blockHeader)
+	bi.resetsWithoutBlocks = 0
 
-		return nil
+	// without confirmations the new block is confirmed right away
+	firstBlockHeader := blockHeader
+
+	if bi.config.ConfirmationBlockCount > 0 {
+		if !bi.unconfirmedBlocks.IsFull() {
+			// If there are not enough children blocks to promote the first one to the confirmed state,
+			// a new block header is added, and the function returns
+			_ = bi.unconfirmedBlocks.Push(blockHeader)
+
+			return nil
+		}
+
+		firstBlockHeader = bi.unconfirmedBlocks.Peek()
 	}
-
-	firstBlockHeader := bi.unconfirmedBlocks.Peek()
 
 	txs, err := txsRetriever.GetBlockTransactions(firstBlockHeader)
 	if err != nil {
@@ -135,8 +164,10 @@ func (bi *BlockIndexer) RollForward(blockHeader BlockHeader, txsRetriever BlockT
 	// update latest block point in memory if we have confirmed block
 	bi.latestBlockPoint = latestBlockPoint
 
-	bi.unconfirmedBlocks.Pop()
-	_ = bi.unconfirmedBlocks.Push(blockHeader)
+	if bi.config.ConfirmationBlockCount > 0 {
+		bi.unconfirmedBlocks.Pop()
+		_ = bi.unconfirmedBlocks.Push(blockHeader)
+	}
 
 	return bi.confirmedBlockHandler(confirmedBlock, confirmedTxs)
 }
@@ -150,6 +181,16 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 	if err != nil {
 		return BlockPoint{}, err
 	}
+
+	// ...or an older one if the sync could not start from it
+	if latestPoint != nil && bi.config.AllowDeepRollback && bi.resetsWithoutBlocks > 0 {
+		latestPoint, err = bi.getOlderConfirmedBlockPoint(deepRollbackResumeBlockCount)
+		if err != nil {
+			return BlockPoint{}, err
+		}
+	}
+
+	bi.resetsWithoutBlocks++
 
 	// ...then if latest point block is not in the database pick it from the configuration
 	if latestPoint == nil {
@@ -165,6 +206,37 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 	bi.unconfirmedBlocks.SetCount(0) // clear all unconfirmed from the memory
 
 	return *latestPoint, nil
+}
+
+// getOlderConfirmedBlockPoint returns the point of the confirmed block cnt blocks before the latest one,
+// or nil if there are not that many confirmed blocks
+func (bi *BlockIndexer) getOlderConfirmedBlockPoint(cnt int) (*BlockPoint, error) {
+	blocks, err := bi.db.GetLatestConfirmedBlocks(cnt + 1)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(blocks) <= cnt {
+		return nil, nil
+	}
+
+	block := blocks[cnt]
+
+	bi.logger.Warn("Syncing from an older confirmed block", "slot", block.Slot, "hash", block.Hash)
+
+	return &BlockPoint{BlockSlot: block.Slot, BlockHash: block.Hash}, nil
+}
+
+// setLatestBlockPoint moves the indexer back to the given point
+func (bi *BlockIndexer) setLatestBlockPoint(point *BlockPoint) error {
+	if err := bi.db.OpenTx().SetLatestBlockPoint(point).Execute(); err != nil {
+		return err
+	}
+
+	bi.latestBlockPoint = point
+	bi.unconfirmedBlocks.SetCount(0)
+
+	return nil
 }
 
 func (bi *BlockIndexer) processConfirmedBlock(
