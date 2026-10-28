@@ -3,6 +3,7 @@ package gouroboros
 import (
 	"encoding/hex"
 	"errors"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +30,7 @@ type BlockSyncerConfig struct {
 	RestartDelay   time.Duration `json:"restartDelay"`
 	SyncStartTries int           `json:"syncStartTries"`
 	KeepAlive      bool          `json:"keepAlive"`
+	TLS            *TLSConfig    `json:"tls,omitempty"`
 }
 
 func (bsc BlockSyncerConfig) Protocol() string {
@@ -123,8 +125,15 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 
 	bs.logger.Debug("Start syncing requested", "addr", bs.config.NodeAddress, "magic", bs.config.NetworkMagic)
 
-	// create connection
+	// dial node -> connect to node (plain or TLS)
+	conn, err := DialNode(bs.config, ouroboros.DefaultConnectTimeout)
+	if err != nil {
+		return err
+	}
+
+	// create connection on top of the established one
 	connection, err := ouroboros.NewConnection(
+		ouroboros.WithConnection(conn),
 		ouroboros.WithNetworkMagic(bs.config.NetworkMagic),
 		ouroboros.WithNodeToNode(true),
 		ouroboros.WithKeepAlive(bs.config.KeepAlive),
@@ -134,11 +143,11 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 		)),
 	)
 	if err != nil {
-		return err
-	}
+		// gouroboros closes the socket on most setup errors, but not on all of them
+		if closeErr := conn.Close(); closeErr != nil && !errors.Is(closeErr, net.ErrClosed) {
+			bs.logger.Debug("Error while closing connection after setup error", "err", closeErr)
+		}
 
-	// dial node -> connect to node
-	if err := connection.Dial(bs.config.Protocol(), bs.config.NodeAddress); err != nil {
 		return err
 	}
 
