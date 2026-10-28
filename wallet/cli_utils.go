@@ -59,8 +59,8 @@ func (cu CliUtils) GetPolicyScriptBaseAddress(
 	}
 
 	args := []string{
-		cu.era, "address", "build",
-		"--payment-script-file", policyScriptFilePath,
+		cu.era, cliAddressCmd, cliBuildCmd,
+		cliPaymentScriptFlag, policyScriptFilePath,
 		"--stake-script-file", stakePolicyScriptFilePath,
 	}
 
@@ -89,8 +89,8 @@ func (cu CliUtils) GetPolicyScriptEnterpriseAddress(
 	}
 
 	args := []string{
-		cu.era, "address", "build",
-		"--payment-script-file", policyScriptFilePath,
+		cu.era, cliAddressCmd, cliBuildCmd,
+		cliPaymentScriptFlag, policyScriptFilePath,
 	}
 
 	response, err := runCommand(cu.cardanoCliBinary, append(args, getTestNetMagicArgs(testNetMagic)...))
@@ -118,7 +118,7 @@ func (cu CliUtils) GetPolicyScriptRewardAddress(
 	}
 
 	args := []string{
-		cu.era, "stake-address", "build",
+		cu.era, cliStakeAddressCmd, cliBuildCmd,
 		"--stake-script-file", policyScriptFilePath,
 	}
 
@@ -159,7 +159,7 @@ func (cu CliUtils) GetAddressInfo(address string) (AddressInfo, error) {
 	var ai AddressInfo
 
 	res, err := runCommand(cu.cardanoCliBinary, []string{
-		cu.era, "address", "info", "--address", address,
+		cu.era, cliAddressCmd, "info", cliAddressFlag, address,
 	})
 	if err != nil {
 		return ai, errors.Join(ErrInvalidAddressData, err)
@@ -184,7 +184,7 @@ func (cu CliUtils) GetWalletAddress(
 	// enterprise address
 	if len(stakeVerificationKey) == 0 {
 		addr, err = runCommand(cu.cardanoCliBinary, append([]string{
-			cu.era, "address", "build",
+			cu.era, cliAddressCmd, cliBuildCmd,
 			"--payment-verification-key", bech32String,
 		}, getTestNetMagicArgs(testNetMagic)...))
 
@@ -197,7 +197,7 @@ func (cu CliUtils) GetWalletAddress(
 	}
 
 	addr, err = runCommand(cu.cardanoCliBinary, append([]string{
-		cu.era, "address", "build",
+		cu.era, cliAddressCmd, cliBuildCmd,
 		"--payment-verification-key", bech32String,
 		"--stake-verification-key", bech32StakeString,
 	}, getTestNetMagicArgs(testNetMagic)...))
@@ -206,7 +206,7 @@ func (cu CliUtils) GetWalletAddress(
 	}
 
 	stakeAddr, err = runCommand(cu.cardanoCliBinary, append([]string{
-		cu.era, "stake-address", "build",
+		cu.era, cliStakeAddressCmd, cliBuildCmd,
 		"--stake-verification-key", bech32StakeString,
 	}, getTestNetMagicArgs(testNetMagic)...))
 
@@ -220,7 +220,7 @@ func (cu CliUtils) GetKeyHash(key []byte) (string, error) {
 	}
 
 	resultKeyHash, err := runCommand(cu.cardanoCliBinary, []string{
-		cu.era, "address", "key-hash",
+		cu.era, cliAddressCmd, "key-hash",
 		"--payment-verification-key", bech32String,
 	})
 	if err != nil {
@@ -315,7 +315,7 @@ func (cu CliUtils) CreateRegistrationCertificate(
 	certFilePath := filepath.Join(baseDirectory, "registration.cert")
 
 	args := []string{
-		cu.era, "stake-address", "registration-certificate",
+		cu.era, cliStakeAddressCmd, "registration-certificate",
 		"--stake-address", stakeAddress,
 		"--key-reg-deposit-amt", fmt.Sprintf("%d", keyRegDepositAmount),
 		"--out-file", certFilePath}
@@ -350,7 +350,7 @@ func (cu CliUtils) CreateDelegationCertificate(
 	certFilePath := filepath.Join(baseDirectory, "delegation.cert")
 
 	args := []string{
-		cu.era, "stake-address", "delegation-certificate",
+		cu.era, cliStakeAddressCmd, "delegation-certificate",
 		"--stake-address", stakeAddress,
 		"--stake-pool-id", poolID,
 		"--out-file", certFilePath}
@@ -392,7 +392,7 @@ func (cu CliUtils) CreateDeregistrationCertificate(
 	certFilePath := filepath.Join(baseDirectory, "deregistration.cert")
 
 	args := []string{
-		cu.era, "stake-address", "deregistration-certificate",
+		cu.era, cliStakeAddressCmd, "deregistration-certificate",
 		"--stake-address", stakeAddress,
 		"--out-file", certFilePath,
 	}
