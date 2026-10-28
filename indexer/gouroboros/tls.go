@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
@@ -39,9 +40,9 @@ func (c *TLSConfig) ClientConfig(defaultServerName string) (*tls.Config, error) 
 		return nil, fmt.Errorf("tls caFile: %w", err)
 	}
 
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(caPEM) {
-		return nil, fmt.Errorf("tls caFile %s: no PEM certificates found", c.CAFile)
+	pool, err := parseCAPool(c.CAFile, caPEM)
+	if err != nil {
+		return nil, err
 	}
 
 	certPEM, err := os.ReadFile(c.CertFile)
@@ -123,4 +124,54 @@ func defaultServerName(nodeAddress string) (string, error) {
 	}
 
 	return host, nil
+}
+
+// maxCACerts is the number of CA certificates allowed in caFile (old and new private CA during rotation)
+const maxCACerts = 2
+
+// parseCAPool puts the certificates of a PEM file into a new pool. It accepts at most maxCACerts
+// certificates and only CA certificates, so the file can not widen trust to arbitrary bundles.
+func parseCAPool(path string, caPEM []byte) (*x509.CertPool, error) {
+	var certs []*x509.Certificate
+
+	for rest := caPEM; ; {
+		var block *pem.Block
+
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("tls caFile %s: %w", path, err)
+		}
+
+		certs = append(certs, cert)
+	}
+
+	if len(certs) == 0 {
+		return nil, fmt.Errorf("tls caFile %s: no PEM certificates found", path)
+	}
+
+	if len(certs) > maxCACerts {
+		return nil, fmt.Errorf("tls caFile: contains %d certificates, at most %d allowed (old and new private CA)",
+			len(certs), maxCACerts)
+	}
+
+	pool := x509.NewCertPool()
+
+	for _, cert := range certs {
+		if !cert.BasicConstraintsValid || !cert.IsCA {
+			return nil, fmt.Errorf("tls caFile: certificate %q is not a CA", cert.Subject.CommonName)
+		}
+
+		pool.AddCert(cert)
+	}
+
+	return pool, nil
 }

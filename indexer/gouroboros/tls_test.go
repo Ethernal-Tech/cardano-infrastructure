@@ -102,6 +102,39 @@ func (ca *testCA) issue(t *testing.T, cn string, server bool) testPair {
 	return testPair{certPEM: certPEM, keyPEM: keyPEM, cert: cert}
 }
 
+// issueClientAuthOnlyServer issues a cert with the node's SANs but ExtKeyUsage ClientAuth only
+func (ca *testCA) issueClientAuthOnlyServer(t *testing.T) testPair {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().UTC().UnixNano()),
+		Subject:      pkix.Name{CommonName: "client-auth-only"},
+		NotBefore:    time.Now().UTC().Add(-time.Hour),
+		NotAfter:     time.Now().UTC().Add(time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		DNSNames:     []string{testServerName},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca.cert, &key.PublicKey, ca.key)
+	require.NoError(t, err)
+
+	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
+	require.NoError(t, err)
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
+
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	require.NoError(t, err)
+
+	return testPair{certPEM: certPEM, keyPEM: keyPEM, cert: cert}
+}
+
 func writeFile(t *testing.T, dir, name string, data []byte) string {
 	t.Helper()
 
@@ -338,10 +371,12 @@ func TestDialNode_HandshakeTimeout(t *testing.T) {
 	}()
 
 	t.Cleanup(func() {
+		_ = ln.Close() // no more accepts after this
+
 		select {
 		case c := <-heldCh:
 			_ = c.Close()
-		default:
+		case <-time.After(500 * time.Millisecond):
 		}
 	})
 
@@ -360,6 +395,56 @@ func TestDialNode_HandshakeTimeout(t *testing.T) {
 
 	require.ErrorAs(t, err, &nerr)
 	require.True(t, nerr.Timeout())
+}
+
+func TestDialNode_TwoCAFileTrustsEither(t *testing.T) {
+	t.Parallel()
+
+	ca1, ca2 := newTestCA(t), newTestCA(t)
+	ln := listenTLS(t, serverTLSConfig(ca2, ca2.issue(t, "server", true), tls.NoClientCert))
+	resCh, connCh := serveHandshake(ln)
+
+	dir := t.TempDir()
+	cfg := &BlockSyncerConfig{
+		NodeAddress: "127.0.0.1:" + portOf(t, ln),
+		TLS:         clientTLS(t, dir, ca1, ca1.issue(t, "client", false)),
+	}
+	cfg.TLS.CAFile = writeFile(t, dir, "both.pem", append(append([]byte{}, ca1.pem...), ca2.pem...))
+
+	conn, err := DialNode(cfg, 2*time.Second)
+	require.NoError(t, err)
+
+	defer conn.Close()
+
+	require.NoError(t, (<-resCh).err)
+	(<-connCh).Close()
+}
+
+func TestDialNode_ClientAuthCertAsServerRejected(t *testing.T) {
+	t.Parallel()
+
+	ca := newTestCA(t)
+	ln := listenTLS(t, serverTLSConfig(ca, ca.issueClientAuthOnlyServer(t), tls.NoClientCert))
+
+	go func() {
+		if c, err := ln.Accept(); err == nil {
+			_ = c.(*tls.Conn).Handshake()
+			_ = c.Close()
+		}
+	}()
+
+	cfg := &BlockSyncerConfig{
+		NodeAddress: "127.0.0.1:" + portOf(t, ln),
+		TLS:         clientTLS(t, t.TempDir(), ca, ca.issue(t, "client", false)),
+	}
+
+	_, err := DialNode(cfg, 2*time.Second)
+	require.Error(t, err)
+
+	var ierr x509.CertificateInvalidError
+
+	require.ErrorAs(t, err, &ierr)
+	require.Equal(t, x509.IncompatibleUsage, ierr.Reason)
 }
 
 func TestDialNode_WrongServerName(t *testing.T) {
@@ -560,6 +645,10 @@ func TestTLSConfig_ClientConfig_Errors(t *testing.T) {
 	missing := filepath.Join(dir, "missing.key")
 	missingCert := filepath.Join(dir, "missing.pem")
 
+	ca2, ca3 := newTestCA(t), newTestCA(t)
+	threeCAs := writeFile(t, dir, "three.pem", append(append(append([]byte{}, ca.pem...), ca2.pem...), ca3.pem...))
+	leafAsCA := writeFile(t, dir, "leaf-as-ca.pem", append(append([]byte{}, ca.pem...), client.certPEM...))
+
 	tests := []struct {
 		name   string
 		cfg    TLSConfig
@@ -572,6 +661,10 @@ func TestTLSConfig_ClientConfig_Errors(t *testing.T) {
 		{"ca without pem", TLSConfig{CAFile: noPEM, CertFile: good.CertFile, KeyFile: good.KeyFile}, "a", "tls caFile"},
 		{"missing ca", TLSConfig{CAFile: missing, CertFile: good.CertFile, KeyFile: good.KeyFile}, "a", "tls caFile"},
 		{"missing key", TLSConfig{CAFile: good.CAFile, CertFile: good.CertFile, KeyFile: missing}, "a", "tls keyFile"},
+		{"three CA certs", TLSConfig{CAFile: threeCAs, CertFile: good.CertFile, KeyFile: good.KeyFile}, "a",
+			"tls caFile: contains 3 certificates, at most 2 allowed"},
+		{"non-CA cert", TLSConfig{CAFile: leafAsCA, CertFile: good.CertFile, KeyFile: good.KeyFile}, "a",
+			`tls caFile: certificate "client" is not a CA`},
 		{"missing cert", TLSConfig{CAFile: good.CAFile, CertFile: missingCert, KeyFile: good.KeyFile}, "a", "tls certFile:"},
 		{"mismatched pair", TLSConfig{CAFile: good.CAFile, CertFile: good.CertFile, KeyFile: mismatchKey}, "a",
 			"tls certFile/keyFile"},
