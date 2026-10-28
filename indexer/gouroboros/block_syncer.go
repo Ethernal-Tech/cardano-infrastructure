@@ -3,6 +3,8 @@ package gouroboros
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"io"
 	"net"
 	"strings"
 	"sync"
@@ -146,6 +148,11 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 		// gouroboros closes the socket on most setup errors, but not on all of them
 		if closeErr := conn.Close(); closeErr != nil && !errors.Is(closeErr, net.ErrClosed) {
 			bs.logger.Debug("Error while closing connection after setup error", "err", closeErr)
+		}
+
+		if bs.config.TLS != nil && errors.Is(err, io.EOF) {
+			err = fmt.Errorf("node closed the TLS connection during the ouroboros handshake "+
+				"(is the client certificate accepted by the node?): %w", err)
 		}
 
 		return err

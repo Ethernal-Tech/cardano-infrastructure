@@ -9,6 +9,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"io"
 	"math/big"
 	"net"
@@ -328,17 +329,19 @@ func TestDialNode_HandshakeTimeout(t *testing.T) {
 	ca := newTestCA(t)
 	ln := listenTCP(t)
 
-	var held []net.Conn
+	heldCh := make(chan net.Conn, 1)
 
 	go func() {
 		if c, err := ln.Accept(); err == nil {
-			held = append(held, c) // accept, never answer
+			heldCh <- c // accept, never answer
 		}
 	}()
 
 	t.Cleanup(func() {
-		for _, c := range held {
+		select {
+		case c := <-heldCh:
 			_ = c.Close()
+		default:
 		}
 	})
 
@@ -424,8 +427,7 @@ func TestDialNode_TLSWithUnixSocket(t *testing.T) {
 
 	_, err := DialNode(cfg, time.Second)
 	require.Error(t, err)
-	require.ErrorContains(t, err, "unix")
-	require.ErrorContains(t, err, "TLS")
+	require.ErrorContains(t, err, "tls is not supported with a unix socket")
 
 	requireNoAccept(t, ln)
 }
@@ -465,6 +467,33 @@ func TestDialNode_ServerNameFallsBackToHost(t *testing.T) {
 	require.True(t, conn.(*tls.Conn).ConnectionState().HandshakeComplete)
 
 	(<-connCh).Close()
+}
+
+func TestDefaultServerName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		addr    string
+		want    string
+		wantErr bool
+	}{
+		{"[::1]:3001", "::1", false},
+		{"127.0.0.1:3001", "127.0.0.1", false},
+		{"node.test:3001", "node.test", false},
+		{"node.test", "", true},
+	}
+
+	for _, tc := range tests {
+		got, err := defaultServerName(tc.addr)
+		if tc.wantErr {
+			require.ErrorContains(t, err, "nodeAddress")
+
+			continue
+		}
+
+		require.NoError(t, err)
+		require.Equal(t, tc.want, got)
+	}
 }
 
 func TestDialNode_NodeAddressHostParsing(t *testing.T) {
@@ -529,6 +558,7 @@ func TestTLSConfig_ClientConfig_Errors(t *testing.T) {
 	noPEM := writeFile(t, dir, "garbage.pem", []byte("not a certificate"))
 	mismatchKey := writeFile(t, dir, "other.key", otherClient.keyPEM)
 	missing := filepath.Join(dir, "missing.key")
+	missingCert := filepath.Join(dir, "missing.pem")
 
 	tests := []struct {
 		name   string
@@ -542,7 +572,9 @@ func TestTLSConfig_ClientConfig_Errors(t *testing.T) {
 		{"ca without pem", TLSConfig{CAFile: noPEM, CertFile: good.CertFile, KeyFile: good.KeyFile}, "a", "tls caFile"},
 		{"missing ca", TLSConfig{CAFile: missing, CertFile: good.CertFile, KeyFile: good.KeyFile}, "a", "tls caFile"},
 		{"missing key", TLSConfig{CAFile: good.CAFile, CertFile: good.CertFile, KeyFile: missing}, "a", "tls keyFile"},
-		{"mismatched pair", TLSConfig{CAFile: good.CAFile, CertFile: good.CertFile, KeyFile: mismatchKey}, "a", "tls certFile"},
+		{"missing cert", TLSConfig{CAFile: good.CAFile, CertFile: missingCert, KeyFile: good.KeyFile}, "a", "tls certFile:"},
+		{"mismatched pair", TLSConfig{CAFile: good.CAFile, CertFile: good.CertFile, KeyFile: mismatchKey}, "a",
+			"tls certFile/keyFile"},
 		{"no server name", TLSConfig{CAFile: good.CAFile, CertFile: good.CertFile, KeyFile: good.KeyFile}, "", "serverName"},
 	}
 
@@ -640,8 +672,23 @@ func TestSyncer_TLSClientCertRejected(t *testing.T) {
 	t.Parallel()
 
 	ca, otherCA := newTestCA(t), newTestCA(t)
-	ln := listenTLS(t, serverTLSConfig(ca, ca.issue(t, "server", true), tls.RequireAndVerifyClientCert))
-	resCh, connCh := serveHandshake(ln)
+	ln := listenTCP(t)
+	srvCfg := serverTLSConfig(ca, ca.issue(t, "server", true), tls.RequireAndVerifyClientCert)
+	rawCh := make(chan net.Conn, 1)
+	hsErrCh := make(chan error, 1)
+
+	go func() {
+		raw, err := ln.Accept()
+		if err != nil {
+			hsErrCh <- err
+
+			return
+		}
+
+		rawCh <- raw // keep the raw TCP conn: only the client can close it
+
+		hsErrCh <- tls.Server(raw, srvCfg).Handshake()
+	}()
 
 	syncer := newTLSSyncer(&BlockSyncerConfig{
 		NetworkMagic: networkMagic,
@@ -659,19 +706,34 @@ func TestSyncer_TLSClientCertRejected(t *testing.T) {
 	select {
 	case err := <-errCh:
 		require.Error(t, err)
+		require.ErrorContains(t, err, "node closed the TLS connection during the ouroboros handshake")
 	case <-time.After(6 * time.Second):
 		t.Fatal("syncExecute hangs")
 	}
 
-	require.Error(t, (<-resCh).err)
+	require.Error(t, <-hsErrCh)
 	require.Nil(t, syncer.connection)
 
-	// server-side conn is closed: a read must fail
-	srvConn := <-connCh
-	_ = srvConn.SetReadDeadline(time.Now().UTC().Add(time.Second))
-	_, err := srvConn.Read(make([]byte, 1))
-	require.Error(t, err)
-	require.NoError(t, srvConn.Close())
+	// the client must have closed its side: reading the raw conn ends (EOF or reset), it does not time out
+	raw := <-rawCh
+
+	defer raw.Close()
+
+	require.NoError(t, raw.SetReadDeadline(time.Now().UTC().Add(2*time.Second)))
+
+	for {
+		_, err := raw.Read(make([]byte, 1024))
+		if err == nil {
+			continue
+		}
+
+		var nerr net.Error
+		if errors.As(err, &nerr) && nerr.Timeout() {
+			t.Fatal("client did not close the connection")
+		}
+
+		break
+	}
 }
 
 func TestBlockSyncerConfig_JSONWithoutTLS(t *testing.T) {

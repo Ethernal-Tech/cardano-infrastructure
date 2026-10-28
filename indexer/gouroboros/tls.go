@@ -89,19 +89,18 @@ func DialNode(config *BlockSyncerConfig, timeout time.Duration) (net.Conn, error
 		return nil, fmt.Errorf("tls is not supported with a unix socket address %s", config.NodeAddress)
 	}
 
-	defaultServerName := ""
+	fallbackName := ""
 
 	if config.TLS.ServerName == "" {
-		host, _, err := net.SplitHostPort(config.NodeAddress)
+		host, err := defaultServerName(config.NodeAddress)
 		if err != nil {
-			return nil, fmt.Errorf("tls serverName is empty and nodeAddress %q has no host:port: %w",
-				config.NodeAddress, err)
+			return nil, err
 		}
 
-		defaultServerName = host
+		fallbackName = host
 	}
 
-	tlsConfig, err := config.TLS.ClientConfig(defaultServerName)
+	tlsConfig, err := config.TLS.ClientConfig(fallbackName)
 	if err != nil {
 		return nil, err
 	}
@@ -114,4 +113,14 @@ func DialNode(config *BlockSyncerConfig, timeout time.Duration) (net.Conn, error
 	}
 
 	return conn, nil
+}
+
+// defaultServerName returns the host part of nodeAddress (brackets of IPv6 literals removed)
+func defaultServerName(nodeAddress string) (string, error) {
+	host, _, err := net.SplitHostPort(nodeAddress)
+	if err != nil {
+		return "", fmt.Errorf("tls serverName is empty and nodeAddress %q has no host:port: %w", nodeAddress, err)
+	}
+
+	return host, nil
 }
