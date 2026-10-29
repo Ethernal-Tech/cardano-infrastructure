@@ -11,6 +11,12 @@ const (
 	FilePermission        = 0750
 	cardanoCliEnv         = "CARDANO_CLI_BINARY"
 	defaultCardanoCliName = "cardano-cli"
+
+	cliAddressCmd        = "address"
+	cliStakeAddressCmd   = "stake-address"
+	cliBuildCmd          = "build"
+	cliAddressFlag       = "--address"
+	cliPaymentScriptFlag = "--payment-script-file"
 )
 
 type runCommandError struct {

@@ -765,8 +765,8 @@ func (b *TxBuilder) GetPlutusScriptAddress(
 	}
 
 	args := []string{
-		b.era, "address", "build",
-		"--payment-script-file", plutusScriptFilePath,
+		b.era, cliAddressCmd, cliBuildCmd,
+		cliPaymentScriptFlag, plutusScriptFilePath,
 	}
 
 	response, err := runCommand(b.cardanoCliBinary, append(args, getTestNetMagicArgs(testNetMagic)...))

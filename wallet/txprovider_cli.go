@@ -69,7 +69,7 @@ func (b *TxProviderCli) GetUtxos(_ context.Context, addr string) ([]Utxo, error)
 	args := append([]string{
 		b.era, "query", "utxo",
 		"--socket-path", b.socketPath,
-		"--address", addr,
+		cliAddressFlag, addr,
 	}, getTestNetMagicArgs(b.testNetMagic)...)
 
 	output, err := runCommand(b.cardanoCliBinary, args)
@@ -195,7 +195,7 @@ func (b *TxProviderCli) EvaluateTx(ctx context.Context, rawTx []byte) (QueryEval
 func (b *TxProviderCli) GetStakeAddressInfo(ctx context.Context, stakeAddress string) (QueryStakeAddressInfo, error) {
 	args := append([]string{
 		b.era, "query", "stake-address-info",
-		"--address", stakeAddress,
+		cliAddressFlag, stakeAddress,
 		"--socket-path", b.socketPath,
 	}, getTestNetMagicArgs(b.testNetMagic)...)
 
