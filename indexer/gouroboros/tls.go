@@ -107,8 +107,9 @@ func DialNode(config *BlockSyncerConfig, timeout time.Duration) (net.Conn, error
 	}
 
 	// the dialer timeout covers connect and TLS handshake together
-	conn, err := (&tls.Dialer{NetDialer: netDialer, Config: tlsConfig}).
-		DialContext(context.Background(), protocol, config.NodeAddress)
+	dialer := &tls.Dialer{NetDialer: netDialer, Config: tlsConfig}
+
+	conn, err := dialer.DialContext(context.Background(), protocol, config.NodeAddress)
 	if err != nil {
 		return nil, err
 	}
