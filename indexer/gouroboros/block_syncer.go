@@ -80,6 +80,8 @@ func (bs *BlockSyncerImpl) Sync() (err error) {
 			break
 		} else if i < cntTries {
 			bs.logger.Warn("Error while starting syncer", "err", err, "attempt", i, "of", cntTries)
+		} else if i == cntTries {
+			break
 		}
 
 		select {
