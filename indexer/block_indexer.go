@@ -16,8 +16,10 @@ const (
 	AddressCheckAll     = AddressCheckInputs | AddressCheckOutputs
 
 	// how many confirmed blocks before the latest one syncing starts from when the sync could not start
-	// from the latest one and deep rollbacks are allowed
+	// from the latest one and deep rollbacks are allowed. Doubled on each further failed start
 	deepRollbackResumeBlockCount = 20
+	// upper bound of the doubled count: the cardano security parameter k, no rollback is deeper than that
+	deepRollbackMaxResumeBlockCount = 2160
 )
 
 type BlockIndexerConfig struct {
@@ -182,11 +184,20 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 		return BlockPoint{}, err
 	}
 
-	// ...or an older one if the sync could not start from it
+	// ...or an older one if the sync could not start from it. The database point is kept when there is
+	// no older confirmed block: falling back to the starting point would re-index the chain from there
 	if latestPoint != nil && bi.config.AllowDeepRollback && bi.resetsWithoutBlocks > 0 {
-		latestPoint, err = bi.getOlderConfirmedBlockPoint(deepRollbackResumeBlockCount)
+		olderPoint, err := bi.getOlderConfirmedBlockPoint(
+			*latestPoint, getDeepRollbackResumeBlockCount(bi.resetsWithoutBlocks))
 		if err != nil {
 			return BlockPoint{}, err
+		}
+
+		if olderPoint != nil {
+			latestPoint = olderPoint
+		} else {
+			bi.logger.Warn("No confirmed block older than the latest one, syncing from the latest one again",
+				"slot", latestPoint.BlockSlot, "hash", latestPoint.BlockHash)
 		}
 	}
 
@@ -208,21 +219,44 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 	return *latestPoint, nil
 }
 
-// getOlderConfirmedBlockPoint returns the point of the confirmed block cnt blocks before the latest one,
-// or nil if there are not that many confirmed blocks
-func (bi *BlockIndexer) getOlderConfirmedBlockPoint(cnt int) (*BlockPoint, error) {
+// getDeepRollbackResumeBlockCount returns how many confirmed blocks before the latest one syncing starts from
+// after failedStarts failed sync starts. It doubles on each failed start, so a block the node does not know
+// (e.g. from an abandoned fork) is not picked again and again
+func getDeepRollbackResumeBlockCount(failedStarts int) int {
+	cnt := deepRollbackResumeBlockCount
+
+	for i := 1; i < failedStarts && cnt < deepRollbackMaxResumeBlockCount; i++ {
+		cnt *= 2
+	}
+
+	return min(cnt, deepRollbackMaxResumeBlockCount)
+}
+
+// getOlderConfirmedBlockPoint returns the point of the confirmed block cnt blocks before the latest point,
+// the oldest confirmed block before it if there are not that many, or nil if there is none
+func (bi *BlockIndexer) getOlderConfirmedBlockPoint(latestPoint BlockPoint, cnt int) (*BlockPoint, error) {
 	blocks, err := bi.db.GetLatestConfirmedBlocks(cnt + 1)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(blocks) <= cnt {
+	// deep rollbacks do not remove the confirmed blocks after the rollback point, skip them
+	olderBlocks := make([]*CardanoBlock, 0, len(blocks))
+
+	for _, block := range blocks {
+		if block.Slot < latestPoint.BlockSlot {
+			olderBlocks = append(olderBlocks, block)
+		}
+	}
+
+	if len(olderBlocks) == 0 {
 		return nil, nil
 	}
 
-	block := blocks[cnt]
+	block := olderBlocks[min(cnt, len(olderBlocks))-1]
 
-	bi.logger.Warn("Syncing from an older confirmed block", "slot", block.Slot, "hash", block.Hash)
+	bi.logger.Warn("Syncing from an older confirmed block",
+		"slot", block.Slot, "hash", block.Hash, "blocks back", cnt)
 
 	return &BlockPoint{BlockSlot: block.Slot, BlockHash: block.Hash}, nil
 }
