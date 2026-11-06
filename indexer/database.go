@@ -18,6 +18,9 @@ type BlockIndexerDB interface {
 	TxOutputRetriever
 	GetLatestBlockPoint() (*BlockPoint, error)
 	GetLatestConfirmedBlocks(maxCnt int) ([]*CardanoBlock, error)
+	// GetConfirmedBlocksBefore returns up to maxCnt confirmed blocks with a slot lower than slotNumber,
+	// the newest first (all of them if maxCnt <= 0)
+	GetConfirmedBlocksBefore(slotNumber uint64, maxCnt int) ([]*CardanoBlock, error)
 	OpenTx() DBTransactionWriter
 }
 

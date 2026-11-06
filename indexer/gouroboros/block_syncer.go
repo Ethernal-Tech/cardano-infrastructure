@@ -176,6 +176,13 @@ func (bs *BlockSyncerImpl) syncExecute() error {
 	}
 
 	if err := connection.ChainSync().Client.Sync([]common.Point{blockPointLedger}); err != nil {
+		// only an explicit rejection by the node is reported, other errors retry the same point
+		if errors.Is(err, chainsync.IntersectNotFoundError) {
+			if handler, ok := bs.blockHandler.(indexer.IntersectNotFoundHandler); ok {
+				handler.IntersectNotFound(blockPoint)
+			}
+		}
+
 		return err
 	}
 

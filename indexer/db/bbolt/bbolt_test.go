@@ -2,6 +2,7 @@ package indexerbbolt
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	indexer "github.com/Ethernal-Tech/cardano-infrastructure/indexer"
@@ -417,4 +418,40 @@ func removeDirOrFilePathIfExists(dirOrFilePath string) (err error) {
 	}
 
 	return err
+}
+
+func TestDatabase_GetConfirmedBlocksBefore(t *testing.T) {
+	t.Parallel()
+
+	db := &BBoltDatabase{}
+	require.NoError(t, db.Init(filepath.Join(t.TempDir(), "blocks.db")))
+
+	defer db.Close()
+
+	dbTx := db.OpenTx()
+
+	for _, slot := range []uint64{10, 20, 30, 40, 50} {
+		dbTx.AddConfirmedBlock(&indexer.CardanoBlock{Slot: slot, Hash: indexer.Hash{byte(slot)}})
+	}
+
+	require.NoError(t, dbTx.Execute())
+
+	slots := func(slotNumber uint64, maxCnt int) []uint64 {
+		blocks, err := db.GetConfirmedBlocksBefore(slotNumber, maxCnt)
+		require.NoError(t, err)
+
+		result := make([]uint64, len(blocks))
+		for i, block := range blocks {
+			result[i] = block.Slot
+		}
+
+		return result
+	}
+
+	require.Equal(t, []uint64{20, 10}, slots(30, 5), "a block at the slot itself is excluded")
+	require.Equal(t, []uint64{30, 20, 10}, slots(35, 5), "a slot between blocks")
+	require.Equal(t, []uint64{40, 30}, slots(45, 2), "limited by maxCnt, the newest first")
+	require.Equal(t, []uint64{50, 40, 30, 20, 10}, slots(1_000, 0), "a slot after all blocks, no limit")
+	require.Empty(t, slots(10, 5), "no block before the oldest one")
+	require.Empty(t, slots(5, 5), "a slot before all blocks")
 }
