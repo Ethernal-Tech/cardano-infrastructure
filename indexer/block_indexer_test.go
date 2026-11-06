@@ -583,10 +583,11 @@ func TestBlockIndexer_Reset_AllowDeepRollback(t *testing.T) {
 
 	startPoint := &BlockPoint{BlockSlot: 1, BlockHash: Hash{0, 1}}
 	latestPoint := &BlockPoint{BlockSlot: 100, BlockHash: Hash{0, 100}}
-	confirmedBlocks := make([]*CardanoBlock, deepRollbackResumeBlockCount+1)
+	// confirmed blocks before the latest one, the newest first: 99 ... 80
+	olderBlocks := make([]*CardanoBlock, deepRollbackResumeBlockCount)
 
-	for i := range confirmedBlocks {
-		confirmedBlocks[i] = &CardanoBlock{Slot: uint64(100 - i), Hash: Hash{0, byte(100 - i)}}
+	for i := range olderBlocks {
+		olderBlocks[i] = &CardanoBlock{Slot: uint64(99 - i), Hash: Hash{0, byte(99 - i)}}
 	}
 
 	config := &BlockIndexerConfig{
@@ -594,81 +595,68 @@ func TestBlockIndexer_Reset_AllowDeepRollback(t *testing.T) {
 		AddressCheck:       AddressCheckAll,
 		AllowDeepRollback:  true,
 	}
-	dbMock := &DatabaseMock{}
+	dbMock := &DatabaseMock{Writter: &DBTransactionWriterMock{}}
 	blockIndexer := NewBlockIndexer(config, nil, dbMock, hclog.NewNullLogger())
 
 	dbMock.On("GetLatestBlockPoint").Return(latestPoint, error(nil))
 
-	// the latest confirmed block first
-	point, err := blockIndexer.Reset()
-	require.NoError(t, err)
-	require.Equal(t, *latestPoint, point)
-
-	// the sync did not start from it, so an older one is used
-	dbMock.On("GetLatestConfirmedBlocks", deepRollbackResumeBlockCount+1).Return(confirmedBlocks, error(nil)).Once()
-
-	point, err = blockIndexer.Reset()
-	require.NoError(t, err)
-	require.Equal(t, BlockPoint{BlockSlot: 80, BlockHash: Hash{0, 80}}, point)
-
-	// the next failed start goes twice as far back, to the oldest confirmed block when there are not enough
-	// of them - never to the starting point, which would re-index everything after it
-	dbMock.On("GetLatestConfirmedBlocks", 2*deepRollbackResumeBlockCount+1).
-		Return(confirmedBlocks[:5], error(nil)).Once()
-
-	point, err = blockIndexer.Reset()
-	require.NoError(t, err)
-	require.Equal(t, BlockPoint{BlockSlot: 96, BlockHash: Hash{0, 96}}, point)
-
-	// the latest confirmed block when there is no confirmed block older than it
-	dbMock.On("GetLatestConfirmedBlocks", 4*deepRollbackResumeBlockCount+1).
-		Return(confirmedBlocks[:1], error(nil)).Once()
-
-	point, err = blockIndexer.Reset()
-	require.NoError(t, err)
-	require.Equal(t, *latestPoint, point)
-
-	// the latest confirmed block again once syncing has started (the node rolls back to the intersection)
-	require.NoError(t, blockIndexer.RollBackward(*latestPoint))
-
-	point, err = blockIndexer.Reset()
-	require.NoError(t, err)
-	require.Equal(t, *latestPoint, point)
-
-	dbMock.AssertExpectations(t)
-}
-
-func TestBlockIndexer_Reset_AllowDeepRollback_SkipsBlocksNotOlderThanLatest(t *testing.T) {
-	t.Parallel()
-
-	// the latest point was moved back to slot 90 by a deep rollback, blocks 91-100 of the abandoned fork
-	// are still in the database
-	latestPoint := &BlockPoint{BlockSlot: 90, BlockHash: Hash{0, 90}}
-	confirmedBlocks := make([]*CardanoBlock, deepRollbackResumeBlockCount+1)
-
-	for i := range confirmedBlocks {
-		confirmedBlocks[i] = &CardanoBlock{Slot: uint64(100 - i), Hash: Hash{0, byte(100 - i)}}
+	// the latest confirmed block first, and again for failed starts the node did not reject
+	// (dial, handshake, dropped connection, ...)
+	for range 3 {
+		point, err := blockIndexer.Reset()
+		require.NoError(t, err)
+		require.Equal(t, *latestPoint, point)
 	}
 
-	dbMock := &DatabaseMock{}
-	blockIndexer := NewBlockIndexer(&BlockIndexerConfig{
-		StartingBlockPoint: &BlockPoint{BlockSlot: 1, BlockHash: Hash{0, 1}},
-		AddressCheck:       AddressCheckAll,
-		AllowDeepRollback:  true,
-	}, nil, dbMock, hclog.NewNullLogger())
+	// the node rejected it, so an older one is used
+	blockIndexer.IntersectNotFound(*latestPoint)
+	dbMock.On("GetConfirmedBlocksBefore", latestPoint.BlockSlot, deepRollbackResumeBlockCount).
+		Return(olderBlocks, error(nil)).Once()
 
-	dbMock.On("GetLatestBlockPoint").Return(latestPoint, error(nil))
-	dbMock.On("GetLatestConfirmedBlocks", deepRollbackResumeBlockCount+1).Return(confirmedBlocks, error(nil)).Once()
-
-	_, err := blockIndexer.Reset()
-	require.NoError(t, err)
-
-	// only blocks 89-80 are older than the latest point, the oldest of them is used
 	point, err := blockIndexer.Reset()
 	require.NoError(t, err)
 	require.Equal(t, BlockPoint{BlockSlot: 80, BlockHash: Hash{0, 80}}, point)
 
+	// a failed start the node did not reject does not go further back
+	dbMock.On("GetConfirmedBlocksBefore", latestPoint.BlockSlot, deepRollbackResumeBlockCount).
+		Return(olderBlocks, error(nil)).Once()
+
+	point, err = blockIndexer.Reset()
+	require.NoError(t, err)
+	require.Equal(t, BlockPoint{BlockSlot: 80, BlockHash: Hash{0, 80}}, point)
+
+	// the next rejection goes twice as far back. With fewer confirmed blocks than that, the oldest one is used
+	// only if it is older than every rejected point (96 is not older than 80), else the starting point
+	blockIndexer.IntersectNotFound(point)
+	dbMock.On("GetConfirmedBlocksBefore", latestPoint.BlockSlot, 2*deepRollbackResumeBlockCount).
+		Return(olderBlocks[:4], error(nil)).Once()
+
+	point, err = blockIndexer.Reset()
+	require.NoError(t, err)
+	require.Equal(t, *startPoint, point)
+
+	// the starting point is retried when it is rejected too, as nothing is older
+	blockIndexer.IntersectNotFound(point)
+	dbMock.On("GetConfirmedBlocksBefore", latestPoint.BlockSlot, 4*deepRollbackResumeBlockCount).
+		Return([]*CardanoBlock(nil), error(nil)).Once()
+
+	point, err = blockIndexer.Reset()
+	require.NoError(t, err)
+	require.Equal(t, *startPoint, point)
+
+	// the node accepts it and rolls back to it: the older point is stored
+	dbMock.On("OpenTx").Once()
+	dbMock.Writter.On("SetLatestBlockPoint", startPoint).Once()
+	dbMock.Writter.On("Execute").Return(error(nil)).Once()
+
+	require.NoError(t, blockIndexer.RollBackward(*startPoint))
+
+	point, err = blockIndexer.Reset()
+	require.NoError(t, err)
+	require.Equal(t, *latestPoint, point)
+
 	dbMock.AssertExpectations(t)
+	dbMock.Writter.AssertExpectations(t)
 }
 
 func TestGetDeepRollbackResumeBlockCount(t *testing.T) {
@@ -697,9 +685,11 @@ func TestBlockIndexer_Reset_DeepRollbackNotAllowed(t *testing.T) {
 		point, err := blockIndexer.Reset()
 		require.NoError(t, err)
 		require.Equal(t, *latestPoint, point)
+
+		blockIndexer.IntersectNotFound(point) // ignored when deep rollbacks are not allowed
 	}
 
-	dbMock.AssertNotCalled(t, "GetLatestConfirmedBlocks", mock.Anything)
+	dbMock.AssertNotCalled(t, "GetConfirmedBlocksBefore", mock.Anything, mock.Anything)
 }
 
 func TestBlockIndexer_RollForward_NoConfirmations(t *testing.T) {

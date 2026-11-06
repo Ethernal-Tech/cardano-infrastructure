@@ -43,8 +43,9 @@ type BlockIndexerRunner struct {
 }
 
 var (
-	_ BlockSyncerHandler = (*BlockIndexerRunner)(nil)
-	_ Service            = (*BlockIndexerRunner)(nil)
+	_ BlockSyncerHandler       = (*BlockIndexerRunner)(nil)
+	_ IntersectNotFoundHandler = (*BlockIndexerRunner)(nil)
+	_ Service                  = (*BlockIndexerRunner)(nil)
 )
 
 func NewBlockIndexerRunner(
@@ -130,6 +131,13 @@ func (br *BlockIndexerRunner) Reset() (BlockPoint, error) {
 	br.runMainLoop()
 
 	return bp, nil
+}
+
+// IntersectNotFound forwards the rejected sync start point to the wrapped handler if it handles it
+func (br *BlockIndexerRunner) IntersectNotFound(point BlockPoint) {
+	if handler, ok := br.blockSyncerHandler.(IntersectNotFoundHandler); ok {
+		handler.IntersectNotFound(point)
+	}
 }
 
 func (br *BlockIndexerRunner) ErrorCh() <-chan error {
