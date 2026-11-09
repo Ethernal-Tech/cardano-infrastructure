@@ -29,6 +29,13 @@ type BlockSyncerHandler interface {
 	Reset() (BlockPoint, error)
 }
 
+// IntersectNotFoundHandler is optionally implemented by a BlockSyncerHandler. The syncer calls it only when
+// the node explicitly rejects the point returned by Reset (the node does not know that block). Other failed
+// sync starts (dial, handshake, TLS, dropped connection) are not reported
+type IntersectNotFoundHandler interface {
+	IntersectNotFound(point BlockPoint)
+}
+
 type NewConfirmedBlockHandler func(*CardanoBlock, []*Tx) error
 
 type TxInfoParserFunc func(rawTx []byte, full bool) (TxInfo, error)

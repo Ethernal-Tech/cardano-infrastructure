@@ -16,8 +16,10 @@ const (
 	AddressCheckAll     = AddressCheckInputs | AddressCheckOutputs
 
 	// how many confirmed blocks before the latest one syncing starts from when the sync could not start
-	// from the latest one and deep rollbacks are allowed
+	// from the latest one and deep rollbacks are allowed. Doubled on each further failed start
 	deepRollbackResumeBlockCount = 20
+	// upper bound of the doubled count: the cardano security parameter k, no rollback is deeper than that
+	deepRollbackMaxResumeBlockCount = 2160
 )
 
 type BlockIndexerConfig struct {
@@ -45,8 +47,13 @@ type BlockIndexer struct {
 	unconfirmedBlocks     infracommon.CircularQueue[BlockHeader]
 	confirmedBlockHandler NewConfirmedBlockHandler
 	addressesOfInterest   map[string]bool
-	// number of Reset calls since the last received block, more than one means the sync could not start
-	resetsWithoutBlocks int
+	// number of times in a row the node rejected the point returned by Reset (intersect not found), and the
+	// oldest of those points. Cleared by any received block or rollback. Other sync start failures do not
+	// change them
+	rejectedStarts int
+	oldestRejected *BlockPoint
+	// Reset returned a point older than the one in the database. It is stored when the node rolls back to it
+	resumedFromOlderPoint bool
 
 	db BlockIndexerDB
 
@@ -54,7 +61,10 @@ type BlockIndexer struct {
 	logger hclog.Logger
 }
 
-var _ BlockSyncerHandler = (*BlockIndexer)(nil)
+var (
+	_ BlockSyncerHandler       = (*BlockIndexer)(nil)
+	_ IntersectNotFoundHandler = (*BlockIndexer)(nil)
+)
 
 func NewBlockIndexer(
 	config *BlockIndexerConfig, confirmedBlockHandler NewConfirmedBlockHandler, db BlockIndexerDB, logger hclog.Logger,
@@ -91,7 +101,8 @@ func (bi *BlockIndexer) RollBackward(point BlockPoint) error {
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
-	bi.resetsWithoutBlocks = 0
+	resumedFromOlderPoint := bi.resumedFromOlderPoint
+	bi.clearRejectedStarts()
 
 	// linear is ok, there will be smaller number of unconfirmed blocks in memory
 	indx := bi.unconfirmedBlocks.Find(func(header BlockHeader) bool {
@@ -108,6 +119,15 @@ func (bi *BlockIndexer) RollBackward(point BlockPoint) error {
 
 	if bi.latestBlockPoint.BlockSlot == point.BlockSlot && bi.latestBlockPoint.BlockHash == point.BlockHash {
 		bi.unconfirmedBlocks.SetCount(0)
+
+		// the node accepted the older point Reset returned instead of the database one: store it, so a
+		// connection that drops before the next block does not start from the rejected point again
+		if resumedFromOlderPoint {
+			bi.logger.Info("Storing the older sync start point accepted by the node",
+				"slot", point.BlockSlot, "hash", point.BlockHash)
+
+			return bi.setLatestBlockPoint(&point)
+		}
 
 		bi.logger.Info("Roll backward to confirmed block", "slot", point.BlockSlot, "hash", point.BlockHash)
 
@@ -134,7 +154,7 @@ func (bi *BlockIndexer) RollForward(blockHeader BlockHeader, txsRetriever BlockT
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
-	bi.resetsWithoutBlocks = 0
+	bi.clearRejectedStarts()
 
 	// without confirmations the new block is confirmed right away
 	firstBlockHeader := blockHeader
@@ -182,15 +202,19 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 		return BlockPoint{}, err
 	}
 
-	// ...or an older one if the sync could not start from it
-	if latestPoint != nil && bi.config.AllowDeepRollback && bi.resetsWithoutBlocks > 0 {
-		latestPoint, err = bi.getOlderConfirmedBlockPoint(deepRollbackResumeBlockCount)
+	bi.resumedFromOlderPoint = false
+
+	// ...or an older one if the node rejected it (see IntersectNotFound). Connection failures do not move
+	// the point back
+	if latestPoint != nil && bi.config.AllowDeepRollback && bi.rejectedStarts > 0 {
+		resumePoint, err := bi.getDeepRollbackResumePoint(*latestPoint)
 		if err != nil {
 			return BlockPoint{}, err
 		}
-	}
 
-	bi.resetsWithoutBlocks++
+		bi.resumedFromOlderPoint = *resumePoint != *latestPoint
+		latestPoint = resumePoint
+	}
 
 	// ...then if latest point block is not in the database pick it from the configuration
 	if latestPoint == nil {
@@ -208,23 +232,91 @@ func (bi *BlockIndexer) Reset() (BlockPoint, error) {
 	return *latestPoint, nil
 }
 
-// getOlderConfirmedBlockPoint returns the point of the confirmed block cnt blocks before the latest one,
-// or nil if there are not that many confirmed blocks
-func (bi *BlockIndexer) getOlderConfirmedBlockPoint(cnt int) (*BlockPoint, error) {
-	blocks, err := bi.db.GetLatestConfirmedBlocks(cnt + 1)
+// IntersectNotFound is called by the syncer when the node rejected the point returned by Reset, so the next
+// Reset starts from an older confirmed block (only when deep rollbacks are allowed)
+func (bi *BlockIndexer) IntersectNotFound(point BlockPoint) {
+	bi.mutex.Lock()
+	defer bi.mutex.Unlock()
+
+	bi.rejectedStarts++
+
+	if bi.oldestRejected == nil || point.BlockSlot < bi.oldestRejected.BlockSlot {
+		bi.oldestRejected = &point
+	}
+
+	bi.logger.Warn("The node does not know the sync start point",
+		"slot", point.BlockSlot, "hash", point.BlockHash, "rejected starts", bi.rejectedStarts)
+}
+
+// getDeepRollbackResumeBlockCount returns how many confirmed blocks before the latest one syncing starts from
+// after rejectedStarts sync starts rejected by the node. It doubles on each rejection, so a block the node does
+// not know (e.g. from an abandoned fork) is not picked again and again
+func getDeepRollbackResumeBlockCount(rejectedStarts int) int {
+	cnt := deepRollbackResumeBlockCount
+
+	for i := 1; i < rejectedStarts && cnt < deepRollbackMaxResumeBlockCount; i++ {
+		cnt *= 2
+	}
+
+	return min(cnt, deepRollbackMaxResumeBlockCount)
+}
+
+func (bi *BlockIndexer) clearRejectedStarts() {
+	bi.rejectedStarts = 0
+	bi.oldestRejected = nil
+	bi.resumedFromOlderPoint = false
+}
+
+// getDeepRollbackResumePoint returns the point to sync from after the node rejected rejectedStarts points:
+//   - the confirmed block getDeepRollbackResumeBlockCount blocks before the latest point. Rollbacks are not
+//     deeper than deepRollbackMaxResumeBlockCount, so the block at that limit is retried rather than going
+//     further back (the node is behind, not on another fork)
+//   - if there are fewer confirmed blocks before the latest point, the oldest of them and then the starting
+//     point (older than all confirmed blocks), the first one older than every rejected point
+//   - the oldest rejected point if none of them is older
+func (bi *BlockIndexer) getDeepRollbackResumePoint(latestPoint BlockPoint) (*BlockPoint, error) {
+	cnt := getDeepRollbackResumeBlockCount(bi.rejectedStarts)
+
+	// only blocks before the latest point are read: deep rollbacks do not remove the confirmed blocks after
+	// the rollback point, and there may be more of them than cnt
+	blocks, err := bi.db.GetConfirmedBlocksBefore(latestPoint.BlockSlot, cnt)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(blocks) <= cnt {
-		return nil, nil
+	if len(blocks) == cnt {
+		point := &BlockPoint{BlockSlot: blocks[cnt-1].Slot, BlockHash: blocks[cnt-1].Hash}
+
+		bi.logger.Warn("Syncing from an older confirmed block",
+			"slot", point.BlockSlot, "hash", point.BlockHash, "blocks back", cnt)
+
+		return point, nil
 	}
 
-	block := blocks[cnt]
+	candidates := make([]*BlockPoint, 0, 2)
 
-	bi.logger.Warn("Syncing from an older confirmed block", "slot", block.Slot, "hash", block.Hash)
+	if len(blocks) > 0 {
+		oldest := blocks[len(blocks)-1]
+		candidates = append(candidates, &BlockPoint{BlockSlot: oldest.Slot, BlockHash: oldest.Hash})
+	}
 
-	return &BlockPoint{BlockSlot: block.Slot, BlockHash: block.Hash}, nil
+	candidates = append(candidates, bi.config.StartingBlockPoint)
+
+	for _, point := range candidates {
+		if point != nil && point.BlockSlot < bi.oldestRejected.BlockSlot {
+			bi.logger.Warn("Syncing from an older point", "slot", point.BlockSlot, "hash", point.BlockHash,
+				"starting point", point == bi.config.StartingBlockPoint)
+
+			return point, nil
+		}
+	}
+
+	bi.logger.Error("No point older than the ones the node rejected, syncing from the oldest rejected one again",
+		"slot", bi.oldestRejected.BlockSlot, "hash", bi.oldestRejected.BlockHash)
+
+	point := *bi.oldestRejected
+
+	return &point, nil
 }
 
 // setLatestBlockPoint moves the indexer back to the given point
