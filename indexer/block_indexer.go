@@ -101,7 +101,7 @@ func (bi *BlockIndexer) RollBackward(point BlockPoint) error {
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
-	resumedFromOlderPoint, rejectedStarts, oldestRejected := bi.resumedFromOlderPoint, bi.rejectedStarts, bi.oldestRejected
+	resumedFromOlderPoint := bi.resumedFromOlderPoint
 	bi.clearRejectedStarts()
 
 	// linear is ok, there will be smaller number of unconfirmed blocks in memory
@@ -126,14 +126,7 @@ func (bi *BlockIndexer) RollBackward(point BlockPoint) error {
 			bi.logger.Info("Storing the older sync start point accepted by the node",
 				"slot", point.BlockSlot, "hash", point.BlockHash)
 
-			if err := bi.setLatestBlockPoint(&point); err != nil {
-				// keep the rejections, so the next Reset does not start from the rejected database point again
-				bi.rejectedStarts, bi.oldestRejected = rejectedStarts, oldestRejected
-
-				return err
-			}
-
-			return nil
+			return bi.setLatestBlockPoint(&point)
 		}
 
 		bi.logger.Info("Roll backward to confirmed block", "slot", point.BlockSlot, "hash", point.BlockHash)
@@ -245,10 +238,6 @@ func (bi *BlockIndexer) IntersectNotFound(point BlockPoint) {
 	bi.mutex.Lock()
 	defer bi.mutex.Unlock()
 
-	if !bi.config.AllowDeepRollback {
-		return
-	}
-
 	bi.rejectedStarts++
 
 	if bi.oldestRejected == nil || point.BlockSlot < bi.oldestRejected.BlockSlot {
@@ -295,9 +284,6 @@ func (bi *BlockIndexer) getDeepRollbackResumePoint(latestPoint BlockPoint) (*Blo
 		return nil, err
 	}
 
-	// cnt grows with every rejection and the stored blocks do not change until a block or rollback arrives,
-	// so this block is older than every rejected one - except at the deepRollbackMaxResumeBlockCount limit,
-	// where the same block is retried on purpose
 	if len(blocks) == cnt {
 		point := &BlockPoint{BlockSlot: blocks[cnt-1].Slot, BlockHash: blocks[cnt-1].Hash}
 
@@ -314,18 +300,12 @@ func (bi *BlockIndexer) getDeepRollbackResumePoint(latestPoint BlockPoint) (*Blo
 		candidates = append(candidates, &BlockPoint{BlockSlot: oldest.Slot, BlockHash: oldest.Hash})
 	}
 
-	// the starting point, or the genesis when there is none (same as in Reset)
-	startingPoint := bi.config.StartingBlockPoint
-	if startingPoint == nil {
-		startingPoint = &BlockPoint{}
-	}
-
-	candidates = append(candidates, startingPoint)
+	candidates = append(candidates, bi.config.StartingBlockPoint)
 
 	for _, point := range candidates {
-		if point.BlockSlot < bi.oldestRejected.BlockSlot {
+		if point != nil && point.BlockSlot < bi.oldestRejected.BlockSlot {
 			bi.logger.Warn("Syncing from an older point", "slot", point.BlockSlot, "hash", point.BlockHash,
-				"starting point", point == startingPoint)
+				"starting point", point == bi.config.StartingBlockPoint)
 
 			return point, nil
 		}

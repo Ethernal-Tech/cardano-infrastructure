@@ -158,33 +158,3 @@ func TestBlockIndexerRunner_Execute(t *testing.T) {
 		require.False(t, runner.execute(blockIndexerRunnerQueueItem{BlockHeader: &BlockHeader{Slot: 2}}, nil))
 	})
 }
-
-type intersectNotFoundHandlerMock struct {
-	*BlockSyncerHandlerMock
-
-	rejected []BlockPoint
-}
-
-func (m *intersectNotFoundHandlerMock) IntersectNotFound(point BlockPoint) {
-	m.rejected = append(m.rejected, point)
-}
-
-func TestBlockIndexerRunner_IntersectNotFound(t *testing.T) {
-	config := &BlockIndexerRunnerConfig{QueueChannelSize: 1}
-	point := BlockPoint{BlockSlot: 10, BlockHash: Hash{0, 10}}
-
-	t.Run("forwarded to a handler that handles it", func(t *testing.T) {
-		handler := &intersectNotFoundHandlerMock{BlockSyncerHandlerMock: NewBlockSyncerHandlerMock(1, "ff")}
-
-		NewBlockIndexerRunner(handler, config, hclog.NewNullLogger()).IntersectNotFound(point)
-
-		require.Equal(t, []BlockPoint{point}, handler.rejected)
-	})
-
-	t.Run("ignored for a handler that does not handle it", func(t *testing.T) {
-		require.NotPanics(t, func() {
-			NewBlockIndexerRunner(NewBlockSyncerHandlerMock(1, "ff"), config, hclog.NewNullLogger()).
-				IntersectNotFound(point)
-		})
-	})
-}

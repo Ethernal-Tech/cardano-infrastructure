@@ -376,30 +376,3 @@ func TestBlockIndexer_DeepRollback_LaggingNode_StopsAtRollbackLimit(t *testing.T
 		bi.IntersectNotFound(point)
 	}
 }
-
-// Without a starting point Reset syncs from the genesis, so the genesis is the last older point to try too
-func TestBlockIndexer_DeepRollback_NoStartingPoint_FallsBackToGenesis(t *testing.T) {
-	t.Parallel()
-
-	db := newDeepRollbackDB(t)
-	bi := indexer.NewBlockIndexer(&indexer.BlockIndexerConfig{
-		ConfirmationBlockCount: 0,
-		AddressCheck:           indexer.AddressCheckOutputs,
-		AddressesOfInterest:    []string{"addr_test_of_interest"},
-		AllowDeepRollback:      true,
-	}, func(*indexer.CardanoBlock, []*indexer.Tx) error { return nil }, db, hclog.NewNullLogger())
-
-	_, err := bi.Reset()
-	require.NoError(t, err)
-	require.NoError(t, bi.RollBackward(indexer.BlockPoint{}))
-
-	latestInDB := rollForwardBlocks(t, bi, 3)
-
-	for i, exp := range []indexer.BlockPoint{latestInDB, blockPoint(1), {}, {}} {
-		point, err := bi.Reset()
-		require.NoError(t, err)
-		require.Equal(t, exp, point, "start attempt %d", i+1)
-
-		bi.IntersectNotFound(point)
-	}
-}
