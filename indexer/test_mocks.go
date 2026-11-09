@@ -120,6 +120,13 @@ func (m *DatabaseMock) GetLatestConfirmedBlocks(maxCnt int) ([]*CardanoBlock, er
 	return args.Get(0).([]*CardanoBlock), args.Error(1)
 }
 
+func (m *DatabaseMock) GetConfirmedBlocksBefore(slotNumber uint64, maxCnt int) ([]*CardanoBlock, error) {
+	args := m.Called(slotNumber, maxCnt)
+
+	//nolint:forcetypeassert
+	return args.Get(0).([]*CardanoBlock), args.Error(1)
+}
+
 func (m *DatabaseMock) GetConfirmedBlocksFrom(slotNumber uint64, maxCnt int) ([]*CardanoBlock, error) {
 	args := m.Called(slotNumber, maxCnt)
 
