@@ -888,3 +888,47 @@ func TestBlockIndexer_RollForward(t *testing.T) {
 		dbMock.AssertExpectations(t)
 	}
 }
+
+func TestBlockIndexer_RollBackward_StoringOlderPointFails_KeepsRejections(t *testing.T) {
+	t.Parallel()
+
+	latestPoint := &BlockPoint{BlockSlot: 100, BlockHash: Hash{0, 100}}
+	olderBlocks := make([]*CardanoBlock, deepRollbackResumeBlockCount)
+
+	for i := range olderBlocks {
+		olderBlocks[i] = &CardanoBlock{Slot: uint64(99 - i), Hash: Hash{0, byte(99 - i)}}
+	}
+
+	olderPoint := BlockPoint{BlockSlot: 80, BlockHash: Hash{0, 80}}
+	dbMock := &DatabaseMock{Writter: &DBTransactionWriterMock{}}
+	blockIndexer := NewBlockIndexer(&BlockIndexerConfig{
+		StartingBlockPoint: &BlockPoint{BlockSlot: 1, BlockHash: Hash{0, 1}},
+		AddressCheck:       AddressCheckAll,
+		AllowDeepRollback:  true,
+	}, nil, dbMock, hclog.NewNullLogger())
+
+	dbMock.On("GetLatestBlockPoint").Return(latestPoint, error(nil))
+	dbMock.On("GetConfirmedBlocksBefore", latestPoint.BlockSlot, deepRollbackResumeBlockCount).
+		Return(olderBlocks, error(nil)).Twice()
+
+	blockIndexer.IntersectNotFound(*latestPoint)
+
+	point, err := blockIndexer.Reset()
+	require.NoError(t, err)
+	require.Equal(t, olderPoint, point)
+
+	// the node accepts the older point, but it cannot be stored
+	dbMock.On("OpenTx").Once()
+	dbMock.Writter.On("SetLatestBlockPoint", &olderPoint).Once()
+	dbMock.Writter.On("Execute").Return(fmt.Errorf("disk full")).Once()
+
+	require.ErrorContains(t, blockIndexer.RollBackward(point), "disk full")
+
+	// the syncer restarts: the older point again, not the database point the node rejected
+	point, err = blockIndexer.Reset()
+	require.NoError(t, err)
+	require.Equal(t, olderPoint, point)
+
+	dbMock.AssertExpectations(t)
+	dbMock.Writter.AssertExpectations(t)
+}
