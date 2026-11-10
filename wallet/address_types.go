@@ -311,27 +311,9 @@ func (addrParser cardanoByronAddressParser) GetAddressType() CardanoAddressType 
 }
 
 func (addrParser cardanoByronAddressParser) IsValid(bytes []byte) error {
-	var rawAddr struct {
-		_        struct{} `cbor:",toarray"`
-		Tag      cbor.Tag
-		Checksum uint32
-	}
+	_, err := decodeByronAddress(bytes)
 
-	if err := cbor.Unmarshal(bytes, &rawAddr); err != nil {
-		return errors.Join(ErrInvalidAddressData, err)
-	}
-
-	rawTag, ok := rawAddr.Tag.Content.([]byte)
-	if !ok || rawAddr.Tag.Number != 24 {
-		return ErrInvalidAddressData
-	}
-
-	cheksum := crc32.ChecksumIEEE(rawTag)
-	if rawAddr.Checksum != cheksum {
-		return ErrInvalidAddressData
-	}
-
-	return nil
+	return err
 }
 
 func (addrParser cardanoByronAddressParser) ToString(bytes []byte) string {
@@ -339,26 +321,8 @@ func (addrParser cardanoByronAddressParser) ToString(bytes []byte) string {
 }
 
 func (addrParser cardanoByronAddressParser) ToCardanoAddressInfo(bytes []byte) CardanoAddressInfo {
-	var rawAddr struct {
-		_        struct{} `cbor:",toarray"`
-		Tag      cbor.Tag
-		Checksum uint32
-	}
-
-	_ = cbor.Unmarshal(bytes, &rawAddr)
-	rawTag, _ := rawAddr.Tag.Content.([]byte)
-
-	var byron struct {
-		_      struct{} `cbor:",toarray"`
-		Hashed []byte
-		Attrs  struct {
-			Payload []byte `cbor:"1,keyasint,omitempty"`
-			Network []byte `cbor:"2,keyasint,omitempty"`
-		}
-		Tag uint
-	}
-
-	if err := cbor.Unmarshal(rawTag, &byron); err != nil {
+	byron, err := decodeByronAddress(bytes)
+	if err != nil {
 		return CardanoAddressInfo{
 			AddressType: UnsupportedAddress,
 		}
@@ -374,7 +338,7 @@ func (addrParser cardanoByronAddressParser) ToCardanoAddressInfo(bytes []byte) C
 		AddressType: ByronAddress,
 		Network:     network,
 		Payment: &CardanoAddressPayload{
-			Payload:  [28]byte(byron.Hashed),
+			Payload:  byron.Root,
 			IsScript: false,
 		},
 		Extra: bytes,
@@ -383,6 +347,62 @@ func (addrParser cardanoByronAddressParser) ToCardanoAddressInfo(bytes []byte) C
 
 func (addrParser cardanoByronAddressParser) FromCardanoAddressInfo(a CardanoAddressInfo) []byte {
 	return a.Extra
+}
+
+type byronAddress struct {
+	Root  [KeyHashSize]byte
+	Attrs byronAddressAttributes
+}
+
+type byronAddressAttributes struct {
+	Payload []byte `cbor:"1,keyasint,omitempty"`
+	Network []byte `cbor:"2,keyasint,omitempty"`
+}
+
+// decodeByronAddress decodes and validates both the outer envelope (tag 24 + crc32)
+// and the inner payload of a byron address. The root must be exactly KeyHashSize bytes
+func decodeByronAddress(bytes []byte) (byronAddress, error) {
+	const cborMetaDataNumber = 24
+
+	var rawAddr struct {
+		_        struct{} `cbor:",toarray"`
+		Tag      cbor.Tag
+		Checksum uint32
+	}
+
+	if err := cbor.Unmarshal(bytes, &rawAddr); err != nil {
+		return byronAddress{}, errors.Join(ErrInvalidAddressData, err)
+	}
+
+	rawTag, ok := rawAddr.Tag.Content.([]byte)
+	if !ok || rawAddr.Tag.Number != cborMetaDataNumber {
+		return byronAddress{}, ErrInvalidAddressData
+	}
+
+	if rawAddr.Checksum != crc32.ChecksumIEEE(rawTag) {
+		return byronAddress{}, ErrInvalidAddressData
+	}
+
+	var payload struct {
+		_      struct{} `cbor:",toarray"`
+		Hashed []byte
+		Attrs  byronAddressAttributes
+		Tag    uint
+	}
+
+	if err := cbor.Unmarshal(rawTag, &payload); err != nil {
+		return byronAddress{}, errors.Join(ErrInvalidAddressData, err)
+	}
+
+	if len(payload.Hashed) != KeyHashSize {
+		return byronAddress{}, fmt.Errorf("%w: byron root expect %d got %d",
+			ErrInvalidAddressData, KeyHashSize, len(payload.Hashed))
+	}
+
+	return byronAddress{
+		Root:  [KeyHashSize]byte(payload.Hashed),
+		Attrs: payload.Attrs,
+	}, nil
 }
 
 func toByte(b bool) byte {
