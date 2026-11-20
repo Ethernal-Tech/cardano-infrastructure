@@ -1,8 +1,11 @@
 package wallet
 
 import (
+	"hash/crc32"
 	"testing"
 
+	"github.com/blinklabs-io/gouroboros/base58"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -136,4 +139,59 @@ func TestByronAddress(t *testing.T) {
 			require.Equal(t, TestNetNetwork, addr.GetInfo().Network)
 		}
 	}
+}
+
+func TestByronAddressInvalidPayload(t *testing.T) {
+	createByronAddress := func(t *testing.T, payload []byte) []byte {
+		t.Helper()
+
+		raw, err := cbor.Marshal([]interface{}{
+			cbor.Tag{Number: 24, Content: payload},
+			crc32.ChecksumIEEE(payload),
+		})
+		require.NoError(t, err)
+
+		return raw
+	}
+
+	createByronPayload := func(t *testing.T, root []byte) []byte {
+		t.Helper()
+
+		payload, err := cbor.Marshal([]interface{}{root, map[uint64][]byte{}, uint64(0)})
+		require.NoError(t, err)
+
+		return payload
+	}
+
+	for _, rootLen := range []int{0, 1, KeyHashSize - 1, KeyHashSize + 1} {
+		raw := createByronAddress(t, createByronPayload(t, make([]byte, rootLen)))
+
+		_, err := NewCardanoAddress(raw)
+		require.ErrorIs(t, err, ErrInvalidAddressData, "root length %d", rootLen)
+
+		_, err = NewCardanoAddressFromString(base58.Encode(raw))
+		require.ErrorIs(t, err, ErrInvalidAddressData, "root length %d", rootLen)
+
+		require.NotPanics(t, func() {
+			info := cardanoByronAddressParser{}.ToCardanoAddressInfo(raw)
+			require.Equal(t, UnsupportedAddress, info.AddressType)
+		}, "root length %d", rootLen)
+	}
+
+	t.Run("inner payload is not a byron address", func(t *testing.T) {
+		raw := createByronAddress(t, []byte{0x01, 0x02, 0x03})
+
+		_, err := NewCardanoAddress(raw)
+		require.ErrorIs(t, err, ErrInvalidAddressData)
+	})
+
+	t.Run("valid root length", func(t *testing.T) {
+		root := make([]byte, KeyHashSize)
+		root[0] = 0xAB
+
+		addr, err := NewCardanoAddress(createByronAddress(t, createByronPayload(t, root)))
+		require.NoError(t, err)
+		require.Equal(t, ByronAddress, addr.GetInfo().AddressType)
+		require.Equal(t, [KeyHashSize]byte(root), addr.GetInfo().Payment.Payload)
+	})
 }
